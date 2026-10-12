@@ -45,7 +45,10 @@ export function summarizeTaskChannels(data) {
 }
 
 export function summarizeModelDependencies(models) {
-  if (!Array.isArray(models)) return { total: null, missing: 0, unknown: true }
+  // The list endpoint returns cached model metadata. JSON workflow loading can
+  // leave that metadata empty even when the workflow uses models, so an empty
+  // list cannot establish zero dependencies or a ready state.
+  if (!Array.isArray(models) || !models.length) return { total: null, missing: 0, unknown: true }
   const unique = new Map()
   for (const [index, model] of models.entries()) {
     const key = model?.modelCode || `index:${index}`

@@ -29,7 +29,7 @@ assert.equal(summarizeTaskChannels({ total: 1, rows: [channel('a', 'constructor'
 
 assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-b', modelStatus: 0 }]), { total: 2, missing: 1, unknown: false })
 assert.deepEqual(summarizeModelDependencies(undefined), { total: null, missing: 0, unknown: true })
-assert.deepEqual(summarizeModelDependencies([]), { total: 0, missing: 0, unknown: false })
+assert.deepEqual(summarizeModelDependencies([]), { total: null, missing: 0, unknown: true }, 'empty cached model metadata cannot establish zero dependencies or readiness')
 assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a' }]), { total: 1, missing: 0, unknown: true })
 assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 0 }, { modelCode: 'model-a', modelStatus: 1 }]), { total: 1, missing: 0, unknown: true })
 assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-a', modelStatus: 0 }, { modelCode: 'model-a', modelStatus: 1 }]), { total: 1, missing: 0, unknown: true }, 'a third duplicate cannot clear a previously observed status conflict')

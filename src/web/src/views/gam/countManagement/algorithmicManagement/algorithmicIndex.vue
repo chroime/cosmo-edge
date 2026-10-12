@@ -719,13 +719,15 @@ export default {
     },
     getModelStateLabel(row) {
       const summary = this.taskDisplay[row.algorithmId].models
+      if (Array.isArray(row.models) && !row.models.length) return t('glossary.taskModelsNotListed')
+      if (summary.total === null) return t('glossary.taskModelInfoNotProvided')
       if (summary.missing) return t('glossary.taskModelsMissing', { n: summary.missing })
       if (summary.unknown) return t('glossary.taskChannelUnknown')
-      return summary.total ? t('glossary.taskModelsReady') : t('glossary.taskNoModels')
+      return t('glossary.taskModelsReady')
     },
     getModelDetails(row) {
-      if (!Array.isArray(row.models)) return t('glossary.taskChannelUnknown')
-      return row.models.map(model => `${model?.modelName || model?.modelCode || '—'} · ${model?.modelStatus === 1 || model?.modelStatus === '1' ? t('glossary.taskModelsReady') : model?.modelStatus === 0 || model?.modelStatus === '0' ? t('glossary.modelMissing') : t('glossary.taskChannelUnknown')}`).join('\n') || t('glossary.taskNoModels')
+      if (!Array.isArray(row.models) || !row.models.length) return t('glossary.taskModelListingMissingHint')
+      return row.models.map(model => `${model?.modelName || model?.modelCode || '—'} · ${model?.modelStatus === 1 || model?.modelStatus === '1' ? t('glossary.taskModelsReady') : model?.modelStatus === 0 || model?.modelStatus === '0' ? t('glossary.modelMissing') : t('glossary.taskChannelUnknown')}`).join('\n')
     },
     getChannelTotalLabel(row) {
       if (this.channelSummaryLoading) return '…'

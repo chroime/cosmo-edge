@@ -25,12 +25,12 @@
       <!-- 表格数据 -->
       <el-table ref="tableRef" :data="tableData" tooltip-effect="dark" @selection-change="handleSelectionChange" :row-style="rowClass" stripe class="customer-no-border-table" :max-height="tableMaxHeight" :span-method="spanTaskColumns" :style="{ '--task-runtime-width': taskRuntimeWidth + 'px' }">
         <el-table-column type="selection" width="40"></el-table-column>
-        <el-table-column type="index" :label="t('field.no')" width="52" class-name="channel-index-cell">
+        <el-table-column type="index" :label="t('field.no')" width="48" class-name="channel-index-cell">
           <template #default="scope">
             <span>{{ ((pageData.pageNum - 1) * pageData.pageSize) + scope.$index + 1 }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.channelInfo')" prop="channelName" :min-width="currentLocale === 'en-US' ? 190 : 180">
+        <el-table-column :label="t('field.channelInfo')" prop="channelName" min-width="176">
           <template #default="scope">
             <div class="channel-identity">
               <div class="channel-heading">
@@ -56,7 +56,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('glossary.scenarioTask')" prop="taskList" :min-width="currentLocale === 'en-US' ? 180 : 168" class-name="channel-tasks-cell">
+        <el-table-column :label="t('glossary.scenarioTask')" prop="taskList" min-width="164" class-name="channel-tasks-cell">
           <template #default="scope">
             <div class="channel-tasks">
               <div class="channel-task-row" v-for="(item, index) in scope.row.taskList" :key="index">
@@ -80,12 +80,12 @@
           </template>
         </el-table-column>
         <el-table-column :label="t('glossary.runningStatus')" column-key="taskRuntime" :width="taskRuntimeWidth" />
-        <el-table-column :label="t('glossary.accessType')" prop="channelType" :width="currentLocale === 'en-US' ? 112 : 100" show-overflow-tooltip>
+        <el-table-column :label="t('glossary.accessType')" prop="channelType" :width="currentLocale === 'en-US' ? 98 : 96" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ channelTypeLabel(scope.row.channelType) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.videoParameters')" width="148">
+        <el-table-column :label="t('field.videoParameters')" width="144">
           <template #default="scope">
             <div class="video-parameters">
               <span class="video-resolution">{{ scope.row.width ? scope.row.width + ' × ' + scope.row.height : '—' }}</span>
@@ -96,7 +96,7 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="handle" :label="t('field.actions')" :width="currentLocale === 'en-US' ? 184 : 164" fixed="right" class-name="ops-wrap-cell">
+        <el-table-column prop="handle" :label="t('field.actions')" width="164" fixed="right" class-name="ops-wrap-cell">
           <template #default="scope">
             <div class="operation-tools">
               <div class="operation-line">
@@ -306,7 +306,7 @@ const channelFormRef = ref(null)
 const tableRef = ref(null)
 const paginationRef = ref(null)
 const tableMaxHeight = ref(600)
-const taskRuntimeWidth = computed(() => currentLocale.value === 'en-US' ? 160 : 144)
+const taskRuntimeWidth = computed(() => currentLocale.value === 'en-US' ? 148 : 144)
 
 // Keep real task/status headers while sharing each task's row height in the body.
 const spanTaskColumns = ({ column }) => {
@@ -880,7 +880,7 @@ const setDefaultImage = (e) => {
   padding-bottom: 9px;
 }
 
-.video-access-page :deep(.channel-index-cell .cell) {
+.video-access-page :deep(.el-table .channel-index-cell .cell) {
   padding-inline: 8px;
   white-space: nowrap;
 }

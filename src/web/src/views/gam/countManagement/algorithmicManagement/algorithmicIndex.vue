@@ -808,7 +808,7 @@ export default {
     line-height: 20px;
 
     // Share the remaining width across content columns instead of stretching only the name.
-    --task-content-width: calc(100% - 292px);
+    --task-content-width: calc(max(1000px, 100cqi) - 292px);
     .select-column { width: 40px; }
     .identity-column { width: calc(var(--task-content-width) * 0.35); }
     .usage-column { width: calc(var(--task-content-width) * 0.14); }

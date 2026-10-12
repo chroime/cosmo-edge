@@ -23,7 +23,7 @@
         </div>
       </div>
       <!-- 表格数据 -->
-      <el-table ref="tableRef" :data="tableData" tooltip-effect="dark" @selection-change="handleSelectionChange" :row-style="rowClass" stripe class="customer-no-border-table" :max-height="tableMaxHeight" :span-method="spanTaskColumns" :style="{ '--task-runtime-width': taskRuntimeWidth + 'px' }">
+      <el-table ref="tableRef" :data="tableData" tooltip-effect="dark" @selection-change="handleSelectionChange" :row-style="rowClass" stripe class="customer-no-border-table" :max-height="tableMaxHeight" :span-method="spanTaskColumns" :style="{ '--task-runtime-share': taskRuntimeWidth + 'fr' }">
         <el-table-column type="selection" width="40"></el-table-column>
         <el-table-column type="index" :label="t('field.no')" width="48" class-name="channel-index-cell">
           <template #default="scope">
@@ -79,13 +79,13 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column :label="t('glossary.runningStatus')" column-key="taskRuntime" :width="taskRuntimeWidth" />
-        <el-table-column :label="t('glossary.accessType')" prop="channelType" :width="currentLocale === 'en-US' ? 98 : 96" show-overflow-tooltip>
+        <el-table-column :label="t('glossary.runningStatus')" column-key="taskRuntime" :min-width="taskRuntimeWidth" />
+        <el-table-column :label="t('glossary.accessType')" prop="channelType" :min-width="currentLocale === 'en-US' ? 98 : 96" show-overflow-tooltip>
           <template #default="scope">
             <span>{{ channelTypeLabel(scope.row.channelType) }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.videoParameters')" width="144">
+        <el-table-column :label="t('field.videoParameters')" min-width="144">
           <template #default="scope">
             <div class="video-parameters">
               <span class="video-resolution">{{ scope.row.width ? scope.row.width + ' × ' + scope.row.height : '—' }}</span>
@@ -912,7 +912,7 @@ const setDefaultImage = (e) => {
 
 .channel-task-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--task-runtime-width);
+  grid-template-columns: minmax(0, 164fr) minmax(0, var(--task-runtime-share));
   align-items: center;
   min-height: 48px;
   padding: 4px 0;

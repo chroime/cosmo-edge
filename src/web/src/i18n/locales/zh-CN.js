@@ -789,6 +789,8 @@ export default {
     username: '用户名',
     channelNo: '通道编号',
     channelName: '通道名称',
+    channelInfo: '通道信息',
+    videoParameters: '视频参数',
     channelStatus: '通道状态',
     externalChannelNo: '外部通道编号',
     resolution: '分辨率',

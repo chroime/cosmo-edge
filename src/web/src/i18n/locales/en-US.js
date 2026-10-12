@@ -789,6 +789,8 @@ export default {
     username: 'Username',
     channelNo: 'Channel ID',
     channelName: 'Channel Name',
+    channelInfo: 'Channel Info',
+    videoParameters: 'Video Parameters',
     channelStatus: 'Channel Status',
     externalChannelNo: 'External Channel ID',
     resolution: 'Resolution',

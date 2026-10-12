@@ -817,7 +817,7 @@ export default {
     .updated-column { width: calc(var(--task-content-width) * 0.21); }
     .actions-column { width: 252px; }
 
-    th, td { padding: 7px 14px; text-align: left; overflow-wrap: anywhere; }
+    th, td { padding: 7px 14px; text-align: left; overflow-wrap: normal; }
     th {
       position: sticky;
       top: 0;

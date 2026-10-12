@@ -24,6 +24,9 @@ const NAME_ICONS = new Map([
   ['crowd', ['人员聚集', 'Crowd Gathering', 'People Gathering']],
   ['fall', ['人员跌倒', 'Person Falling', 'Person Fall', 'Fall Detection']],
   ['parking', ['车辆违停', 'Illegal Vehicle Parking', 'Illegal Parking']],
+  ['vehicle-detection', ['图片车辆', '车辆检测', 'Image Vehicle', 'Image Vehicle Detection', 'Vehicle Detection']],
+  ['head-shoulder', ['头肩', '头肩检测', 'Head and Shoulder', 'Head and Shoulder Detection', 'Head-Shoulder Detection']],
+  ['person-detection', ['人体侦测', '人体检测', 'Person Detection', 'Human Detection']],
   ['smoke', ['烟雾检测', 'Smoke Detection']],
   ['fire', ['火焰检测', 'Fire Detection', 'Flame Detection']],
   ['smoking', ['吸烟检测', 'Smoking Detection']],
@@ -38,12 +41,12 @@ const NAME_ICONS = new Map([
   ['tripwire', ['绊线检测', 'Tripwire Detection']],
   ['uniform', ['未穿工服', 'No Work Uniform', 'No Uniform']],
   ['sleep', ['睡岗检测', 'Sleeping on Duty', 'Sleeping on Duty Detection']],
-  ['foundation-detection', ['检测大模型', '视觉检测大模型分析', 'Detection Foundation Model', 'Vision Detection Foundation Model Analysis', 'Vision-Detection Foundation Model Analysis']],
-  ['foundation-segmentation', ['分割大模型', '视觉分割大模型分析', 'Segmentation Foundation Model', 'Vision Segmentation Foundation Model Analysis', 'Vision-Segmentation Foundation Model Analysis']],
-  ['vision-language', ['视觉语言大模型', '视觉语言大模型分析', 'Vision-Language Model', 'Vision-Language Model Analysis', 'Vision-Language Foundation Model', 'Vision-Language Foundation Model Analysis']],
-  ['detection', ['检测类算法', 'Detection-class Algorithm', 'Detection Algorithm']],
+  ['foundation-detection', ['检测大模型', '视觉检测大模型分析', '图片检测大模型', 'Detection Foundation Model', 'Vision Detection Foundation Model Analysis', 'Vision-Detection Foundation Model Analysis', 'Image-Detection Foundation Model']],
+  ['foundation-segmentation', ['分割大模型', '视觉分割大模型分析', '图片分割大模型', 'Segmentation Foundation Model', 'Vision Segmentation Foundation Model Analysis', 'Vision-Segmentation Foundation Model Analysis', 'Image-Segmentation Foundation Model']],
+  ['vision-language', ['视觉语言大模型', '视觉语言大模型分析', '图片语言视觉大模型', 'Vision-Language Model', 'Vision-Language Model Analysis', 'Vision-Language Foundation Model', 'Vision-Language Foundation Model Analysis', 'Image-Language-Vision Foundation Model']],
+  ['detection', ['检测类算法', '图片检测任务', 'Detection-class Algorithm', 'Detection Algorithm', 'Image Detection Task']],
   ['oriented-detection', ['旋转框检测算法', 'Oriented Box Detection', 'Oriented Object Detection Algorithm']],
-  ['detect-classify', ['检测后分类算法', 'Post-detection Classification Algorithm', 'Detection-then-Classification Algorithm']],
+  ['detect-classify', ['检测后分类算法', '图片检测分类任务', 'Post-detection Classification Algorithm', 'Detection-then-Classification Algorithm', 'Image Detection & Classification Task']],
   ['detect-segment', ['检测后分割算法', 'Post-detection Segmentation Algorithm', 'Detection-then-Segmentation Algorithm']]
 ].flatMap(([icon, names]) => names.map((name) => [normalizeName(name), icon])))
 
@@ -82,6 +85,17 @@ export const SCENE_TASK_ICON_PATHS = Object.freeze({
   parking: [
     'M4 12l1.5-5H14l2 5M3 12h14v7H3ZM5 19v2M15 19v2M3 15h3M14 15h3',
     'M16 5a3 3 0 1 0 6 0 3 3 0 1 0-6 0M17 7l4-4'
+  ],
+  'vehicle-detection': [
+    'M5 10l2-6h10l2 6M3 11l2-1h14l2 1v8H3ZM5 19v2M19 19v2M3 14h4M17 14h4M9 17h6'
+  ],
+  'head-shoulder': [
+    'M7 3H3v4M17 3h4v4M3 17v4h4M21 17v4h-4',
+    'M9 8a3 3 0 1 0 6 0 3 3 0 1 0-6 0M6 19v-2a6 5 0 0 1 12 0v2'
+  ],
+  'person-detection': [
+    'M6 3H3v5M18 3h3v5M3 16v5h3M21 16v5h-3',
+    'M10 5a2 2 0 1 0 4 0 2 2 0 1 0-4 0M8 14v-3a4 2 0 0 1 8 0v3M10 11v9M14 11v9M10 15h4'
   ],
   smoke: [
     'M5 21h14M7 17c-4-3 5-4 1-8M12 17c-4-4 5-6 1-12M17 17c-4-3 5-5 1-10'

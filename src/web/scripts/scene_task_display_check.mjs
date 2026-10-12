@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { summarizeTaskChannels, summarizeModelDependencies } from '../src/utils/sceneTaskDisplay.js'
+import { summarizeTaskChannels } from '../src/utils/sceneTaskDisplay.js'
 
 const channel = (id, status, algorithmId = 'scene-a') => ({ videoChannelId: id, taskList: [{ algorithmId, status }] })
 const states = summarizeTaskChannels({ total: 4, rows: [channel('a', 1), channel('b', -1), channel('c', 2), channel('d', 0), channel('a', 1)] })
@@ -27,11 +27,4 @@ assert.deepEqual(summarizeTaskChannels({ total: 0, rows: [] }), { available: tru
 assert.equal(summarizeTaskChannels({ total: 1, rows: [channel('a', undefined)] }).byAlgorithm['scene-a'].unknown, 1)
 assert.equal(summarizeTaskChannels({ total: 1, rows: [channel('a', 'constructor')] }).byAlgorithm['scene-a'].unknown, 1)
 
-assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-b', modelStatus: 0 }]), { total: 2, missing: 1, unknown: false })
-assert.deepEqual(summarizeModelDependencies(undefined), { total: null, missing: 0, unknown: true })
-assert.deepEqual(summarizeModelDependencies([]), { total: null, missing: 0, unknown: true }, 'empty cached model metadata cannot establish zero dependencies or readiness')
-assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a' }]), { total: 1, missing: 0, unknown: true })
-assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 0 }, { modelCode: 'model-a', modelStatus: 1 }]), { total: 1, missing: 0, unknown: true })
-assert.deepEqual(summarizeModelDependencies([{ modelCode: 'model-a', modelStatus: 1 }, { modelCode: 'model-a', modelStatus: 0 }, { modelCode: 'model-a', modelStatus: 1 }]), { total: 1, missing: 0, unknown: true }, 'a third duplicate cannot clear a previously observed status conflict')
-
-console.log('Scene task display checks passed: task states, deduplication, partial/failed lists, and model dependencies')
+console.log('Scene task display checks passed: task states, deduplication, and partial/failed lists')

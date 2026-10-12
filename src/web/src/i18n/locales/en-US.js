@@ -396,15 +396,8 @@ export default {
     }
   },
   glossary: {
-    taskModelDependencies: "Model dependencies",
-    taskModelCount: "{n} listed",
-    taskModelsMissing: "{n} missing",
-    taskModelsReady: "Available",
-    taskModelsNotListed: "No models listed",
-    taskModelInfoNotProvided: "Not provided",
-    taskModelListingMissingHint: "The list did not provide model dependency information. Check the algorithm workflow for details.",
     taskConfiguration: "Configuration",
-    taskChannelSummary: "Channels",
+    taskChannelSummary: "Linked channels",
     taskChannelRunning: "Running",
     taskChannelPaused: "Paused",
     taskChannelError: "Error",

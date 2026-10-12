@@ -44,26 +44,6 @@ export function summarizeTaskChannels(data) {
   return { available: true, complete, byAlgorithm }
 }
 
-export function summarizeModelDependencies(models) {
-  // The list endpoint returns cached model metadata. JSON workflow loading can
-  // leave that metadata empty even when the workflow uses models, so an empty
-  // list cannot establish zero dependencies or a ready state.
-  if (!Array.isArray(models) || !models.length) return { total: null, missing: 0, unknown: true }
-  const unique = new Map()
-  for (const [index, model] of models.entries()) {
-    const key = model?.modelCode || `index:${index}`
-    const state = model?.modelStatus === 1 || model?.modelStatus === '1' ? 'ready'
-      : model?.modelStatus === 0 || model?.modelStatus === '0' ? 'missing' : 'unknown'
-    if (unique.has(key) && unique.get(key) !== state) unique.set(key, 'unknown')
-    else unique.set(key, state)
-  }
-  return {
-    total: unique.size,
-    missing: [...unique.values()].filter(state => state === 'missing').length,
-    unknown: [...unique.values()].includes('unknown')
-  }
-}
-
 export function taskCategoryIcon(category) {
   return ({ 1: 'person', 2: 'target', 3: 'target', 8: 'count', 9: 'count', 10: 'vehicle', 11: 'count' })[String(category)] || 'default'
 }

@@ -396,15 +396,8 @@ export default {
     }
   },
   glossary: {
-    taskModelDependencies: "模型依赖",
-    taskModelCount: "已列 {n} 个",
-    taskModelsMissing: "缺失 {n} 个",
-    taskModelsReady: "可用",
-    taskModelsNotListed: "未列出模型",
-    taskModelInfoNotProvided: "信息未提供",
-    taskModelListingMissingHint: "列表未提供模型依赖信息，请在算法编排中查看。",
     taskConfiguration: "配置版本",
-    taskChannelSummary: "通道情况",
+    taskChannelSummary: "关联通道",
     taskChannelRunning: "运行",
     taskChannelPaused: "暂停",
     taskChannelError: "异常",

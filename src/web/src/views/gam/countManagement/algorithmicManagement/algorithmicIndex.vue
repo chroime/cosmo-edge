@@ -26,7 +26,6 @@
       </div>
     </div>
 
-    <!-- 模型依赖与通道任务的运行状态分列显示。 -->
     <div class="task-list" tabindex="0" :aria-label="t('nav.sceneTasks')">
       <table class="task-table">
         <colgroup>
@@ -34,7 +33,6 @@
           <col class="identity-column" />
           <col class="usage-column" />
           <col class="category-column" />
-          <col class="status-column" />
           <col class="channels-column" />
           <col class="updated-column" />
           <col class="actions-column" />
@@ -47,7 +45,6 @@
             <th scope="col">{{ t('field.taskName') }}</th>
             <th scope="col">{{ t('glossary.analysisUsage') }}</th>
             <th scope="col">{{ t('field.taskType') }}</th>
-            <th scope="col">{{ t('glossary.taskModelDependencies') }}</th>
             <th scope="col">{{ t('glossary.taskChannelSummary') }}</th>
             <th scope="col">{{ t('field.updateTime') }}</th>
             <th scope="col" class="task-actions-cell">{{ t('field.actions') }}</th>
@@ -71,12 +68,6 @@
             </td>
             <td>{{ getUsageLabel(row) }}</td>
             <td>{{ returnCategoryName(row) || '—' }}</td>
-            <td class="task-dependency-cell" :title="getModelDetails(row)">
-              <div>{{ taskDisplay[row.algorithmId].models.total === null ? '—' : t('glossary.taskModelCount', { n: taskDisplay[row.algorithmId].models.total }) }}</div>
-              <div class="status-indicator" :class="getModelStateClass(row)">
-                <span class="status-dot" aria-hidden="true"></span>{{ getModelStateLabel(row) }}
-              </div>
-            </td>
             <td class="task-channel-cell">
               <el-tooltip :content="getChannelDetails(row)" placement="top" :show-after="400" popper-class="task-remark-tooltip">
                 <div class="task-channel-summary" tabindex="0">
@@ -105,7 +96,7 @@
             </td>
           </tr>
           <tr v-if="!tableData.length" class="task-empty-row">
-            <td colspan="8">{{ t('common.noData') }}</td>
+            <td colspan="7">{{ t('common.noData') }}</td>
           </tr>
         </tbody>
       </table>
@@ -188,7 +179,7 @@ import moment from 'moment'
 import { t, localeColon } from '@/i18n'
 import { resolveResourceAlgorithmRemark, resolveResourceAlgorithmName } from '@/utils/i18nResource'
 import FlowNodeIcon from '../arrangeDetail/flow/FlowNodeIcon.vue'
-import { emptyTaskChannelSummary, summarizeTaskChannels, summarizeModelDependencies, taskCategoryIcon } from '@/utils/sceneTaskDisplay'
+import { emptyTaskChannelSummary, summarizeTaskChannels, taskCategoryIcon } from '@/utils/sceneTaskDisplay'
 import {
   uploadFileInChunks,
   UploadPurpose
@@ -267,7 +258,6 @@ export default {
   computed: {
     taskDisplay() {
       return Object.fromEntries(this.tableData.map(row => [row.algorithmId, {
-        models: summarizeModelDependencies(row.models),
         channels: this.channelSummary.byAlgorithm[row.algorithmId] || emptyTaskChannelSummary()
       }]))
     },
@@ -711,24 +701,6 @@ export default {
         row.confVersionName && `${t('glossary.taskConfiguration')}${localeColon.value} ${row.confVersionName}`,
         resolveResourceAlgorithmRemark(row)].filter(Boolean).join('\n')
     },
-    getModelStateClass(row) {
-      const summary = this.taskDisplay[row.algorithmId].models
-      if (summary.missing) return 'status-warn'
-      if (summary.unknown || !summary.total) return 'status-neutral'
-      return 'status-ok'
-    },
-    getModelStateLabel(row) {
-      const summary = this.taskDisplay[row.algorithmId].models
-      if (Array.isArray(row.models) && !row.models.length) return t('glossary.taskModelsNotListed')
-      if (summary.total === null) return t('glossary.taskModelInfoNotProvided')
-      if (summary.missing) return t('glossary.taskModelsMissing', { n: summary.missing })
-      if (summary.unknown) return t('glossary.taskChannelUnknown')
-      return t('glossary.taskModelsReady')
-    },
-    getModelDetails(row) {
-      if (!Array.isArray(row.models) || !row.models.length) return t('glossary.taskModelListingMissingHint')
-      return row.models.map(model => `${model?.modelName || model?.modelCode || '—'} · ${model?.modelStatus === 1 || model?.modelStatus === '1' ? t('glossary.taskModelsReady') : model?.modelStatus === 0 || model?.modelStatus === '0' ? t('glossary.modelMissing') : t('glossary.taskChannelUnknown')}`).join('\n')
-    },
     getChannelTotalLabel(row) {
       if (this.channelSummaryLoading) return '…'
       if (!this.channelSummary.available) return t('glossary.taskChannelUnknown')
@@ -817,6 +789,7 @@ export default {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    container-type: inline-size;
     border: 1px solid var(--border-color);
     border-radius: 7px;
     background: var(--bg-panel);
@@ -826,7 +799,7 @@ export default {
   }
   .task-table {
     width: 100%;
-    min-width: 1140px;
+    min-width: 1000px;
     border-collapse: separate;
     border-spacing: 0;
     table-layout: fixed;
@@ -834,15 +807,17 @@ export default {
     font-size: 13px;
     line-height: 20px;
 
+    // Share the remaining width across content columns instead of stretching only the name.
+    --task-content-width: calc(100% - 292px);
     .select-column { width: 40px; }
-    .usage-column { width: 98px; }
-    .category-column { width: 82px; }
-    .status-column { width: 116px; }
-    .channels-column { width: 194px; }
-    .updated-column { width: 110px; }
+    .identity-column { width: calc(var(--task-content-width) * 0.35); }
+    .usage-column { width: calc(var(--task-content-width) * 0.14); }
+    .category-column { width: calc(var(--task-content-width) * 0.12); }
+    .channels-column { width: calc(var(--task-content-width) * 0.18); }
+    .updated-column { width: calc(var(--task-content-width) * 0.21); }
     .actions-column { width: 252px; }
 
-    th, td { padding: 7px 10px; text-align: left; overflow-wrap: anywhere; }
+    th, td { padding: 7px 14px; text-align: left; overflow-wrap: anywhere; }
     th {
       position: sticky;
       top: 0;
@@ -881,31 +856,31 @@ export default {
     white-space: nowrap;
   }
   .task-meta { display: block; min-width: 0; color: var(--text-secondary); font-size: 12px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .task-updated { font-size: 12px; font-variant-numeric: tabular-nums; }
-  .task-dependency-cell { font-size: 12px; line-height: 18px; }
-  .status-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    &.status-ok { color: var(--success-color); }
-    &.status-warn { color: var(--danger-color); cursor: help; }
-    &.status-neutral { color: var(--text-secondary); }
+  .task-updated {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    > span { white-space: nowrap; }
+    .task-meta { display: inline; margin-left: 6px; }
   }
-  .status-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: currentColor; }
-  .task-channel-summary { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+  .task-channel-summary { display: flex; flex-direction: column; align-items: flex-start; gap: 0; font-variant-numeric: tabular-nums; }
   .channel-total { flex: 0 0 auto; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
-  .channel-states { display: grid; grid-template-columns: repeat(2, auto); gap: 0 8px; min-width: 0; font-size: 11px; line-height: 18px; }
+  .channel-states { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; min-width: 0; font-size: 12px; line-height: 18px; }
   .channel-state {
     white-space: nowrap;
+    + .channel-state::before { content: '·'; color: var(--text-tertiary, var(--text-secondary)); margin-right: 6px; }
     &.running { color: var(--success-color); }
     &.paused { color: var(--warning-color); }
     &.error { color: var(--danger-color); }
     &.stopped, &.unknown, &.empty { color: var(--text-secondary); }
   }
-  .task-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; }
+  .task-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
   .task-actions .el-button.ui-action { font-size: 12px; }
   .task-table .task-empty-row td { height: 180px; text-align: center; color: var(--text-secondary); }
   .pagination-container { display: flex; justify-content: flex-end; padding: 12px 0 0; flex-shrink: 0; overflow-x: auto; }
+
+  @container (max-width: 1120px) {
+    .task-updated .task-meta { display: block; margin-left: 0; }
+  }
 
   @media (max-width: 768px) {
     .task-page-heading { margin-bottom: 14px; }

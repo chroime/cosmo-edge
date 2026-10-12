@@ -3,7 +3,12 @@ export default {
     switch: 'Appearance',
     light: 'Light',
     dark: 'Dark',
-    system: 'System'
+    system: 'System',
+    mode: 'Display mode',
+    palette: 'Palette',
+    modern: 'Modern',
+    classicBlue: 'Classic blue',
+    selected: 'Selected'
   },
   visualQuestions: {
     "decisionMode": "Result handling",

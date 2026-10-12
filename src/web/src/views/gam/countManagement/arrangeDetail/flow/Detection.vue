@@ -262,7 +262,7 @@ defineExpose({
 
     &.is-focus {
       border-color: var(--primary-color);
-      box-shadow: 0 0 0 2px rgba(88, 82, 223, 0.1);
+      box-shadow: 0 0 0 2px rgba(var(--accent-focus-rgb, 88, 82, 223), 0.1);
     }
   }
 }
@@ -333,7 +333,7 @@ defineExpose({
 
       &.is-focus {
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px rgba(88, 82, 223, 0.1);
+        box-shadow: 0 0 0 2px rgba(var(--accent-focus-rgb, 88, 82, 223), 0.1);
       }
     }
   }

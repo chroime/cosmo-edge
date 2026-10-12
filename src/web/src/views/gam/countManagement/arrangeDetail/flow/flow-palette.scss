@@ -10,7 +10,7 @@
   --flow-end-bg: #20222d;
   --flow-end-outline: transparent;
   --flow-end-text: #ffffff;
-  --flow-selected-ring: rgba(88, 82, 223, 0.12);
+  --flow-selected-ring: var(--accent-selected-ring, rgba(88, 82, 223, 0.12));
   --flow-icon-blue-bg: #eff6ff;
   --flow-icon-purple-bg: var(--el-color-primary-light-9);
   --flow-icon-purple-text: var(--primary-dark);
@@ -52,7 +52,7 @@ html[data-theme='dark'] .flow-theme {
   --flow-end-bg: #14171d;
   --flow-end-outline: #566274;
   --flow-end-text: #e8ebf1;
-  --flow-selected-ring: rgba(155, 140, 255, 0.16);
+  --flow-selected-ring: var(--accent-selected-ring, rgba(155, 140, 255, 0.16));
   --flow-icon-blue-bg: #312d49;
   --flow-icon-purple-bg: #312d49;
   --flow-icon-purple-text: #b0a3ff;

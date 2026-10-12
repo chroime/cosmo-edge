@@ -863,7 +863,7 @@ onMounted(() => {
   transition: all 0.3s;
 
   &:focus {
-    box-shadow: 0 0 0 2px rgba(88, 82, 223, 0.2);
+    box-shadow: 0 0 0 2px rgba(var(--accent-focus-rgb, 88, 82, 223), 0.2);
   }
 }
 

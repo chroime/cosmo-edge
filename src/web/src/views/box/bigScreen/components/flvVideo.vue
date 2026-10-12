@@ -1116,7 +1116,7 @@ onBeforeUnmount(() => {
   height: 38px;
   margin: -19px 0 0 -19px;
   border: 3px solid #ffffff26;
-  border-top-color: #a8a4ff;
+  border-top-color: var(--media-accent-color, #a8a4ff);
   border-radius: 50%;
   box-sizing: border-box;
   animation: spinner-spin 1s linear infinite;

@@ -1,9 +1,14 @@
 export default {
   appearance: {
-    switch: '切换主题',
+    switch: '外观设置',
     light: '浅色',
     dark: '深色',
-    system: '跟随系统'
+    system: '跟随系统',
+    mode: '显示模式',
+    palette: '配色',
+    modern: '新版',
+    classicBlue: '经典蓝',
+    selected: '已选中'
   },
   visualQuestions: {
     "decisionMode": "结果处理",

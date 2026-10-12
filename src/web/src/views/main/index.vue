@@ -510,9 +510,9 @@ const handleReboot = () => {
 .sidebar {
   width: 216px;
   flex-shrink: 0;
-  background: var(--bg-shell, var(--bg-white));
-  color: var(--secondary-color);
-  border-right: 1px solid var(--border-color);
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  border-right: 1px solid var(--nav-border);
   transition: width .2s ease;
   display: flex;
   flex-direction: column;
@@ -534,7 +534,7 @@ const handleReboot = () => {
   justify-content: space-between;
   gap: 4px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--nav-border);
 }
 
 .logo {
@@ -557,13 +557,14 @@ const handleReboot = () => {
   height: 30px;
   border-radius: 6px;
   object-fit: contain;
+  background: var(--nav-logo-bg);
   flex-shrink: 0;
 }
 
 .logo-text {
   font-size: 14px;
   font-weight: 650;
-  color: var(--text-primary);
+  color: var(--nav-brand-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -574,7 +575,7 @@ const handleReboot = () => {
   height: 28px;
   border: 0;
   background: none;
-  color: var(--text-secondary);
+  color: var(--nav-icon);
   border-radius: 5px;
   cursor: pointer;
   display: flex;
@@ -589,8 +590,8 @@ const handleReboot = () => {
 }
 
 .collapse-btn:hover {
-  background: var(--bg-primary);
-  color: var(--primary-color);
+  background: var(--nav-hover-bg);
+  color: var(--nav-hover-text);
 }
 
 .sidebar.is-collapse .sidebar-header {
@@ -619,14 +620,14 @@ const handleReboot = () => {
 }
 
 .menu-container::-webkit-scrollbar-thumb {
-  background: var(--theme-scrollbar, #d3d9e2);
+  background: var(--nav-scrollbar);
   border-radius: 2px;
 }
 
 .menu-section-label {
   font-size: 11px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--nav-muted);
   letter-spacing: .4px;
   padding: 13px 12px 5px;
 }
@@ -652,17 +653,17 @@ const handleReboot = () => {
 }
 
 .menu-item:hover {
-  background: var(--bg-primary);
+  background: var(--nav-hover-bg);
 }
 
 .menu-item.is-active {
-  background: var(--primary-soft-bg);
-  box-shadow: inset 2px 0 var(--primary-color);
-  color: var(--primary-color);
+  background: var(--nav-active-bg);
+  box-shadow: var(--nav-active-shadow);
+  color: var(--nav-active-text);
 }
 
 .menu-item.is-active .menu-icon, .menu-item.is-active .menu-title {
-  color: var(--primary-color);
+  color: var(--nav-active-text);
 }
 
 .menu-item.is-active .menu-title {
@@ -677,7 +678,7 @@ const handleReboot = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-secondary);
+  color: var(--nav-icon);
 }
 
 .menu-title {
@@ -687,7 +688,7 @@ const handleReboot = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--secondary-color);
+  color: var(--nav-text);
 }
 
 .menu-arrow {
@@ -695,7 +696,7 @@ const handleReboot = () => {
   height: 13px;
   transition: transform .2s ease;
   flex-shrink: 0;
-  color: var(--text-secondary);
+  color: var(--nav-icon);
 }
 
 .menu-arrow.is-open {
@@ -705,7 +706,7 @@ const handleReboot = () => {
 .submenu-container {
   margin: 3px 0 4px 20px;
   overflow: hidden;
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid var(--nav-border);
   padding-left: 8px;
 }
 
@@ -718,21 +719,21 @@ const handleReboot = () => {
 }
 
 .submenu-item:hover {
-  background: var(--bg-primary);
+  background: var(--nav-hover-bg);
 }
 
 .submenu-item.is-active {
-  background: var(--primary-soft-bg);
+  background: var(--nav-active-bg);
 }
 
 .submenu-item.is-active .submenu-title {
-  color: var(--primary-color);
+  color: var(--nav-active-text);
   font-weight: 500;
 }
 
 .submenu-title {
   font-size: 12px;
-  color: var(--secondary-color);
+  color: var(--nav-text);
 }
 
 .submenu-enter-active, .submenu-leave-active {

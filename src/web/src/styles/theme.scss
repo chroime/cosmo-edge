@@ -1,4 +1,4 @@
-// Import last. The data attribute is the resolved theme; an explicit value wins
+// Imported before palette overrides. The data attribute is the resolved theme; an explicit value wins
 // over Element Plus's optional .dark class. No media pixels are recolored.
 :root {
   color-scheme: light;
@@ -44,6 +44,8 @@ html.dark:not([data-theme]) {
   --secondary-button-hover-border: #786cae;
   --disabled-bg: #252b35;
   --focus-ring: #b5aaff;
+  --accent-selected-ring: rgba(155, 140, 255, 0.16);
+  --text-selection-bg: #514577;
   --success-color: #6bd5a3;
   --warning-color: #edbd73;
   --danger-color: #ff8995;
@@ -177,7 +179,7 @@ html.dark:not([data-theme]) {
 
   ::selection {
     color: var(--text-primary);
-    background: #514577;
+    background: var(--text-selection-bg);
   }
 
   // Teleported Element Plus surfaces inherit from html, not the page wrapper.

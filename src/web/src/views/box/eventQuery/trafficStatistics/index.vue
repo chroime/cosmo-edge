@@ -232,13 +232,16 @@ const algorithmList = ref([])
 const { appearance } = useAppearance()
 let lightChartSplitLineColor
 
-// ECharts paints on canvas, so merge visual options when the resolved theme changes.
+// ECharts paints on canvas, so merge visual options when the mode or palette changes.
 // Preserve the current data, legend selection, labels and viewport without fetching again.
 const applyChartTheme = () => {
   if (!chart.value || chart.value.isDisposed()) return
   const dark = appearance.value.resolved === 'dark'
+  // Keep the existing modern/light chart exactly as before, including ECharts'
+  // default grid lines. Other combinations resolve the active CSS palette.
+  const usePaletteColors = dark || appearance.value.palette === 'classic-blue'
   const styles = getComputedStyle(document.documentElement)
-  const color = (token, fallback) => dark ? styles.getPropertyValue(token).trim() || fallback : fallback
+  const color = (token, fallback) => usePaletteColors ? styles.getPropertyValue(token).trim() || fallback : fallback
   const text = color('--text-secondary', '#666')
   const muted = color('--text-muted', '#999')
   const border = color('--border-color', '#EBEEF5')
@@ -258,7 +261,7 @@ const applyChartTheme = () => {
     },
     yAxis: {
       axisLabel: { color: muted },
-      splitLine: { lineStyle: { color: dark ? color('--border-light', '#333C49') : lightChartSplitLineColor } }
+      splitLine: { lineStyle: { color: usePaletteColors ? color('--border-light', '#333C49') : lightChartSplitLineColor } }
     },
     series: [
       { label: { color: text }, itemStyle: { color: enter }, lineStyle: { color: enter } },
@@ -267,7 +270,10 @@ const applyChartTheme = () => {
   })
 }
 
-watch(() => appearance.value.resolved, applyChartTheme, { flush: 'post' })
+watch([
+  () => appearance.value.resolved,
+  () => appearance.value.palette || 'modern'
+], applyChartTheme, { flush: 'post' })
 
 // Watch timeGranularity
 watch(timeGranularity, (newVal) => {

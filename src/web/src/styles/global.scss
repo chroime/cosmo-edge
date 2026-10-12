@@ -50,6 +50,24 @@
   --secondary-button-hover-border: #b6b2e9;
   --disabled-bg: #f7f8fa;
   --focus-ring: var(--el-color-primary-light-5);
+  --accent-focus-rgb: 88, 82, 223;
+  --accent-selected-ring: rgba(88, 82, 223, 0.12);
+  --media-accent-color: #a8a4ff;
+
+  // Navigation can remain dark while the content uses the light color scheme.
+  --nav-bg: var(--bg-shell);
+  --nav-text: var(--secondary-color);
+  --nav-icon: var(--text-secondary);
+  --nav-muted: var(--text-secondary);
+  --nav-brand-text: var(--text-primary);
+  --nav-logo-bg: transparent;
+  --nav-border: var(--border-color);
+  --nav-hover-bg: var(--bg-primary);
+  --nav-hover-text: var(--primary-color);
+  --nav-active-bg: var(--primary-soft-bg);
+  --nav-active-text: var(--primary-color);
+  --nav-active-shadow: inset 2px 0 var(--primary-color);
+  --nav-scrollbar: var(--theme-scrollbar, #d3d9e2);
 
   --el-color-primary: var(--primary-color);
   --el-color-primary-light-3: #7769d8;

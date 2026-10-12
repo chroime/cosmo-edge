@@ -4,15 +4,23 @@
       <h1>{{ $t('nav.imageAnalysis') }}</h1>
       <p>{{ $t('glossary.imageAnalysisSubtitle') }}</p>
     </div>
+    <ol class="analysis-steps" :aria-label="$t('imageAnalysis.workflow')">
+      <li v-for="(step, index) in analysisSteps" :key="step" :class="{ 'is-current': analysisStage === index, 'is-past': analysisStage > index }" :aria-current="analysisStage === index ? 'step' : undefined">
+        <span class="analysis-step-number">{{ index + 1 }}</span>
+        <span>{{ $t(step) }}</span>
+      </li>
+    </ol>
     <!-- 顶部工具栏 -->
     <div class="toolbar-section">
       <div class="toolbar-left">
+        <span class="task-select-label" id="analysis-task-label">{{ $t('event.sceneTask') }}</span>
         <el-select
           v-model="selectedAlgorithm"
           :placeholder="$t('imageAnalysis.selectAlgorithmPlaceholder')"
           filterable
           size="default"
           class="algorithm-select"
+          aria-labelledby="analysis-task-label"
           @change="handleAlgorithmChange"
         >
           <el-option
@@ -44,8 +52,7 @@
         </el-button>
         <el-button
           v-if="uploadedFiles.length > 0"
-          type="danger"
-          plain
+          class="clear-images"
           :icon="Delete"
           @click="clearAll"
         >
@@ -57,10 +64,12 @@
           {{ $t('imageAnalysis.selectedImages', { n: uploadedFiles.length }) }}
         </span>
       </div>
+      <p class="analysis-toolbar-hint">{{ $t('imageAnalysis.workflowHint') }}</p>
     </div>
 
     <!-- 内容区域 -->
     <div class="content-section" v-if="uploadedFiles.length > 0 || results.length > 0">
+      <h2 class="analysis-results-heading">{{ $t('imageAnalysis.results') }}</h2>
       <!-- 图片预览 / 结果网格 -->
       <div class="image-grid">
         <div
@@ -68,7 +77,12 @@
           :key="index"
           class="image-card"
           :class="{ 'has-result': item.result }"
+          role="button"
+          tabindex="0"
+          :aria-label="`${$t('imageAnalysis.imagePreview')}: ${item.name}`"
           @click="openPreview(index)"
+          @keydown.enter="openPreview(index)"
+          @keydown.space.prevent="openPreview(index)"
         >
           <div class="image-wrapper">
             <!-- 原始图 -->
@@ -88,13 +102,14 @@
           <div class="image-footer">
             <div class="image-name" :title="item.name">{{ item.name }}</div>
             <div class="image-status">
-              <el-tag v-if="item.analyzing" type="warning" size="small" effect="light">{{ $t('imageAnalysis.analyzingStatus') }}</el-tag>
-              <el-tag v-else-if="item.result" type="success" size="small" effect="light">{{ $t('imageAnalysis.completed') }}</el-tag>
-              <el-tag v-else type="info" size="small" effect="plain">{{ $t('imageAnalysis.pending') }}</el-tag>
+              <span v-if="item.analyzing" class="analysis-status is-analyzing">{{ $t('imageAnalysis.analyzingStatus') }}</span>
+              <span v-else-if="item.result?.error" class="analysis-status is-failed">{{ $t('imageAnalysis.failed') }}</span>
+              <span v-else-if="item.result" class="analysis-status is-completed">{{ $t('imageAnalysis.completed') }}</span>
+              <span v-else class="analysis-status is-pending">{{ $t('imageAnalysis.pending') }}</span>
             </div>
           </div>
           <!-- 结果信息面板 -->
-          <div v-if="item.result" class="result-panel">
+          <div v-if="item.result && !item.result.error" class="result-panel">
             <!-- 检测类结果 -->
             <div v-if="getTargetCount(item.result) > 0" class="result-section">
               <div class="result-label">{{ $t('imageAnalysis.detectedTargets') }}</div>
@@ -160,7 +175,8 @@
             />
           </div>
         </div>
-        <div v-if="previewItem.result" class="preview-details">
+        <el-alert v-if="previewItem.result?.error" :title="$t('imageAnalysis.failed')" type="error" :closable="false" show-icon />
+        <div v-else-if="previewItem.result" class="preview-details">
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item :label="$t('field.algorithmName')">{{ previewItem.result.algorithmCode || resolveResourceAlgorithmName(selectedAlgorithmInfo) }}</el-descriptions-item>
             <el-descriptions-item :label="$t('imageAnalysis.detectionCount')">{{ getTargetCount(previewItem.result) }}</el-descriptions-item>
@@ -241,6 +257,16 @@ const uploadRef = ref(null)
 const overlayCanvasRefs = ref([])
 
 // Computed
+const analysisSteps = ['imageAnalysis.selectTask', 'imageAnalysis.uploadImage', 'imageAnalysis.startAnalysis', 'imageAnalysis.viewResults']
+const analysisStage = computed(() => {
+  if (analyzing.value) return 2
+  if (!selectedAlgorithm.value) return 0
+  if (uploadedFiles.value.length === 0) return 1
+  const allImagesHaveResults = results.value.length === uploadedFiles.value.length &&
+    uploadedFiles.value.every((_, index) => Boolean(results.value[index]))
+  return allImagesHaveResults ? 3 : 2
+})
+
 const displayItems = computed(() => {
   return uploadedFiles.value.map((file, idx) => {
     const res = results.value[idx];
@@ -631,9 +657,39 @@ const onPreviewImageLoad = () => {
   height: 100%;
   padding: 0;
   min-height: 0;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
 }
+
+.analysis-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  flex: none;
+  margin: 0;
+  padding: 12px 18px;
+  list-style: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.analysis-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+  &:not(:last-child)::after { content: ''; display: block; width: 54px; height: 1px; margin-left: 16px; background: var(--border-color); }
+  &.is-current { color: var(--primary-color); font-weight: 600; }
+  &.is-current .analysis-step-number { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-button-text, #fff); }
+  &.is-past .analysis-step-number { border-color: var(--primary-color); color: var(--primary-color); }
+}
+
+.analysis-step-number { display: grid; place-items: center; width: 27px; height: 27px; flex: none; border: 1px solid var(--border-color); border-radius: 50%; font-variant-numeric: tabular-nums; font-size: 12px; }
 
 .analysis-page-heading {
   flex-shrink: 0;
@@ -646,9 +702,9 @@ const onPreviewImageLoad = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 12px 16px;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px 12px;
   background: var(--bg-white);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md, 8px);
@@ -666,9 +722,12 @@ const onPreviewImageLoad = () => {
 }
 
 .algorithm-select {
-  width: 280px;
+  width: 240px;
   max-width: 100%;
 }
+
+.task-select-label { color: var(--text-secondary); font-size: 13px; }
+.analysis-toolbar-hint { flex-basis: 100%; margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 .toolbar-right {
   display: flex;
@@ -687,19 +746,29 @@ const onPreviewImageLoad = () => {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 16px;
+  padding: 14px;
+  background: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
 }
+
+.analysis-results-heading { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; font-size: 15px; line-height: 20px; font-weight: 600; }
+.analysis-results-heading::before { content: ''; width: 3px; height: 16px; border-radius: 2px; background: var(--primary-color); }
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 .image-card {
+  display: flex;
+  flex-direction: column;
   background: var(--bg-white);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 8px);
+  border-radius: 6px;
+  padding: 7px 7px 0;
   overflow: hidden;
   box-shadow: none;
   transition: border-color 0.15s;
@@ -708,6 +777,7 @@ const onPreviewImageLoad = () => {
   &:hover {
     border-color: var(--border-hover);
   }
+  &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
   &.has-result {
     border-color: var(--border-color);
@@ -717,9 +787,11 @@ const onPreviewImageLoad = () => {
 .image-wrapper {
   position: relative;
   width: 100%;
-  height: 240px;
+  aspect-ratio: 16 / 9;
+  border-radius: 3px;
   background: var(--theme-surface-soft, #f8f9fb);
   overflow: hidden;
+  flex: none;
 }
 
 .analysis-image {
@@ -734,6 +806,7 @@ const onPreviewImageLoad = () => {
   left: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   pointer-events: none;
 }
 
@@ -742,8 +815,7 @@ const onPreviewImageLoad = () => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 12px 14px;
-  border-top: 1px solid var(--border-color);
+  padding: 9px 3px;
 }
 
 .image-name {
@@ -760,25 +832,35 @@ const onPreviewImageLoad = () => {
   flex-shrink: 0;
 }
 
+.analysis-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.analysis-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.analysis-status.is-completed { color: var(--success-color); }
+.analysis-status.is-analyzing { color: var(--warning-color); }
+.analysis-status.is-failed { color: var(--danger-color); }
+
 /* ─ Result Panel ─ */
 .result-panel {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-subtle);
+  padding: 7px 3px 10px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-white);
 }
 
 .result-section {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   .result-label {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 0;
+    flex: none;
 
     &.empty-result {
       color: var(--text-tertiary, var(--text-muted));
       font-weight: 400;
-      text-align: center;
-      padding: 4px 0;
+      padding: 2px 0;
+      margin-bottom: 0;
     }
   }
 }
@@ -889,5 +971,18 @@ const onPreviewImageLoad = () => {
 
 .feature-preview-empty {
   color: var(--text-tertiary, var(--text-muted));
+}
+
+@media (max-width: 1100px) {
+  .image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-steps { gap: 8px 18px; justify-content: flex-start; }
+  .analysis-steps li:not(:last-child)::after { width: 24px; margin-left: 4px; }
+}
+@media (max-width: 760px) {
+  .image-grid { grid-template-columns: minmax(0, 1fr); }
+  .analysis-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-steps li:not(:last-child)::after { display: none; }
+  .algorithm-select { width: min(240px, 100%); }
+  .toolbar-left { width: 100%; }
 }
 </style>

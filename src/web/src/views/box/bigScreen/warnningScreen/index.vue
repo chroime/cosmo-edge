@@ -92,7 +92,7 @@
               <div class="tree-body">
                 <el-tree id="onboarding-camera-tree" ref="tree" class="filter-tree" :data="camearList" :highlight-current="true" node-key="id" default-expand-all :filter-node-method="filterNode">
                   <template #default="{ data }">
-                    <div class="custom-tree-node" :class="{ 'is-assigned': visiblePreviewWindows[data.id]?.length }" @dblclick="handleCameraNodeClick(data)">
+                    <div class="custom-tree-node" :class="{ 'is-assigned': visiblePreviewWindows[data.id]?.length, 'is-active-preview': data.id && data.id === playedCameraList[currentSelectedIndex]?.id }" @dblclick="handleCameraNodeClick(data)">
                       <div v-if="data.labelI18nKey === 'common.all'" class="channel-group">
                         <span>{{ nodeLabel(data) }}</span>
                         <span class="channel-count">{{ data.children?.length || 0 }}</span>
@@ -106,12 +106,12 @@
                               <span class="status-dot" aria-hidden="true"></span>
                               <span>{{ t(channelDisplayStatus(data).label) }}</span>
                             </div>
-                            <span v-if="visiblePreviewWindows[data.id]?.length" class="channel-window" :title="t('event.previewWindows', { windows: visiblePreviewWindows[data.id].join(' / ') })" :aria-label="t('event.previewWindows', { windows: visiblePreviewWindows[data.id].join(' / ') })">
-                              <el-icon aria-hidden="true"><Monitor /></el-icon>
-                              <span aria-hidden="true">{{ visiblePreviewWindows[data.id].join('/') }}</span>
-                            </span>
                           </div>
                         </div>
+                        <span v-if="visiblePreviewWindows[data.id]?.length" class="channel-window" :title="t('event.previewWindows', { windows: visiblePreviewWindows[data.id].join(' / ') })" :aria-label="t('event.previewWindows', { windows: visiblePreviewWindows[data.id].join(' / ') })">
+                          <el-icon aria-hidden="true"><Monitor /></el-icon>
+                          <span aria-hidden="true">{{ visiblePreviewWindows[data.id].join('/') }}</span>
+                        </span>
                       </template>
                     </div>
                   </template>
@@ -169,7 +169,9 @@
           </div>
           <div class="record-content">
             <template v-if="eventList.length > 0">
-              <div v-for="(event, index) in eventList" :key="index" class="event-item" :class="{ 'has-comparison': checkPropertyKey(event, 'recognition') && event.property.recognition.matchDegree != '-1' }" @click="eventDetail(event)">
+              <template v-for="(event, index) in eventList" :key="index">
+              <div v-if="dateFormat(event.timestamp) && (index === 0 || dateFormat(event.timestamp).slice(0, 10) !== dateFormat(eventList[index - 1].timestamp).slice(0, 10))" class="event-date">{{ dateFormat(event.timestamp).slice(0, 10) }}</div>
+              <div class="event-item" :class="{ 'has-comparison': checkPropertyKey(event, 'recognition') && event.property.recognition.matchDegree != '-1' }" @click="eventDetail(event)">
                 <div v-if="checkPropertyKey(event,'recognition') && event.property.recognition.matchDegree != '-1'" class="event-image2">
                   <div class="event-image2-body">
                     <el-image :src="event.detectedPicture" fit="contain">
@@ -208,11 +210,12 @@
                   </el-image>
                 </div>
                 <div class="event-info">
-                  <div class="event-name">{{ resolveResourceAlgorithmName(event) }}</div>
-                  <div>{{ t('home.channel') }}{{ localeColon }}{{ event.channelName }}</div>
-                  <div>{{ t('home.time') }}{{ localeColon }}{{ dateFormat(event.timestamp) }}</div>
+                  <div class="event-name" :title="resolveResourceAlgorithmName(event)">{{ resolveResourceAlgorithmName(event) }}</div>
+                  <div class="event-channel" :title="event.channelName">{{ t('home.channel') }}{{ localeColon }}{{ event.channelName }}</div>
+                  <div class="event-time" :title="dateFormat(event.timestamp)">{{ dateFormat(event.timestamp).slice(11) }}</div>
                 </div>
               </div>
+              </template>
             </template>
             <template v-else>
               <div class="empty-body">
@@ -1054,7 +1057,7 @@ button:focus-visible {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  min-height: 56px;
+  min-height: 52px;
   gap: 6px 20px;
   padding: 6px 16px;
   border-bottom: 1px solid var(--screen-border);
@@ -1155,12 +1158,12 @@ button:focus-visible {
 
 .select-area {
   border-right: 1px solid var(--screen-border);
-  &.expanded { flex-basis: clamp(208px, 16.25vw, 232px); width: clamp(208px, 16.25vw, 232px); }
+  &.expanded { flex-basis: clamp(192px, 15vw, 224px); width: clamp(192px, 15vw, 224px); }
 }
 
 .right-panel {
   border-left: 1px solid var(--screen-border);
-  &.expanded { flex-basis: clamp(248px, 19.375vw, 280px); width: clamp(248px, 19.375vw, 280px); }
+  &.expanded { flex-basis: clamp(244px, 19vw, 280px); width: clamp(244px, 19vw, 280px); }
 }
 
 .panel-icon {
@@ -1239,7 +1242,7 @@ button:focus-visible {
   }
 
   :deep(.el-tree-node__expand-icon) { color: var(--screen-muted); }
-  :deep(.el-tree-node__children .el-tree-node__content) { height: 48px; padding-left: 8px !important; padding-right: 8px; }
+  :deep(.el-tree-node__children .el-tree-node__content) { height: 50px; padding-left: 4px !important; padding-right: 4px; border-bottom: 1px solid var(--screen-border); border-radius: 0; margin-bottom: 0; }
   :deep(.el-tree-node__expand-icon.is-leaf) { display: none; }
   :deep(.el-tree-node.is-current > .el-tree-node__content) {
     background: var(--bg-primary);
@@ -1248,17 +1251,18 @@ button:focus-visible {
 }
 
 .custom-tree-node {
+  position: relative;
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
   height: 100%;
   cursor: pointer;
 
   .channel-group { display: flex; flex: 1; align-items: center; gap: 8px; color: var(--screen-muted); font-size: 12px; }
   .channel-count { padding: 0 5px; border-radius: 3px; background: var(--bg-primary); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .channel-symbol { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border: 1px solid var(--screen-border); border-radius: 5px; color: var(--screen-muted); background: var(--bg-white); font-size: 15px; }
+  .channel-symbol { display: grid; place-items: center; flex: 0 0 24px; height: 28px; color: var(--screen-muted); font-size: 18px; }
   .channel-copy { flex: 1; min-width: 0; }
   .channel-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--screen-text); font-size: 13px; line-height: 20px; }
   .channel-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -1271,6 +1275,8 @@ button:focus-visible {
   .channel-window { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 3px; padding: 0 4px; border: 1px solid var(--screen-border); border-radius: 3px; background: var(--bg-primary); color: var(--screen-muted); white-space: nowrap; font-size: 10px; line-height: 14px; font-variant-numeric: tabular-nums; }
   &.is-assigned .channel-symbol { color: var(--screen-accent); }
   &.is-assigned .channel-name { font-weight: 600; }
+  &.is-active-preview { background: var(--primary-soft-bg); }
+  &.is-active-preview::before { content: ''; position: absolute; left: -4px; top: 0; bottom: 0; width: 3px; background: var(--screen-accent); }
 }
 
 .channel-list-hint { flex-shrink: 0; padding: 8px 12px; border-top: 1px solid var(--screen-border); color: var(--screen-muted); font-size: 12px; line-height: 18px; }
@@ -1368,9 +1374,12 @@ button:focus-visible {
 .record-content {
   flex: 1;
   min-height: 0;
-  margin-top: 12px;
+  margin-top: 8px;
   overflow-y: auto;
 }
+
+.event-date { padding: 5px 8px; color: var(--screen-muted); background: var(--bg-primary); font-size: 12px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.event-date:not(:first-child) { margin-top: 8px; }
 
 .event-item {
   display: grid;
@@ -1395,7 +1404,9 @@ button:focus-visible {
   overflow: hidden;
 }
 .event-image2 { height: 132px; }
-.event-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.event-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.event-channel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-time { font-variant-numeric: tabular-nums; }
 
 .event-image :deep(.el-image) { width: 100%; height: 100%; }
 .event-image2 { display: flex; position: relative; gap: 6px; }
@@ -1481,8 +1492,8 @@ button:focus-visible {
   .header { gap: 6px 10px; padding: 6px 10px; }
   .header .title { font-size: 17px; }
   .header-btn { padding: 0 6px; }
-  .right-panel.expanded { flex-basis: 248px; width: 248px; }
-  .select-area.expanded { flex-basis: 208px; width: 208px; }
+  .right-panel.expanded { flex-basis: 244px; width: 244px; }
+  .select-area.expanded { flex-basis: 192px; width: 192px; }
 }
 
 @media (max-width: 800px) {

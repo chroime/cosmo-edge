@@ -1,19 +1,22 @@
 <template>
   <div class="alarm-record ui-admin-page event-console">
     <header class="event-heading">
-      <h1>{{ t('nav.eventCenter') }}</h1>
-      <p>{{ t('nav.detectionAnalysis') }}</p>
+      <div>
+        <h1>{{ t('nav.eventCenter') }}</h1>
+        <p>{{ t('nav.detectionAnalysis') }}</p>
+      </div>
+      <div class="event-heading-actions">
+        <el-button @click="layaEventId = ''; layaVisible = true">{{ t('visualReview.title') }}</el-button>
+        <el-button @click="handleExport" :disabled="tableData.length === 0">{{ t('event.dataExport') }}</el-button>
+      </div>
     </header>
     <LayaReviewDialog v-model="layaVisible" :event-id="layaEventId" />
     <TopBar ref="topBarRef" :dataSouce="topBarData" :formData="formData" :labelWidth="60" :defaultExpand="true" @search="searchList" />
 
     <div class="table-container">
       <div class="table-header">
-        <h2>{{ t('nav.detectionAnalysis') }}</h2>
-        <div class="table-tools">
-          <el-button size="small" @click="layaEventId = ''; layaVisible = true">{{ t('visualReview.title') }}</el-button>
-          <el-button type="primary" size="small" @click="handleExport" :disabled="tableData.length === 0" class="ui-secondary-button">{{ t('event.dataExport') }}</el-button>
-        </div>
+        <span class="event-count">{{ t('event.recordCount', { n: pageData.total }) }}</span>
+        <span v-if="viewType === 'grid'" class="event-evidence-hint">{{ t('event.fullImageHint') }}</span>
       </div>
 
       <!-- 列表视图 -->
@@ -42,7 +45,7 @@
             {{ dateFormat(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.status')">
+        <el-table-column :label="t('event.uploadStatus')">
           <template #default="{ row }">
             <span :style="{color: row.reportStatus === 1 ? 'var(--theme-success, #67C23A)' : 'var(--theme-danger, #F56C6C)'}">
               {{ reportStatusText(row.reportStatus) }}
@@ -67,7 +70,9 @@
         <template v-if="tableData.length">
           <el-card v-for="item in tableData" :key="item.id" class="grid-item" :class="{'grid-item-selected': multipleSelections.includes(item.id)}">
             <div class="grid-content">
-              <el-image :src="item.fullPicture" fit="contain" class="grid-image" @click="handleImageView([item.fullPicture])" />
+              <button class="event-image-button" type="button" :aria-label="t('event.fullImage')" @click="handleImageView([item.fullPicture])">
+                <el-image :src="item.fullPicture" fit="contain" class="grid-image" />
+              </button>
               <div class="grid-info">
                 <div class="event-card-heading">
                   <h3 :title="resolveResourceAlgorithmName(item)">{{ resolveResourceAlgorithmName(item) }}</h3>
@@ -75,18 +80,11 @@
                     {{ reportStatusText(item.reportStatus) }}
                   </span>
                 </div>
-                <div class="info-item">
-                  <span class="label">{{ t('field.channelName') }}{{ localeColon }}</span>
-                  <span>{{ item.channelName }}</span>
+                <div class="event-location">
+                  <span :title="`${t('field.channelName')}${localeColon}${item.channelName || '—'}`">{{ item.channelName || '—' }}</span>
+                  <span :title="`${t('event.areaName')}${localeColon}${item.areaName || '—'}`">{{ item.areaName || '—' }}</span>
                 </div>
-                <div class="info-item">
-                  <span class="label">{{ t('event.areaName') }}{{ localeColon }}</span>
-                  <span>{{ item.areaName }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">{{ t('event.alarmTime') }}{{ localeColon }}</span>
-                  <span>{{ dateFormat(item.timestamp) }}</span>
-                </div>
+                <time class="event-time" :title="t('event.alarmTime')">{{ dateFormat(item.timestamp) }}</time>
               </div>
               <div class="grid-actions">
                 <el-button link class="ui-action ui-action-edit" @click="layaEventId = item.id; layaVisible = true">{{ t('visualReview.review') }}</el-button>
@@ -183,7 +181,7 @@ const topBarData = reactive({
       dataList: []
     },
     {
-      labelI18nKey: 'field.status',
+      labelI18nKey: 'event.uploadStatus',
       type: 'select',
       model: 'reportStatus',
       filterable: true,
@@ -502,10 +500,74 @@ onMounted(() => {
   background: transparent;
 }
 
+.event-console .event-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.event-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  :deep(.el-button + .el-button) { margin-left: 0; }
+}
+
+.event-console > :deep(.topBar-wrap.expanded) {
+  display: flex;
+  align-items: flex-end;
+  height: auto !important;
+  overflow: visible;
+  padding: 12px 14px !important;
+  gap: 12px;
+
+  .form-search {
+    display: grid;
+    grid-template-columns: minmax(320px, 2.2fr) repeat(2, minmax(140px, 1.15fr)) minmax(110px, .8fr);
+    align-items: end;
+    gap: 12px;
+  }
+  .formDiv {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    margin: 0;
+    gap: 7px;
+  }
+  .formTitle {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    text-align: left;
+    line-height: 18px;
+  }
+  .el-form, .el-formDate {
+    width: 100% !important;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .el-range-input { min-width: 0; font-size: 12px; }
+  .btnBar { align-self: flex-end; padding: 0; }
+}
+
+.event-console .table-header {
+  justify-content: flex-start;
+  min-height: 20px;
+  padding-bottom: 10px;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.event-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.event-evidence-hint { color: var(--text-muted); }
+
 .grid-view {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -518,7 +580,7 @@ onMounted(() => {
 
   :deep(.el-card__body) {
     height: 100%;
-    padding: 10px 10px 0;
+    padding: 8px 8px 0;
     box-sizing: border-box;
   }
 }
@@ -540,17 +602,28 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.event-image-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+}
+
 .grid-info {
   flex: 1;
-  padding: 10px 2px;
+  padding: 8px 2px 6px;
 }
 
 .event-card-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px 12px;
-  margin-bottom: 9px;
+  gap: 4px 8px;
+  margin-bottom: 4px;
 
   h3 {
     min-width: 0;
@@ -580,25 +653,35 @@ onMounted(() => {
   }
 
   &.is-uploaded { color: var(--success-color); }
-  &.is-pending { color: var(--danger-color); }
+  &.is-pending { color: var(--text-secondary); }
 }
 
-.info-item {
+.event-location {
   display: flex;
+  align-items: baseline;
   gap: 8px;
-  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
   line-height: 1.5;
-  font-variant-numeric: tabular-nums;
 
-  .label {
-    flex: none;
-    color: var(--text-secondary);
-  }
-
-  > span:last-child {
+  > span {
     min-width: 0;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
+  > span + span {
+    padding-left: 8px;
+    border-left: 1px solid var(--border-color);
+  }
+}
+
+.event-time {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .grid-actions {
@@ -606,8 +689,8 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 8px;
-  min-height: 38px;
-  padding: 5px 0;
+  min-height: 32px;
+  padding: 3px 0;
   border-top: 1px solid var(--border-light);
 }
 
@@ -627,11 +710,26 @@ onMounted(() => {
   gap: 3px 8px;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1399px) {
+  .grid-view { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .event-console > :deep(.topBar-wrap.expanded) {
+    flex-wrap: wrap;
+    .form-search { flex-basis: 100%; }
+    .btnBar { margin-left: auto; }
+  }
+}
+
+@media (max-width: 1100px) {
   .grid-view { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .event-console > :deep(.topBar-wrap.expanded) .form-search {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    .formDiv:first-child { grid-column: 1 / -1; }
+  }
 }
 
 @media (max-width: 720px) {
   .grid-view { grid-template-columns: minmax(0, 1fr); }
+  .event-console > :deep(.topBar-wrap.expanded) .form-search { grid-template-columns: minmax(0, 1fr); }
+  .event-evidence-hint { display: none; }
 }
 </style>

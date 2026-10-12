@@ -32,6 +32,8 @@ export default {
     "roiInvalid": "请选择 1–8 个有效问题，或填写区域提示词。"
 },
   visualReview: {
+    serviceStatus: '服务状态',
+    filterAction: '过滤动作',
   "decisionLabel": "规则结论",
   "actionLabel": "处理结果",
   "filtered": "已过滤",
@@ -387,6 +389,10 @@ export default {
     }
   },
   glossary: {
+    analysisUsage: '分析用途',
+    taskRunningChannels: '运行通道',
+    flowZoomIn: '放大',
+    flowZoomOut: '缩小',
     flowActualSize: '原始比例',
     flowFitOverview: '适应总览',
     flowDockPanel: '停靠面板',
@@ -1027,7 +1033,13 @@ export default {
     passwordChangedLoginAgain: '修改成功，请重新登录'
   },
   imageAnalysis: {
-    selectAlgorithmPlaceholder: '选择图片分析算法',
+    workflow: '图片分析流程',
+    selectTask: '选择场景任务',
+    viewResults: '查看结果',
+    results: '分析结果',
+    failed: '分析失败',
+    workflowHint: '选择场景任务并上传图片，点击“开始分析”查看逐图结果。',
+    selectAlgorithmPlaceholder: '选择图片分析场景任务',
     uploadImage: '上传图片',
     analyzing: '分析中...',
     startAnalysis: '开始分析',
@@ -1037,7 +1049,7 @@ export default {
     pending: '待分析',
     detectedTargets: '检测目标',
     noTargetsDetected: '未检测到目标',
-    emptyDescription: '请选择算法并上传图片进行分析',
+    emptyDescription: '请选择场景任务并上传图片进行分析',
     imagePreview: '图片预览',
     detectionCount: '检测数量',
     detectionDetails: '检测结果详情',
@@ -1127,6 +1139,9 @@ export default {
     itemPacketDiscard: '丢包率'
   },
   event: {
+    recordCount: '共 {n} 条记录',
+    fullImageHint: '点击图片查看完整证据',
+    uploadStatus: '上传状态',
     autoDismiss: '自动收起',
     allChannelEvents: '来自全部通道 · 按场景任务筛选',
     filterSceneTasks: '筛选场景任务',

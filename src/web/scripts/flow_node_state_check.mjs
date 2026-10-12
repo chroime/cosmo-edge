@@ -164,6 +164,7 @@ for (const linkage of [false, true]) {
   const cardRoot = (id, index = 0) => editor.all(node => node.type === 'node-fixture' && node.props.id === id, graphRoot(index))[0]
   const click = node => { assert.ok(node, 'expected rendered control'); node.props.onClick({ stopPropagation() {} }) }
   const hasClass = (node, name) => typeof node.props.class === 'string' && node.props.class.split(' ').includes(name)
+  const viewTools = (index = 0) => editor.all(node => hasClass(node, 'flow-view-tools'))[index]
   const nodeControl = (id, name, index = 0) => editor.all(node => hasClass(node, name), cardRoot(id, index))[0]
   const edgeControl = (edgeId, name, index = 0) => {
     const root = editor.all(node => node.type === 'edge-fixture' && node.props.id === edgeId, graphRoot(index))[0]
@@ -203,8 +204,8 @@ for (const linkage of [false, true]) {
       assert.equal(graphs[0].viewport.zoom, 1, 'both editors initialize at natural reading scale')
       graphRoot().props.onMove({ event: null, flowTransform: { x: 20, y: 30, zoom: 0.8 } })
       await editor.settle()
-      assert.equal(editor.all(node => hasClass(node, 'flow-zoom-value'), graphRoot().parent)[0].text, '80%', 'Vue Flow move payload updates the visible zoom without NaN')
-      click(editor.all(node => hasClass(node, 'flow-view-button'), graphRoot().parent)[0])
+      assert.equal(editor.all(node => hasClass(node, 'flow-zoom-value'), viewTools())[0].text, '80%', 'Vue Flow move payload updates the visible zoom without NaN')
+      click(editor.all(node => hasClass(node, 'flow-view-button'), viewTools())[0])
       await editor.settle()
       assert.equal(graphs[0].viewport.zoom, 1, 'the reading control restores actual-size text')
       const panel = () => editor.all(node => hasClass(node, 'node-detail-panel'))[0]

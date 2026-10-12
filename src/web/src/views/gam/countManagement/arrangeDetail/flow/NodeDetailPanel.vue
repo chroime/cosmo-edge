@@ -206,8 +206,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--bg-secondary);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
   cursor: grab;
   user-select: none;
   flex-shrink: 0;
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
 }
 
 .panel-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
   min-height: 0;
   overflow-y: auto;
   overflow-x: visible;
-  padding: 10px 16px 14px;
+  padding: 12px 14px 16px;
   container: flow-parameters / inline-size;
 }
 
@@ -387,7 +387,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
-  margin-bottom: 10px;
-  padding: 0 2px;
+  margin-bottom: 12px;
 }
 </style>

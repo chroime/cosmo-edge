@@ -239,14 +239,14 @@
         <!-- modelSelect 定制化组件  -->
         <div class="select-table-body" v-if="item.type.includes('modelSelect') && !['modelSelect_dino','modelSelect_ocr','modelSelect_sam2','modelSelect_qwen3vl','modelSelect_qwen3_5'].includes(item.type)">
           <div class="select-table-title">{{ t('glossary.selectLabel') }}</div>
-          <el-table :data="labelList" border size="small">
-            <el-table-column type="index" :label="t('field.no')" align="center" width="70">
+          <el-table :data="labelList" class="model-label-table" border size="small">
+            <el-table-column type="index" :label="t('field.no')" align="center" width="44">
             </el-table-column>
-            <el-table-column prop="nameCN" :label="t('field.name')" align="center">
+            <el-table-column prop="nameCN" :label="t('field.name')" min-width="150" class-name="model-label-name" show-overflow-tooltip>
             </el-table-column>
-            <el-table-column prop="class_name" :label="t('glossary.classId')" align="center">
+            <el-table-column prop="class_name" :label="t('glossary.classId')" min-width="150" class-name="model-label-name" show-overflow-tooltip>
             </el-table-column>
-            <el-table-column prop="used" :label="t('glossary.isUsed')" align="center">
+            <el-table-column prop="used" :label="t('glossary.isUsed')" align="center" width="66">
               <template #default="scope">
                 <el-checkbox v-model="scope.row.used"></el-checkbox>
               </template>
@@ -1539,9 +1539,8 @@ defineExpose({
 }
 
 .form-body {
-  padding: 10px 0;
-  // height: 450px;
-  overflow-y: scroll;
+  padding: 4px 0;
+  min-width: 0;
 }
 
 .area-rule-overview {
@@ -1604,6 +1603,24 @@ defineExpose({
 
 .select-table-title {
   padding-bottom: 10px;
+}
+
+.model-label-table {
+  width: 100%;
+
+  :deep(.el-table__cell) {
+    padding: 7px 0;
+  }
+
+  :deep(.cell) {
+    padding: 0 8px;
+  }
+
+  :deep(td.model-label-name .cell) {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
 }
 
 .collapse-body {

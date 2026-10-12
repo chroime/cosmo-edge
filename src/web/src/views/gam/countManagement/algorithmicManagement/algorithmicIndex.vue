@@ -29,47 +29,70 @@
       </div>
     </div>
 
-    <!-- 卡片网格 -->
-    <div class="task-grid">
-      <div
-        v-for="row in tableData"
-        :key="row.algorithmId"
-        class="task-card"
-        :class="{ selected: isCardSelected(row) }"
-      >
-        <!-- 选择框 -->
-        <div class="card-select">
-          <el-checkbox :model-value="isCardSelected(row)" @change="toggleCardSelect(row)" />
-        </div>
-        <!-- 删除操作保持可达，悬停或聚焦时强调 -->
-        <el-button v-if="row.supplier != 'HJ'" class="card-delete-btn ui-action" link @click.stop="deleteClick(row)">
-          <el-icon><Delete /></el-icon>{{ t('action.delete') }}
-        </el-button>
-        <div class="card-top">
-          <div class="card-icon" aria-hidden="true" v-html="getCategorySvg(row)"></div>
-          <div class="card-info">
-            <div class="card-title" :title="resolveResourceAlgorithmName(row)">{{ resolveResourceAlgorithmName(row) }}</div>
-            <div class="card-tags"><span class="category-tag">{{ returnCategoryName(row) }}</span></div>
-            <div class="card-meta">ID: {{ row.algorithmId }} · {{ getUsageLabel(row) }}</div>
-            <el-tooltip v-if="row.remark" :content="resolveResourceAlgorithmRemark(row)" placement="top" :show-after="300" popper-class="task-remark-tooltip">
-              <div class="card-desc">{{ resolveResourceAlgorithmRemark(row) }}</div>
-            </el-tooltip>
-          </div>
-        </div>
-        <!-- 底部 -->
-        <div class="card-footer">
-          <div class="card-status">
-            <span class="status-indicator" :class="getModelStatusOk(row) ? 'status-ok' : 'status-warn'" :title="getModelStatusOk(row) ? '' : returnLostModel(row.models || [])">
-              ● {{ getModelStatusOk(row) ? t('status.normal') : t('glossary.modelMissing') }}
-            </span>
-            <span class="running-count" v-if="channelCountMap[row.algorithmId]">{{ t('common.runningChannels', { n: channelCountMap[row.algorithmId] }) }}</span>
-          </div>
-          <div class="card-actions">
-            <el-button link size="small" @click.stop="arrangeDetailClick(row)" class="ui-action ui-action-flow">{{ t('action.arrangeAlgorithm') }}</el-button>
-            <el-button link size="small" v-if="row.supplier != 'HJ'" @click.stop="editClick(row)" class="ui-action ui-action-edit">{{ t('action.edit') }}</el-button>
-          </div>
-        </div>
-      </div>
+    <!-- 任务按字段对齐；状态只表示模型依赖是否齐全。 -->
+    <div class="task-list" tabindex="0" :aria-label="t('nav.sceneTasks')">
+      <table class="task-table">
+        <colgroup>
+          <col class="select-column" />
+          <col class="identity-column" />
+          <col class="usage-column" />
+          <col class="category-column" />
+          <col class="status-column" />
+          <col class="channels-column" />
+          <col class="actions-column" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" class="task-select-cell">
+              <el-checkbox v-model="selectAll" @change="toggleSelectAll" :indeterminate="isIndeterminate" :aria-label="t('action.selectAll')" />
+            </th>
+            <th scope="col">{{ t('field.taskName') }}</th>
+            <th scope="col">{{ t('glossary.analysisUsage') }}</th>
+            <th scope="col">{{ t('field.taskType') }}</th>
+            <th scope="col">{{ t('glossary.modelStatus') }}</th>
+            <th scope="col">{{ t('glossary.taskRunningChannels') }}</th>
+            <th scope="col" class="task-actions-cell">{{ t('field.actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in tableData" :key="row.algorithmId" :class="{ selected: isCardSelected(row) }">
+            <td class="task-select-cell">
+              <el-checkbox :model-value="isCardSelected(row)" :aria-label="resolveResourceAlgorithmName(row)" @change="toggleCardSelect(row)" />
+            </td>
+            <td class="task-identity">
+              <div class="task-name" :title="resolveResourceAlgorithmName(row)">{{ resolveResourceAlgorithmName(row) }}</div>
+              <div class="task-meta">
+                <span class="task-id">ID: {{ row.algorithmId }}</span>
+                <el-tooltip v-if="row.remark" :content="resolveResourceAlgorithmRemark(row)" placement="top" :show-after="300" popper-class="task-remark-tooltip">
+                  <span class="task-description">{{ resolveResourceAlgorithmRemark(row) }}</span>
+                </el-tooltip>
+              </div>
+            </td>
+            <td>{{ getUsageLabel(row) }}</td>
+            <td>{{ returnCategoryName(row) }}</td>
+            <td>
+              <span class="status-indicator" :class="getModelStatusOk(row) ? 'status-ok' : 'status-warn'" :title="getModelStatusOk(row) ? '' : returnLostModel(row.models || [])">
+                <span class="status-dot" aria-hidden="true"></span>{{ getModelStatusOk(row) ? t('status.normal') : t('glossary.modelMissing') }}
+              </span>
+            </td>
+            <td class="running-count">
+              {{ channelCountMap[row.algorithmId] ? t('home.channelUnit', { n: channelCountMap[row.algorithmId] }) : '—' }}
+            </td>
+            <td class="task-actions-cell">
+              <div class="task-actions">
+                <el-button link size="small" @click.stop="arrangeDetailClick(row)" class="ui-action ui-action-flow">{{ t('action.arrangeAlgorithm') }}</el-button>
+                <el-button link size="small" v-if="row.supplier != 'HJ'" @click.stop="editClick(row)" class="ui-action ui-action-edit">{{ t('action.edit') }}</el-button>
+                <el-button link size="small" v-if="row.supplier != 'HJ'" @click.stop="deleteClick(row)" class="ui-action task-delete-action">
+                  <el-icon><Delete /></el-icon>{{ t('action.delete') }}
+                </el-button>
+              </div>
+            </td>
+          </tr>
+          <tr v-if="!tableData.length" class="task-empty-row">
+            <td colspan="7">{{ t('common.noData') }}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <!-- 分页 -->
@@ -736,108 +759,93 @@ export default {
   .toolbar-left, .toolbar-right { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .toolbar-right .el-button + .el-button { margin-left: 0; }
   .task-count { color: var(--text-secondary); font-size: 13px; background: transparent; }
-  .task-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-auto-rows: minmax(168px, auto);
-    gap: 14px;
-    padding: 0 0 12px;
+  .task-list {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    align-content: start;
-  }
-  .task-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 168px;
-    height: auto;
-    padding: 12px 16px 10px;
+    overflow: auto;
     border: 1px solid var(--border-color);
     border-radius: 7px;
     background: var(--bg-panel);
-    box-shadow: none;
-    transition: border-color 0.15s;
+    scrollbar-gutter: stable;
 
-    &:hover { transform: none; box-shadow: none; border-color: var(--border-hover); }
-    &.selected { border-color: var(--primary-color); box-shadow: inset 0 0 0 1px var(--primary-color); }
+    &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
   }
-  .card-select {
-    position: absolute;
-    top: 6px;
-    left: 16px;
-    z-index: 1;
-    :deep(.el-checkbox) { height: 24px; }
-  }
-  .card-delete-btn.el-button {
-    position: absolute;
-    top: 6px;
-    right: 11px;
-    color: var(--text-secondary) !important;
+  .task-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 20px;
 
-    &:hover, &:focus-visible {
-      color: var(--danger-color) !important;
-      background: var(--el-color-danger-light-9) !important;
+    .select-column { width: 42px; }
+    .usage-column { width: 116px; }
+    .category-column { width: 100px; }
+    .status-column { width: 124px; }
+    .channels-column { width: 116px; }
+    .actions-column { width: 250px; }
+
+    th, td { padding: 12px 14px; text-align: left; overflow-wrap: anywhere; }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding-block: 11px;
+      background: var(--table-header-bg);
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-weight: 500;
     }
+    td { height: 74px; box-sizing: border-box; border-bottom: 1px solid var(--border-light); background: var(--bg-panel); }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: var(--table-row-hover-bg); }
+    tbody tr.selected td { background: var(--el-color-primary-light-9); }
+    .task-select-cell { padding-inline: 14px 8px; }
+    .task-actions-cell {
+      position: sticky;
+      right: 0;
+      z-index: 1;
+      border-left: 1px solid var(--border-light);
+    }
+    th.task-actions-cell { z-index: 3; }
   }
-  .card-top { display: flex; align-items: flex-start; gap: 12px; margin: 22px 0 10px; min-width: 0; }
-  .card-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
-    border-radius: 6px;
-    color: var(--secondary-color);
-    background: var(--bg-subtle);
-    :deep(svg) { width: 24px; height: 24px; }
-  }
-  .card-info { min-width: 0; flex: 1; }
-  .card-title {
+  .task-select-cell :deep(.el-checkbox) { height: 24px; }
+  .task-name {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     color: var(--text-primary);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     line-height: 22px;
-    margin-bottom: 3px;
     overflow: hidden;
     overflow-wrap: anywhere;
   }
-  .card-meta { color: var(--text-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
-  .card-desc { color: var(--text-secondary); font-size: 12px; line-height: 18px; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-  .card-tags { margin-bottom: 2px; }
-  .category-tag { color: var(--text-secondary); background: transparent; padding: 0; font-size: 12px; line-height: 18px; }
-  .card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    min-width: 0;
-    gap: 5px 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-light);
-    margin-top: auto;
-  }
-  .card-status { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px; font-size: 12px; }
+  .task-meta { display: flex; align-items: center; gap: 8px; min-width: 0; margin-top: 3px; font-size: 12px; line-height: 18px; }
+  .task-id { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .task-description { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     &.status-ok { color: var(--success-color); }
     &.status-warn { color: var(--danger-color); cursor: help; }
   }
-  .running-count { color: var(--text-secondary); font-weight: 500; }
-  .card-actions { display: flex; flex-shrink: 0; gap: 8px; margin-left: auto; }
+  .status-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: currentColor; }
+  .running-count { font-variant-numeric: tabular-nums; }
+  .task-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 5px; }
+  .task-actions .el-button.ui-action { font-size: 12px; }
+  .task-actions .task-delete-action {
+    &:hover, &:focus-visible { color: var(--danger-color) !important; background: var(--el-color-danger-light-9) !important; }
+  }
+  .task-table .task-empty-row td { height: 180px; text-align: center; color: var(--text-secondary); }
   .pagination-container { display: flex; justify-content: flex-end; padding: 12px 0 0; flex-shrink: 0; overflow-x: auto; }
 
-  @media (max-width: 1200px) { .task-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 768px) {
-    .task-grid { grid-template-columns: minmax(0, 1fr); }
     .task-page-heading { margin-bottom: 14px; }
+    .task-table .task-actions-cell { position: static; }
   }
 }
 .tips { text-align: center; padding: 20px 0; }

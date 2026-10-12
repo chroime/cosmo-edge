@@ -49,13 +49,22 @@
         class="model-card"
       >
         <div class="card-top">
-          <div class="repo-model-icon"><AlgorithmTypeIcon :type="getModelIconType(model)" /></div>
+          <div class="repo-model-icon" aria-hidden="true"><AlgorithmTypeIcon :type="getModelIconType(model)" /></div>
           <div class="card-info">
             <div class="card-title" :title="model.modelName">{{ model.modelName }}</div>
             <div class="card-tags"><span class="model-type-tag">{{ getModelTypeLabel(model) }}</span></div>
-            <div class="card-meta">ID: {{ model.modelCode }} <span aria-hidden="true">·</span> {{ model.version || '—' }}</div>
           </div>
         </div>
+        <dl class="model-metadata">
+          <div>
+            <dt>{{ t('field.modelId') }}</dt>
+            <dd :title="String(model.modelCode)">{{ model.modelCode }}</dd>
+          </div>
+          <div>
+            <dt>{{ t('glossary.versionNo') }}</dt>
+            <dd :title="model.version || '—'">{{ model.version || '—' }}</dd>
+          </div>
+        </dl>
         <div class="card-footer">
           <span class="alg-count">{{ t('glossary.linkedSceneTasks', { n: getModelAlgCount(model.modelCode) }) }}</span>
           <div class="card-actions">
@@ -1486,7 +1495,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 16px 16px 10px;
+    padding: 14px 16px 8px;
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
     border-radius: 7px;
@@ -1495,34 +1504,44 @@ onMounted(() => {
 
     &:hover { transform: none; border-color: var(--border-hover); box-shadow: none; }
   }
-  .card-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; margin-bottom: 12px; }
+  .card-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; min-height: 54px; margin-bottom: 10px; }
   .repo-model-icon {
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 44px;
-    height: 44px;
-    flex: 0 0 44px;
+    width: 36px;
+    height: 40px;
+    flex: 0 0 36px;
     color: var(--secondary-color);
-    background: var(--bg-subtle);
-    border-radius: 6px;
+    background: transparent;
   }
   .repo-model-icon :deep(svg) { width: 28px; height: 28px; }
   .card-info { min-width: 0; flex: 1; }
   .card-title {
     margin: 0 0 4px;
     color: var(--text-primary);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
     font-size: 16px;
     line-height: 22px;
     font-weight: 600;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
-  .card-tags { margin-bottom: 4px; }
+  .card-tags { margin-bottom: 0; }
   .model-type-tag { padding: 0; background: transparent; color: var(--text-secondary); font-size: 12px; line-height: 18px; }
-  .card-meta { color: var(--text-secondary); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
-  .card-meta > span { margin: 0 3px; }
+  .model-metadata {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    margin: 0 0 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--border-light);
+    > div { min-width: 0; }
+    > div + div { margin-left: 14px; padding-left: 14px; border-left: 1px solid var(--border-light); }
+    dt { color: var(--text-secondary); font-size: 12px; line-height: 18px; }
+    dd { margin: 2px 0 0; color: var(--secondary-color); font-size: 13px; line-height: 20px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  }
   .card-footer {
     display: flex;
     align-items: center;

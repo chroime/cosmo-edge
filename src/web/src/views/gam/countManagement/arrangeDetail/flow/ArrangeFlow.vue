@@ -1,6 +1,24 @@
 <template>
   <div class="page">
-    <main class="page-main" :style="{ width: `${width}px`, height: `${height}px` }">
+    <div ref="toolbarRef" class="flow-toolbar">
+      <slot name="toolbar" />
+      <div class="flow-view-tools">
+        <button type="button" class="flow-zoom-button" :title="t('glossary.flowZoomOut')" :aria-label="t('glossary.flowZoomOut')" :disabled="currentViewport.zoom <= minZoom" @click="zoomOut">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12" /></svg>
+        </button>
+        <span class="flow-zoom-value" aria-live="polite">{{ Math.round(currentViewport.zoom * 100) }}%</span>
+        <button type="button" class="flow-zoom-button" :title="t('glossary.flowZoomIn')" :aria-label="t('glossary.flowZoomIn')" :disabled="currentViewport.zoom >= maxZoom" @click="zoomIn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12M10 4v12" /></svg>
+        </button>
+        <span class="flow-tool-separator" aria-hidden="true" />
+        <button type="button" class="flow-view-button" :title="t('glossary.flowActualSize')" @click="restoreReadingView">{{ t('glossary.flowActualSize') }}</button>
+        <button type="button" class="flow-view-button" @click="centerView">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5" /></svg>
+          <span>{{ t('glossary.flowFitOverview') }}</span>
+        </button>
+      </div>
+    </div>
+    <main class="page-main" :style="{ width: `${width}px`, height: `${editorViewport.height}px` }">
       <div class="flow-canvas" :style="{ width: `${canvasViewport.width}px` }">
         <VueFlow
           v-model:nodes="nodes"
@@ -13,18 +31,7 @@
           @move="handleViewportMove"
         >
           <Background pattern-color="var(--flow-grid)" gap="16" />
-          <Controls :show-interactive="false" :show-fit-view="false" />
         </VueFlow>
-        <div class="flow-view-tools">
-          <button type="button" class="flow-view-button" :title="t('glossary.flowActualSize')" @click="restoreReadingView">
-            <span class="flow-zoom-value">{{ Math.round(currentViewport.zoom * 100) }}%</span>
-            <span>{{ t('glossary.flowActualSize') }}</span>
-          </button>
-          <button type="button" class="flow-view-button" @click="centerView">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5" /></svg>
-            <span>{{ t('glossary.flowFitOverview') }}</span>
-          </button>
-        </div>
       </div>
 
       <!-- Docking reserves canvas space; floating remains available for dragging. -->
@@ -35,7 +42,7 @@
         :node-data="detailPanelNodeData"
         :atomic-list="atomicList"
         :position="screenPanelPosition"
-        :viewport="{ width, height }"
+        :viewport="editorViewport"
         :docked="panelDocked"
         :dock-size="dockedPanelSize"
         :floating-size="floatingPanelSize"
@@ -58,11 +65,10 @@
 
 
 <script setup>
-import { ref, markRaw, watch, nextTick, computed, provide, readonly } from 'vue'
+import { ref, markRaw, watch, nextTick, computed, provide, readonly, onMounted, onBeforeUnmount } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import ActionView from './ActionView.vue'
-import { Controls } from '@vue-flow/controls'
 import dagre from 'dagre'
 import { flowEditorKey } from '@/views/gam/countManagement/arrangeDetail/flow/flowEditorContext.js'
 import _ from 'lodash'
@@ -73,7 +79,6 @@ import { t } from '@/i18n'
 
 import '@vue-flow/core/dist/style.css'
 // theme-default.css 已移除 — 其默认阴影/边框样式由自定义CSS接管
-import '@vue-flow/controls/dist/style.css'
 
 import CustomFormNode from './CustomFormNode.vue'
 import StartNode from './StartNode.vue'
@@ -131,7 +136,7 @@ const edgeTypes = {
   action: markRaw(ActionEdge)
 }
 
-const { onPaneReady } = useVueFlow()
+const { onPaneReady, minZoom, maxZoom } = useVueFlow()
 const flowInstance = ref(null)
 const templateVersion = ref(0)
 const hasFitViewOnce = ref(false)
@@ -319,12 +324,33 @@ const detailPanelNodeData = computed(() =>
 )
 const screenPanelPosition = ref({ x: 0, y: 0 })
 const currentViewport = ref({ x: 0, y: 0, zoom: 1 })
-const dockedPanelSize = computed(() => getDockedPanelSize(detailPanelNodeData.value?.actionId, props))
-const floatingPanelSize = computed(() => getReadingFloatingPanelSize(detailPanelNodeData.value?.actionId, props, currentViewport.value.zoom))
+const toolbarRef = ref(null)
+const toolbarHeight = ref(49)
+const editorViewport = computed(() => ({ width: props.width, height: Math.max(1, props.height - toolbarHeight.value) }))
+const dockedPanelSize = computed(() => getDockedPanelSize(detailPanelNodeData.value?.actionId, editorViewport.value))
+const floatingPanelSize = computed(() => getReadingFloatingPanelSize(detailPanelNodeData.value?.actionId, editorViewport.value, currentViewport.value.zoom))
 const canvasViewport = computed(() => ({
-  width: Math.max(1, props.width - (detailPanelNodeId.value && panelDocked.value ? dockedPanelSize.value.width + 12 : 0)),
-  height: props.height
+  width: Math.max(1, props.width - (detailPanelNodeId.value && panelDocked.value ? dockedPanelSize.value.width : 0)),
+  height: editorViewport.value.height
 }))
+
+let toolbarObserver = null
+onMounted(() => {
+  // Account for a wrapped toolbar at narrow widths and in longer translations.
+  const measureToolbar = () => {
+    const measuredHeight = toolbarRef.value?.getBoundingClientRect?.().height
+    if (measuredHeight > 0) toolbarHeight.value = measuredHeight
+  }
+  measureToolbar()
+  if (toolbarRef.value && typeof ResizeObserver !== 'undefined') {
+    toolbarObserver = new ResizeObserver(measureToolbar)
+    toolbarObserver.observe(toolbarRef.value)
+  }
+})
+onBeforeUnmount(() => toolbarObserver?.disconnect())
+
+const zoomIn = () => flowInstance.value?.zoomIn({ duration: 200 })
+const zoomOut = () => flowInstance.value?.zoomOut({ duration: 200 })
 
 /** VueFlow 视口移动/缩放时更新坐标 */
 const handleViewportMove = (payload) => {
@@ -462,7 +488,7 @@ const focusNode = (nodeId) => {
   if (!panelDocked.value) {
     screenPanelPosition.value = {
       x: props.width - floatingPanelSize.value.width - 16,
-      y: Math.max(16, (props.height - floatingPanelSize.value.height) / 2)
+      y: Math.max(16, (editorViewport.value.height - floatingPanelSize.value.height) / 2)
     }
   }
   setFlowViewport({
@@ -496,7 +522,7 @@ const centerView = () => {
 }
 
 watch(
-  () => [props.width, props.height],
+  () => [props.width, props.height, toolbarHeight.value],
   () => {
     if (detailPanelNodeId.value) {
       nextTick(() => requestAnimationFrame(() => focusNode(detailPanelNodeId.value)))
@@ -979,26 +1005,22 @@ watch(
   background-color: var(--flow-canvas);
 }
 
-.page-header {
-  padding: 12px 20px;
+.flow-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  flex: none;
+  min-height: 49px;
+  box-sizing: border-box;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-white);
 }
 
-.page-header h1 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.page-header p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
 .page-main {
   display: flex;
-  gap: 12px;
   flex: none;
   min-height: 0;
   overflow: hidden;
@@ -1013,28 +1035,22 @@ watch(
 }
 
 .flow-view-tools {
-  position: absolute;
-  left: 56px;
-  bottom: 14px;
   display: flex;
+  align-items: center;
   gap: 4px;
-  max-width: calc(100% - 70px);
   flex-wrap: wrap;
-  padding: 4px;
-  background: var(--bg-white);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  z-index: 5;
+  margin-left: auto;
 }
 
-.flow-view-button {
+.flow-view-button,
+.flow-zoom-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 6px 8px;
-  min-height: 30px;
-  border: 0;
+  padding: 5px 8px;
+  height: 32px;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
@@ -1043,17 +1059,20 @@ watch(
   cursor: pointer;
 }
 
-.flow-view-button:hover {
+.flow-view-button:hover,
+.flow-zoom-button:hover:not(:disabled) {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
-.flow-view-button:focus-visible {
+.flow-view-button:focus-visible,
+.flow-zoom-button:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 1px;
 }
 
-.flow-view-button svg {
+.flow-view-button svg,
+.flow-zoom-button svg {
   width: 16px;
   height: 16px;
   fill: none;
@@ -1062,42 +1081,35 @@ watch(
 }
 
 .flow-zoom-value {
-  min-width: 38px;
+  min-width: 48px;
+  text-align: center;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
+}
+
+.flow-zoom-button {
+  width: 32px;
+  padding: 6px;
+}
+
+.flow-zoom-button:disabled {
+  cursor: not-allowed;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+}
+
+.flow-tool-separator {
+  height: 18px;
+  width: 1px;
+  margin: 0 4px;
+  background: var(--border-color);
 }
 
 .page-main :deep(.vue-flow) {
   width: 100%;
   height: 100%;
   overflow: hidden;
-}
-
-.page-main :deep(.vue-flow__controls) {
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: none;
-  overflow: hidden;
-}
-
-.page-main :deep(.vue-flow__controls-button) {
-  color: var(--secondary-color);
-  background: var(--bg-white);
-  border-bottom-color: var(--border-light);
-}
-
-.page-main :deep(.vue-flow__controls-button:hover:not(:disabled)) {
-  color: var(--primary-color);
-  background: var(--bg-secondary);
-}
-
-.page-main :deep(.vue-flow__controls-button svg) {
-  fill: currentColor;
-}
-
-.page-main :deep(.vue-flow__controls-button:disabled) {
-  color: var(--text-muted);
-  background: var(--bg-secondary);
 }
 
 .page-main :deep(.edge-menu) {

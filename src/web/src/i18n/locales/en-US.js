@@ -32,6 +32,8 @@ export default {
     "roiInvalid": "Select 1–8 valid questions or enter a region prompt."
 },
   visualReview: {
+    serviceStatus: 'Service status',
+    filterAction: 'Filter action',
   "decisionLabel": "Policy verdict",
   "actionLabel": "Action",
   "filtered": "Filtered",
@@ -387,6 +389,10 @@ export default {
     }
   },
   glossary: {
+    analysisUsage: 'Analysis use',
+    taskRunningChannels: 'Running channels',
+    flowZoomIn: 'Zoom in',
+    flowZoomOut: 'Zoom out',
     flowActualSize: 'Actual size',
     flowFitOverview: 'Fit overview',
     flowDockPanel: 'Dock panel',
@@ -1027,7 +1033,13 @@ export default {
     passwordChangedLoginAgain: 'Password changed. Please log in again.'
   },
   imageAnalysis: {
-    selectAlgorithmPlaceholder: 'Select image analysis algorithm',
+    workflow: 'Image analysis workflow',
+    selectTask: 'Select scene task',
+    viewResults: 'View results',
+    results: 'Analysis results',
+    failed: 'Analysis failed',
+    workflowHint: 'Select a scene task, upload images, then start analysis to view each result.',
+    selectAlgorithmPlaceholder: 'Select an image analysis scene task',
     uploadImage: 'Upload Image',
     analyzing: 'Analyzing...',
     startAnalysis: 'Start Analysis',
@@ -1037,7 +1049,7 @@ export default {
     pending: 'Pending',
     detectedTargets: 'Detected Targets',
     noTargetsDetected: 'No targets detected',
-    emptyDescription: 'Select an algorithm and upload images to analyze',
+    emptyDescription: 'Select a scene task and upload images to analyze.',
     imagePreview: 'Image Preview',
     detectionCount: 'Detection Count',
     detectionDetails: 'Detection Details',
@@ -1127,6 +1139,9 @@ export default {
     itemPacketDiscard: 'Packet Loss'
   },
   event: {
+    recordCount: '{n} records',
+    fullImageHint: 'Open an image to view full evidence',
+    uploadStatus: 'Upload status',
     autoDismiss: 'Closes automatically',
     allChannelEvents: 'All channels · Filter by scene task',
     filterSceneTasks: 'Filter scene tasks',

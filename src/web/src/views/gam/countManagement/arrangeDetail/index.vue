@@ -3,6 +3,7 @@
     <div class="top-tool scene-heading">
       <div class="name-version">
         <span class="scene-context">{{ t('nav.sceneTasks') }}</span>
+        <svg class="scene-breadcrumb-separator" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" /></svg>
         <span class="arrange-name" @click="showVersionClick">{{ displayAlgorithmName }}</span>
       </div>
       <div class="scene-actions">
@@ -16,14 +17,17 @@
       <div class="right-body">
         <el-tabs v-model="tabActiveName" class="scene-tabs">
           <el-tab-pane :label="t('glossary.businessFlow')" name="flow">
-            <div class="arrange-toolbar">
-              <label class="arrange-template-label" for="flow-template">{{ t('field.selectTemplate') }}</label>
-              <el-select id="flow-template" v-model="selectedTemplate" :placeholder="t('field.selectTemplate')" class="arrange-template-select" filterable @change="handleTemplateChange">
-                <el-option v-for="item in templateList" :key="item.algorithmCode" :label="resolveResourceAlgorithmName(item)" :value="item.algorithmCode" />
-              </el-select>
-            </div>
             <div id="arrange-content" class="arrange-content" ref="arrangeContentRef">
-              <arrange-flow v-if="showArrangeFlow" ref="flowRef" :width="width" :height="height" :algorithmData="algorithmData" :algorithmMetadata="algorithmMetadata" :actionList="actionList" :atomicCode="$route.query.algorithmId" @onMetadata="syncMetadata"></arrange-flow>
+              <arrange-flow v-if="showArrangeFlow" ref="flowRef" :width="width" :height="height" :algorithmData="algorithmData" :algorithmMetadata="algorithmMetadata" :actionList="actionList" :atomicCode="$route.query.algorithmId" @onMetadata="syncMetadata">
+                <template #toolbar>
+                  <div class="arrange-template">
+                    <label class="arrange-template-label" for="flow-template">{{ t('field.selectTemplate') }}</label>
+                    <el-select id="flow-template" v-model="selectedTemplate" :placeholder="t('field.selectTemplate')" class="arrange-template-select" filterable @change="handleTemplateChange">
+                      <el-option v-for="item in templateList" :key="item.algorithmCode" :label="resolveResourceAlgorithmName(item)" :value="item.algorithmCode" />
+                    </el-select>
+                  </div>
+                </template>
+              </arrange-flow>
             </div>
           </el-tab-pane>
           <el-tab-pane :label="t('glossary.detectionArea')" name="detection">
@@ -551,8 +555,8 @@ const goBack = () => {
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  margin-bottom: 18px;
-  min-height: 42px;
+  margin-bottom: 4px;
+  min-height: 40px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -575,6 +579,16 @@ const goBack = () => {
 .scene-context {
   color: var(--text-secondary);
   font-size: 13px;
+  flex-shrink: 0;
+}
+
+.scene-breadcrumb-separator {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.5;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -599,37 +613,34 @@ const goBack = () => {
   display: inline-block;
   line-height: 1.35;
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 650;
   overflow-wrap: anywhere;
   cursor: pointer;
 }
 
-.arrange-toolbar {
+.arrange-template {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-bottom: 0;
-  border-radius: 8px 8px 0 0;
-  background: var(--bg-white);
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 300px;
 }
 
 .arrange-template-label {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 13px;
+  flex-shrink: 0;
 }
 
 .arrange-template-select {
-  width: 280px;
-  max-width: 100%;
+  width: 260px;
+  max-width: min(100%, 34vw);
 }
 
 .arrange-content {
   border: 1px solid var(--border-color);
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 6px 6px;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -651,12 +662,12 @@ const goBack = () => {
   }
 
   :deep(.scene-tabs > .el-tabs__header) {
-    margin: 0 0 16px;
+    margin: 0;
     background: transparent;
   }
 
   :deep(.scene-tabs > .el-tabs__header .el-tabs__item) {
-    height: 42px;
+    height: 36px;
     font-size: 14px;
     color: var(--text-secondary);
     &.is-active { color: var(--primary-color); }
@@ -671,8 +682,9 @@ const goBack = () => {
 
 .name-version {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
   min-width: 0;
   color: var(--text-secondary);
 }

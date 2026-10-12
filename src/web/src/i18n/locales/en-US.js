@@ -1158,10 +1158,10 @@ export default {
     itemPacketDiscard: 'Packet Loss'
   },
   event: {
-    fitCover: "Fill window",
+    fitCover: "Crop to fill",
     fitContain: "Full image",
-    fitCoverHint: "Fill the window without stretching; edges may be cropped",
-    fitContainHint: "Show the full image; black bars may appear",
+    fitCoverHint: "Switch to crop to fill; edges outside the window will be cropped",
+    fitContainHint: "Switch to the full image; preserve every edge with bars when proportions differ",
 
     recordCount: '{n} records',
     fullImageHint: 'Open an image to view full evidence',

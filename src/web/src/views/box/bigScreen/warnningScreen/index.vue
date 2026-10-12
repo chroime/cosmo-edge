@@ -296,7 +296,7 @@ const selectAreaEl = ref(null)
 // Data
 const currentTime = ref('')
 const screenType = ref(4)
-const windowFitModes = ref(['cover', 'cover', 'cover', 'cover'])
+const windowFitModes = ref(['contain', 'contain', 'contain', 'contain'])
 const alarmCount = ref(0)
 const eventList = ref([])
 const rawAlgorithmList = ref([])

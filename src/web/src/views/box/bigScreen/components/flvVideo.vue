@@ -20,9 +20,9 @@
         </el-select>
       </div>
       <div class="player-actions">
-        <button type="button" class="video-fit" :title="t(fitMode === 'cover' ? 'event.fitContainHint' : 'event.fitCoverHint')" :aria-label="t(fitMode === 'cover' ? 'event.fitContain' : 'event.fitCover')" @click="emit('update:fitMode', fitMode === 'cover' ? 'contain' : 'cover')">
-          <svg class="fit-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="4" width="16" height="12" rx="1.5" /><path v-if="fitMode === 'cover'" d="M5 7h10v6H5z" /><path v-else d="M6 4v3H2m12-3v3h4M6 16v-3H2m12 3v-3h4" /></svg>
-          <span>{{ t(fitMode === 'cover' ? 'event.fitContain' : 'event.fitCover') }}</span>
+        <button type="button" class="video-fit" :title="t(fitMode === 'cover' ? 'event.fitContainHint' : 'event.fitCoverHint')" :aria-label="t(fitMode === 'cover' ? 'event.fitCover' : 'event.fitContain')" @click="emit('update:fitMode', fitMode === 'cover' ? 'contain' : 'cover')">
+          <svg class="fit-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="4" width="16" height="12" rx="1.5" /><path v-if="fitMode === 'contain'" d="M5 7h10v6H5z" /><path v-else d="M6 4v3H2m12-3v3h4M6 16v-3H2m12 3v-3h4" /></svg>
+          <span>{{ t(fitMode === 'cover' ? 'event.fitCover' : 'event.fitContain') }}</span>
         </button>
         <button v-if="isFullScreen !== null" type="button" class="video-icon" :title="t('event.exitFullscreen')" :aria-label="t('event.exitFullscreen')" @click="handleExitFullScreen"><el-icon><ScaleToOriginal /></el-icon></button>
         <button v-else type="button" class="video-icon" :title="t('event.fullscreen')" :aria-label="t('event.fullscreen')" @click="handleFullScreen"><el-icon><FullScreen /></el-icon></button>
@@ -49,7 +49,7 @@ const props = defineProps({
   index: Number,
   isFullScreen: [Number, null],
   taskList: Array,
-  fitMode: { type: String, default: 'cover', validator: value => ['cover', 'contain'].includes(value) }
+  fitMode: { type: String, default: 'contain', validator: value => ['cover', 'contain'].includes(value) }
 })
 
 const emit = defineEmits(['runAlgorithmIdChange', 'stop', 'fullScreen', 'update:fitMode'])
@@ -1026,7 +1026,7 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   background: #11151c;
 }
 

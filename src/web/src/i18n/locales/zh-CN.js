@@ -1158,10 +1158,10 @@ export default {
     itemPacketDiscard: '丢包率'
   },
   event: {
-    fitCover: "铺满窗口",
+    fitCover: "裁切铺满",
     fitContain: "完整画面",
-    fitCoverHint: "等比铺满窗口，可能裁切画面边缘",
-    fitContainHint: "显示完整画面，可能出现黑边",
+    fitCoverHint: "点击切换为裁切铺满，将裁去超出窗口的画面边缘",
+    fitContainHint: "点击切换为完整画面，保留全部画面，比例不同时留边",
 
     recordCount: '共 {n} 条记录',
     fullImageHint: '点击图片查看完整证据',

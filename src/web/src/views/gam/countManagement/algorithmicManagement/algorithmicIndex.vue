@@ -57,7 +57,7 @@
             </td>
             <td class="task-identity">
               <div class="task-identity-content">
-                <FlowNodeIcon class="task-category-icon" :kind="taskCategoryIcon(row.algorithmCategory)" />
+                <SceneTaskIcon class="task-category-icon" :task="row" />
                 <el-tooltip :content="getTaskIdentityDetails(row)" placement="top-start" :show-after="400" popper-class="task-remark-tooltip">
                   <div class="task-identity-text" tabindex="0">
                     <div class="task-name">{{ resolveResourceAlgorithmName(row) }}</div>
@@ -178,8 +178,8 @@ import { ArrowDown } from '@element-plus/icons-vue'
 import moment from 'moment'
 import { t, localeColon } from '@/i18n'
 import { resolveResourceAlgorithmRemark, resolveResourceAlgorithmName } from '@/utils/i18nResource'
-import FlowNodeIcon from '../arrangeDetail/flow/FlowNodeIcon.vue'
-import { emptyTaskChannelSummary, summarizeTaskChannels, taskCategoryIcon } from '@/utils/sceneTaskDisplay'
+import SceneTaskIcon from '@/components/SceneTaskIcon.vue'
+import { emptyTaskChannelSummary, summarizeTaskChannels } from '@/utils/sceneTaskDisplay'
 import {
   uploadFileInChunks,
   UploadPurpose
@@ -189,10 +189,10 @@ export default {
   components: {
     TopBar,
     ArrowDown,
-    FlowNodeIcon
+    SceneTaskIcon
   },
   setup() {
-    return { t, localeColon, resolveResourceAlgorithmRemark, resolveResourceAlgorithmName, taskCategoryIcon }
+    return { t, localeColon, resolveResourceAlgorithmRemark, resolveResourceAlgorithmName }
   },
   data() {
     return {

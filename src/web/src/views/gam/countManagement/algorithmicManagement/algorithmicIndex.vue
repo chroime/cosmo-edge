@@ -1,10 +1,7 @@
 <template>
   <div class="task-page ui-admin-page">
     <div class="task-page-heading">
-      <div>
-        <h1>{{ t('nav.sceneTasks') }}</h1>
-        <p>{{ t('glossary.sceneTasksSubtitle') }}</p>
-      </div>
+      <h1>{{ t('nav.sceneTasks') }}</h1>
       <el-button type="primary" @click="addAlgorithmic">{{ t('action.createTask') }}</el-button>
     </div>
     <TopBar ref="topBarRef" :dataSouce="topBarData" :formData="formData" :labelWidth="80" @search="searchList" />
@@ -742,10 +739,9 @@ export default {
     flex-wrap: wrap;
     flex-shrink: 0;
     gap: 12px;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 
     h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 650; letter-spacing: -0.4px; }
-    p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
   }
   .task-toolbar {
     display: flex;

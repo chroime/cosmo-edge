@@ -1,12 +1,12 @@
 <template>
   <div ref="videoContainer" class="video-container" @mouseover="handleControls('over')" @mouseleave="handleControls('leave')">
     <div class="video-stage">
-      <video v-if="isShowVideo" ref="video" class="video" muted>
+      <video v-if="isShowVideo" ref="video" class="video" :style="{ objectFit: fitMode }" muted>
         Sorry, your browser doesn't support embedded videos.
       </video>
       <div v-if="isShowLoading" class="loading-spinner"></div>
       <div v-if="isShowStopPreview" class="stop-preview">
-        <img src="@/assets/big_screen_no_camera.png" alt />
+        <el-icon class="empty-camera-icon" aria-hidden="true"><VideoCamera /></el-icon>
         <span>{{ t('event.noVideoSignal') }}</span>
       </div>
     </div>
@@ -20,6 +20,10 @@
         </el-select>
       </div>
       <div class="player-actions">
+        <button type="button" class="video-fit" :title="t(fitMode === 'cover' ? 'event.fitContainHint' : 'event.fitCoverHint')" :aria-label="t(fitMode === 'cover' ? 'event.fitContain' : 'event.fitCover')" @click="emit('update:fitMode', fitMode === 'cover' ? 'contain' : 'cover')">
+          <svg class="fit-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="4" width="16" height="12" rx="1.5" /><path v-if="fitMode === 'cover'" d="M5 7h10v6H5z" /><path v-else d="M6 4v3H2m12-3v3h4M6 16v-3H2m12 3v-3h4" /></svg>
+          <span>{{ t(fitMode === 'cover' ? 'event.fitContain' : 'event.fitCover') }}</span>
+        </button>
         <button v-if="isFullScreen !== null" type="button" class="video-icon" :title="t('event.exitFullscreen')" :aria-label="t('event.exitFullscreen')" @click="handleExitFullScreen"><el-icon><ScaleToOriginal /></el-icon></button>
         <button v-else type="button" class="video-icon" :title="t('event.fullscreen')" :aria-label="t('event.fullscreen')" @click="handleFullScreen"><el-icon><FullScreen /></el-icon></button>
         <button type="button" class="video-icon" :title="t('action.close')" :aria-label="t('action.close')" @click="stopPreview"><el-icon><Close /></el-icon></button>
@@ -31,7 +35,7 @@
 <script setup>
 import { ref, shallowRef, nextTick, watch, onBeforeUnmount, onMounted, getCurrentInstance } from 'vue'
 import flvjs from 'flv.js'
-import { FullScreen, ScaleToOriginal, Close } from '@element-plus/icons-vue'
+import { FullScreen, ScaleToOriginal, Close, VideoCamera } from '@element-plus/icons-vue'
 import { createWhepPlayer } from '@/utils/whepPlayer'
 import { t, localeColon } from '@/i18n'
 import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
@@ -44,10 +48,11 @@ const props = defineProps({
   isOverlay: Boolean,
   index: Number,
   isFullScreen: [Number, null],
-  taskList: Array
+  taskList: Array,
+  fitMode: { type: String, default: 'cover', validator: value => ['cover', 'contain'].includes(value) }
 })
 
-const emit = defineEmits(['runAlgorithmIdChange', 'stop', 'fullScreen'])
+const emit = defineEmits(['runAlgorithmIdChange', 'stop', 'fullScreen', 'update:fitMode'])
 
 const { proxy } = getCurrentInstance()
 const $API = proxy.$API
@@ -1021,7 +1026,7 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   background: #11151c;
 }
 
@@ -1029,9 +1034,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  padding: 3px 8px;
+  gap: 8px;
+  height: 32px;
+  padding: 1px 6px;
   border-top: 1px solid var(--border-color);
   background: var(--bg-white);
   box-sizing: border-box;
@@ -1051,14 +1056,33 @@ onBeforeUnmount(() => {
 
 .algorithm-control { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .algorithm-label { white-space: nowrap; }
-.overlay-select { width: 128px; min-width: 0; }
+.overlay-select { width: 116px; min-width: 0; }
 .player-actions { display: flex; flex-shrink: 0; align-items: center; gap: 2px; }
+.video-fit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+
+  &:hover { color: var(--primary-color); background: var(--bg-primary); }
+  &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+}
+.fit-icon { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.4; flex-shrink: 0; }
 .video-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 28px;
+  width: 24px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -1080,7 +1104,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: #a9b3c2;
   background: #171c24;
-  img { margin-bottom: 16px; width: 56px; opacity: .6; }
+  .empty-camera-icon { margin-bottom: 10px; color: #778393; font-size: 28px; }
   span { font-size: 13px; }
 }
 
@@ -1102,21 +1126,21 @@ onBeforeUnmount(() => {
 
 @container (max-width: 460px) {
   .video-top-control { gap: 6px; }
-  .overlay-select { width: 110px; }
+  .overlay-select { width: 94px; }
   .algorithm-label { display: none; }
 }
 
-@container (max-width: 300px) {
-  .video-top-control { flex-wrap: wrap; }
-  .camera-name { flex-basis: calc(100% - 64px); }
-  .player-actions { order: 1; }
-  .algorithm-control { order: 2; width: 100%; }
-  .algorithm-label { display: inline; }
-  .overlay-select { flex: 1; min-width: 0; }
+@container (max-width: 360px) {
+  .video-top-control { gap: 4px; padding-inline: 4px; }
+  .overlay-select { width: 80px; }
+  .video-fit { width: 24px; padding: 0; }
+  .video-fit > span { display: none; }
 }
 
 @container (max-width: 240px) {
-  .algorithm-label { display: none; }
+  .overlay-select { width: 66px; }
+  .video-icon { width: 22px; }
+  .player-actions { gap: 0; }
 }
 </style>
 

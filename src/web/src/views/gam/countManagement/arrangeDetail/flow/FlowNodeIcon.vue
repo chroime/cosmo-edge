@@ -10,6 +10,16 @@
       <rect x="3" y="4" width="18" height="13" rx="1.5" />
       <path d="m10 8 5 3-5 3ZM12 17v4M8 21h8" />
     </g>
+    <g v-else-if="kind === 'person'">
+      <circle cx="12" cy="7" r="3.5" />
+      <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+    </g>
+    <g v-else-if="kind === 'vehicle'">
+      <path d="m5 9 2-5h10l2 5M3 10l2-1h14l2 1v8H3ZM5 18v3M19 18v3M3 14h4M17 14h4" />
+    </g>
+    <g v-else-if="kind === 'count'">
+      <path d="M5 3v18M11 3v18M17 3v18M2 17 21 7" />
+    </g>
     <g v-else-if="kind === 'target'">
       <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5" />
       <rect x="7" y="8.5" width="10" height="7" rx="1" />

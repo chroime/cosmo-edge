@@ -125,6 +125,13 @@ export default {
   }
 },
   gbAccess: {
+    deviceCount: "{count} devices",
+    registerDevice: "Register device",
+    editDevice: "Edit device",
+    emptyDeviceList: "No registered devices",
+    channelCount: "{count} channels",
+    saveWarning: "Saving disconnects current GB registrations. Devices resume after registering again.",
+
     mediaTransport: 'Video transport', transportTip: 'Registration supports TCP and UDP automatically. Video defaults to TCP; choose UDP for UDP-only media devices. Changes require device re-registration.',
     udpMediaListenFailed: 'Cannot listen on the UDP video port. Check for a port conflict.',
     title: 'GB28181 access', platformTab: 'Platform', devicesTab: 'Devices & channels',
@@ -389,6 +396,21 @@ export default {
     }
   },
   glossary: {
+    taskModelDependencies: "Model dependencies",
+    taskModelCount: "{n} models",
+    taskModelsMissing: "{n} missing",
+    taskModelsReady: "Ready",
+    taskNoModels: "No model dependency",
+    taskConfiguration: "Configuration",
+    taskChannelSummary: "Channels",
+    taskChannelRunning: "Running",
+    taskChannelPaused: "Paused",
+    taskChannelError: "Error",
+    taskChannelStopped: "Stopped",
+    taskChannelUnknown: "Unknown",
+    taskChannelLoading: "Loading channel states",
+    taskChannelUnavailable: "Channel states could not be loaded; counts are unknown",
+    taskChannelPartial: "The channel or task list is incomplete. Counts are lower bounds from retrieved data; — means unknown.",
     analysisUsage: 'Analysis use',
     taskRunningChannels: 'Running channels',
     flowZoomIn: 'Zoom in',
@@ -1139,6 +1161,11 @@ export default {
     itemPacketDiscard: 'Packet Loss'
   },
   event: {
+    fitCover: "Fill window",
+    fitContain: "Full image",
+    fitCoverHint: "Fill the window without stretching; edges may be cropped",
+    fitContainHint: "Show the full image; black bars may appear",
+
     recordCount: '{n} records',
     fullImageHint: 'Open an image to view full evidence',
     uploadStatus: 'Upload status',

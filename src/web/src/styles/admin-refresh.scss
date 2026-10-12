@@ -118,6 +118,12 @@
     font-size: 13px;
     font-weight: 500;
 
+    &.ui-action-flow,
+    &.ui-action-settings,
+    &.ui-action-view {
+      color: var(--primary-color) !important;
+    }
+
     &:hover:not(.is-disabled) {
       background: var(--primary-soft-bg) !important;
       color: var(--primary-color) !important;

@@ -144,8 +144,8 @@
       </div>
     </div>
 
-    <el-dialog :title="channelDialogTitle" v-model="channelDialogVisible" width="550px" @close="resetchannelForm" center class="ui-admin-dialog">
-      <el-form v-if="channelDialogVisible" :model="channelForm" :rules="channelFormRules" ref="channelFormRef" :label-width="currentLocale === 'en-US' ? '190px' : '140px'">
+    <el-dialog :title="channelDialogTitle" v-model="channelDialogVisible" :width="channelForm.channelType === 7 ? 'min(720px, calc(100vw - 48px))' : '550px'" @close="resetchannelForm" class="ui-admin-dialog ui-scroll-dialog">
+      <el-form v-if="channelDialogVisible" :model="channelForm" :rules="channelFormRules" ref="channelFormRef" :class="{ 'gb-channel-edit-form': channelForm.channelType === 7 }" :label-position="channelForm.channelType === 7 ? 'top' : 'right'" :label-width="channelForm.channelType === 7 ? 'auto' : currentLocale === 'en-US' ? '190px' : '140px'">
         <el-form-item :label="t('field.channelNo') + localeColon" prop="videoChannelId" required v-if="channelDialogMode === 'edit'">
           <el-input class="form-item-content" v-model="channelForm.videoChannelId" autocomplete="off" size="small" disabled />
         </el-form-item>
@@ -203,7 +203,7 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <div class="dialog-footer" style="text-align:center;">
+        <div class="dialog-footer channel-dialog-footer">
           <el-button size="small" @click="channelDialogVisible = false">{{ t('action.cancel') }}</el-button>
           <el-button id="onboarding-save-channel" size="small" type="primary" @click="submitAddChannel">{{ t('action.save') }}</el-button>
         </div>
@@ -1210,6 +1210,23 @@ const setDefaultImage = (e) => {
 
 .form-item-content {
   width: calc(100% - 80px);
+}
+
+.gb-channel-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+
+  :deep(.el-form-item) { min-width: 0; margin-bottom: 16px; }
+  :deep(.el-form-item__label) { margin-bottom: 6px; padding: 0; line-height: 20px; height: auto; color: var(--text-secondary); font-size: 13px; }
+  .form-item-content { width: 100%; }
+}
+
+.channel-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; }
+.channel-dialog-footer :deep(.el-button + .el-button) { margin-left: 0; }
+
+@media (max-width: 600px) {
+  .gb-channel-edit-form { grid-template-columns: minmax(0, 1fr); }
 }
 
 .form-item-tip {

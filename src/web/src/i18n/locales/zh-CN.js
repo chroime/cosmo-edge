@@ -125,6 +125,13 @@ export default {
   }
 },
   gbAccess: {
+    deviceCount: "共 {count} 台设备",
+    registerDevice: "登记设备",
+    editDevice: "编辑设备",
+    emptyDeviceList: "尚未登记设备",
+    channelCount: "{count} 个通道",
+    saveWarning: "保存将断开现有国标注册，设备重新注册后恢复。",
+
     mediaTransport: '视频传输协议', transportTip: '注册信令自动兼容 TCP/UDP。视频默认 TCP；仅支持 UDP 视频的设备请选择 UDP。修改后设备需重新注册。',
     udpMediaListenFailed: 'UDP 视频端口监听失败，请检查端口占用',
     title: '国标设备接入', platformTab: '平台设置', devicesTab: '设备与通道',
@@ -389,6 +396,21 @@ export default {
     }
   },
   glossary: {
+    taskModelDependencies: "模型依赖",
+    taskModelCount: "{n} 个模型",
+    taskModelsMissing: "缺失 {n} 个",
+    taskModelsReady: "齐全",
+    taskNoModels: "无模型依赖",
+    taskConfiguration: "配置版本",
+    taskChannelSummary: "通道情况",
+    taskChannelRunning: "运行",
+    taskChannelPaused: "暂停",
+    taskChannelError: "异常",
+    taskChannelStopped: "停止",
+    taskChannelUnknown: "未知",
+    taskChannelLoading: "正在获取通道状态",
+    taskChannelUnavailable: "通道状态获取失败，数量未知",
+    taskChannelPartial: "通道或任务列表不完整，仅显示已获取数据的下限；— 表示未知。",
     analysisUsage: '分析用途',
     taskRunningChannels: '运行通道',
     flowZoomIn: '放大',
@@ -1139,6 +1161,11 @@ export default {
     itemPacketDiscard: '丢包率'
   },
   event: {
+    fitCover: "铺满窗口",
+    fitContain: "完整画面",
+    fitCoverHint: "等比铺满窗口，可能裁切画面边缘",
+    fitContainHint: "显示完整画面，可能出现黑边",
+
     recordCount: '共 {n} 条记录',
     fullImageHint: '点击图片查看完整证据',
     uploadStatus: '上传状态',

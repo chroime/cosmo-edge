@@ -130,17 +130,17 @@
           <div class="video-wall" :class="'grid-' + screenType">
             <!-- 当screenType为1时，只渲染当前选中的窗口 -->
             <div v-if="screenType === 1" class="video-item video-active video-one">
-              <flv v-if="playedCameraList[currentSelectedIndex].id" :channelId="playedCameraList[currentSelectedIndex].id" :runAlgorithmId="playedCameraList[currentSelectedIndex].runAlgorithmId" :taskList="playedCameraList[currentSelectedIndex].taskList" :cameraName="playedCameraList[currentSelectedIndex].name" :index="currentSelectedIndex" :isFullScreen="isVideoFullScreen" @runAlgorithmIdChange="handleRunAlgorithmIdChange" @stop="handleCameraClose" @fullScreen="handleVideoFullScreen(currentSelectedIndex)"></flv>
+              <flv v-if="playedCameraList[currentSelectedIndex].id" v-model:fitMode="windowFitModes[currentSelectedIndex]" :channelId="playedCameraList[currentSelectedIndex].id" :runAlgorithmId="playedCameraList[currentSelectedIndex].runAlgorithmId" :taskList="playedCameraList[currentSelectedIndex].taskList" :cameraName="playedCameraList[currentSelectedIndex].name" :index="currentSelectedIndex" :isFullScreen="isVideoFullScreen" @runAlgorithmIdChange="handleRunAlgorithmIdChange" @stop="handleCameraClose" @fullScreen="handleVideoFullScreen(currentSelectedIndex)"></flv>
               <div class="no-camera" v-else>
-                <img src="@/assets/big_screen_no_camera.png" />
+                <el-icon class="empty-camera-icon" aria-hidden="true"><VideoCamera /></el-icon>
                 <span>{{ t('event.noVideoSignal') }}</span>
               </div>
             </div>
             <!-- 当screenType为4时，渲染所有四个窗口 -->
             <div v-else v-for="(n,cameraIndex) in screenType" :key="n" class="video-item" :class="{'video-active': cameraIndex === currentSelectedIndex, 'video-one': (cameraIndex === currentSelectedIndex) && (isVideoFullScreen !== null)}" @click="currentSelectedIndex = cameraIndex">
-              <flv v-if="playedCameraList[cameraIndex].id" :channelId="playedCameraList[cameraIndex].id" :runAlgorithmId="playedCameraList[cameraIndex].runAlgorithmId" :taskList="playedCameraList[cameraIndex].taskList" :cameraName="playedCameraList[cameraIndex].name" :index="cameraIndex" :isFullScreen="(cameraIndex === currentSelectedIndex) ? isVideoFullScreen : null" @runAlgorithmIdChange="handleRunAlgorithmIdChange" @stop="handleCameraClose" @fullScreen="handleVideoFullScreen(cameraIndex)"></flv>
+              <flv v-if="playedCameraList[cameraIndex].id" v-model:fitMode="windowFitModes[cameraIndex]" :channelId="playedCameraList[cameraIndex].id" :runAlgorithmId="playedCameraList[cameraIndex].runAlgorithmId" :taskList="playedCameraList[cameraIndex].taskList" :cameraName="playedCameraList[cameraIndex].name" :index="cameraIndex" :isFullScreen="(cameraIndex === currentSelectedIndex) ? isVideoFullScreen : null" @runAlgorithmIdChange="handleRunAlgorithmIdChange" @stop="handleCameraClose" @fullScreen="handleVideoFullScreen(cameraIndex)"></flv>
               <div class="no-camera" v-else>
-                <img src="@/assets/big_screen_no_camera.png" />
+                <el-icon class="empty-camera-icon" aria-hidden="true"><VideoCamera /></el-icon>
                 <span>{{ t('event.noVideoSignal') }}</span>
               </div>
             </div>
@@ -296,6 +296,7 @@ const selectAreaEl = ref(null)
 // Data
 const currentTime = ref('')
 const screenType = ref(4)
+const windowFitModes = ref(['cover', 'cover', 'cover', 'cover'])
 const alarmCount = ref(0)
 const eventList = ref([])
 const rawAlgorithmList = ref([])
@@ -1287,7 +1288,7 @@ button:focus-visible {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 6px;
+  padding: 4px;
   background: var(--theme-stage-surround, var(--bg-primary));
   box-sizing: border-box;
 }
@@ -1298,7 +1299,7 @@ button:focus-visible {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
   &.grid-1 { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
   &.grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
@@ -1335,7 +1336,7 @@ button:focus-visible {
   color: #a9b3c2;
   font-size: 13px;
 
-  img { width: 56px; height: auto; margin-bottom: 16px; opacity: .6; }
+  .empty-camera-icon { margin-bottom: 10px; color: #778393; font-size: 28px; }
 }
 
 .record-body {

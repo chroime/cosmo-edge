@@ -4,7 +4,7 @@ Before=cosmo.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/rk3576-performance.sh
+ExecStart=/appfs/cosmo_wander/cwai_data/scripts/rk3576-performance.sh
 RemainAfterExit=yes
 
 [Install]

@@ -1,6 +1,6 @@
 <template>
   <div class="mv-upload">
-    <div class="file-list" v-for="(item, index) in propsFileList" :key="index">
+    <div class="file-list" v-for="(item, index) in props.fileList" :key="index">
       <div class="img-style">
         <img :src="item.previewUrl || item.pictureUrl || ('data:image/jpeg;base64,' + (item.pictureBase64 || ''))" />
       </div>
@@ -9,7 +9,7 @@
         <el-button class="upload-btn btn2" type="primary" size="small" @click="handleRemove(index, item)">{{ t('action.delete') }}</el-button>
       </div>
     </div>
-    <div class="file-list add-flie" v-if="propsFileList.length<limit" @click="uploadFun">
+    <div class="file-list add-flie" v-if="props.fileList.length<limit" @click="uploadFun">
       <el-icon><Plus /></el-icon>
     </div>
     <input ref="hideFileRef" type="file" v-show="false" @change="selectFileFun($event)" />
@@ -17,7 +17,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { t } from '@/i18n'
 
@@ -41,7 +41,6 @@ const emit = defineEmits(['click', 'delete'])
 const hideFileRef = ref(null)
 
 // Reactive data
-const propsFileList = ref(props.fileList)
 const uploadAgainIndex = ref(null)
 
 // Methods
@@ -62,14 +61,9 @@ const resetUpload = (index, item) => {
 }
 
 const handleRemove = (index, item) => {
-  propsFileList.value.splice(index, 1)
+  props.fileList.splice(index, 1)
   emit('delete', item)
 }
-
-// Watchers
-watch(() => props.fileList, (n) => {
-  propsFileList.value = n
-}, { deep: true })
 </script>
 
 <style scoped lang="scss">

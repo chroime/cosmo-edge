@@ -11,8 +11,8 @@
 
 #include "flow/stream/RtmpCodecConfig.h"
 #include "flow/stream/RtmpPacketWriter.h"
-#include "flow/stream/VideoStreamPush.h"
 #include "media/VideoCodecType.h"
+#include "util/dto/OverviewTypes.h"
 
 extern "C" {
 #include "libavformat/avformat.h"
@@ -23,14 +23,17 @@ namespace cosmo {
 /// RTMP stream pusher — Facade over RtmpCodecConfig + RtmpPacketWriter.
 /// Manages the RTMP output connection lifecycle and orchestrates
 /// codec configuration, NALU parsing, and packet writing.
-class RtmpStreamPusher : public VideoStreamPush {
+class RtmpStreamPusher {
 public:
     RtmpStreamPusher(media::VideoCodecType origin_type, const std::string& url, int width, int height,
                      float fps);
-    ~RtmpStreamPusher() override;
+    ~RtmpStreamPusher();
 
     RtmpStreamPusher(const RtmpStreamPusher&)            = delete;
     RtmpStreamPusher& operator=(const RtmpStreamPusher&) = delete;
+
+    void PushFrame(const uint8_t* data, size_t size);
+    void SetVideoAttr(int width, int height, float fps);
 
     /// Wait until the RTMP stream header has been pushed (first I-frame received).
     /// Returns true if ready, false on timeout.
@@ -58,8 +61,6 @@ public:
     void SetCodecParamsFromExtradata(const std::vector<uint8_t>& extradata);
 
 private:
-    void DoPushFrame(const uint8_t* data, size_t size) override;
-
     int InitOutput();
     void CloseOutput();
     bool ReopenOutput();
@@ -68,6 +69,12 @@ private:
     void RecordFailure(const char* stage, int error_no);
 
 private:
+    std::string push_url_;
+    int width_{1920};
+    int height_{1080};
+    float fps_{25};
+    MsgOverviewDebugInfo debug_info_;
+
     AVFormatContext* outctx_{nullptr};
     AVStream* outstream_{nullptr};
     int outindex_{0};

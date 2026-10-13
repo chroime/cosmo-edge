@@ -20,10 +20,18 @@ namespace {
 
 RtmpStreamPusher::RtmpStreamPusher(media::VideoCodecType origin_type, const std::string& url, int width,
                                    int height, float fps)
-    : VideoStreamPush(std::move(url), width, height, fps),
-      codec_config_(std::make_unique<RtmpCodecConfig>(origin_type, width_, height_, fps)),
-      packet_writer_(std::make_unique<RtmpPacketWriter>(fps)),
-      first_frame_flag_(ATOMIC_FLAG_INIT) {
+    : push_url_(url), first_frame_flag_(ATOMIC_FLAG_INIT) {
+    if ((width > 1920) || (height > 1088)) {
+        // In case of 400w input, decode to 1080P. Reference: CopyYUV420SPLimitArea
+        LOG_WARN("Push Src is {}x{} But Max Support is 1080P Modify To 1080P.", width, height);
+        width  = 1920;
+        height = 1080;
+    }
+    LOG_INFO("RTMP push configured, width:{}, height:{}, fps:{}", width, height, fps);
+    SetVideoAttr(width, height, fps);
+
+    codec_config_  = std::make_unique<RtmpCodecConfig>(origin_type, width_, height_, fps);
+    packet_writer_ = std::make_unique<RtmpPacketWriter>(fps);
     LOG_INFO("camera fps: {}", fps);
 
     int ret = InitOutput();
@@ -37,6 +45,14 @@ RtmpStreamPusher::RtmpStreamPusher(media::VideoCodecType origin_type, const std:
 
 RtmpStreamPusher::~RtmpStreamPusher() {
     Stop();
+}
+
+void RtmpStreamPusher::SetVideoAttr(int width, int height, float fps) {
+    if ((width < 64) || (height < 64) || (fps < 0.1f))
+        return;
+    width_  = width;
+    height_ = height;
+    fps_    = fps;
 }
 
 bool RtmpStreamPusher::WaitReady(std::chrono::milliseconds timeout) {
@@ -200,9 +216,9 @@ bool RtmpStreamPusher::PushHeader() {
     return true;
 }
 
-void RtmpStreamPusher::DoPushFrame(const uint8_t* data, size_t size) {
+void RtmpStreamPusher::PushFrame(const uint8_t* data, size_t size) {
     if (!data || size == 0) {
-        LOG_WARN("{}", "DoPushFrame: empty frame");
+        LOG_WARN("{}", "PushFrame: empty frame");
         return;
     }
     if (stopping_.load(std::memory_order_acquire)) {
@@ -218,7 +234,7 @@ void RtmpStreamPusher::DoPushFrame(const uint8_t* data, size_t size) {
 
     // Diagnostic: log frame header bytes for first 5 frames
     if (debug_info_.recvFrames <= 5 && size >= 5) {
-        LOG_INFO("DoPushFrame #{} size:{} bytes:{:02X} {:02X} {:02X} {:02X} {:02X}", debug_info_.recvFrames,
+        LOG_INFO("PushFrame #{} size:{} bytes:{:02X} {:02X} {:02X} {:02X} {:02X}", debug_info_.recvFrames,
                  size, data[0], data[1], data[2], data[3], data[4]);
     }
 
@@ -232,14 +248,13 @@ void RtmpStreamPusher::DoPushFrame(const uint8_t* data, size_t size) {
 
     if (!has_video_slice) {
         if (skip_count_++ <= 3) {
-            LOG_WARN("DoPushFrame skip: parameter-only/unknown packet leadType={} size={} at frame #{}",
+            LOG_WARN("PushFrame skip: parameter-only/unknown packet leadType={} size={} at frame #{}",
                      static_cast<int>(lead_type), size, debug_info_.recvFrames);
         }
         return;
     }
     if (!out_data || out_size == 0) {
-        LOG_WARN("DoPushFrame skip: parser returned empty video payload at frame #{}",
-                 debug_info_.recvFrames);
+        LOG_WARN("PushFrame skip: parser returned empty video payload at frame #{}", debug_info_.recvFrames);
         return;
     }
 
@@ -256,8 +271,7 @@ void RtmpStreamPusher::DoPushFrame(const uint8_t* data, size_t size) {
     // Write header on first I-frame
     if (main_type == media::HFrameType::I && !codec_config_->HasParameters()) {
         if (skip_count_++ <= 3) {
-            LOG_WARN("DoPushFrame skip: I-frame before codec parameters at frame #{}",
-                     debug_info_.recvFrames);
+            LOG_WARN("PushFrame skip: I-frame before codec parameters at frame #{}", debug_info_.recvFrames);
         }
         return;
     }
@@ -296,7 +310,7 @@ void RtmpStreamPusher::DoPushFrame(const uint8_t* data, size_t size) {
             first_frame_flag_.clear();
         }
     } else if (skip_count_++ <= 3) {
-        LOG_WARN("DoPushFrame skip: frameMainType={} (not I/P) at frame #{}", static_cast<int>(main_type),
+        LOG_WARN("PushFrame skip: frameMainType={} (not I/P) at frame #{}", static_cast<int>(main_type),
                  debug_info_.recvFrames);
     }
 }

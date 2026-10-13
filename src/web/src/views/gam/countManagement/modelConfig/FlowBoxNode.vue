@@ -11,17 +11,17 @@
         <el-table :data="tableData" border size="small" style="width: 100%" class="custom-table">
           <el-table-column :label="t('field.name')" min-width="120">
             <template #default="scope">
-              <el-input v-model="scope.row.name" size="small" disabled @change="handleChange(scope.$index, 'name', scope.row.name)" />
+              <el-input :model-value="scope.row.name" size="small" disabled />
             </template>
           </el-table-column>
           <el-table-column :label="t('field.shape')" min-width="150">
             <template #default="scope">
-              <el-input v-model="scope.row.shape" size="small" disabled @change="handleChange(scope.$index, 'shape', scope.row.shape)" />
+              <el-input :model-value="scope.row.shape" size="small" disabled />
             </template>
           </el-table-column>
           <el-table-column :label="t('field.dataType')" min-width="140">
             <template #default="scope">
-              <el-select v-model="scope.row.data_type" size="small" disabled @change="handleChange(scope.$index, 'data_type', scope.row.data_type)">
+              <el-select :model-value="scope.row.data_type" size="small" disabled>
                 <el-option :label="t('glossary.float32')" value="0" />
                 <el-option :label="t('glossary.int32')" value="1" />
                 <el-option :label="t('glossary.float16Half')" value="2" />
@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { computed } from 'vue'
 import { Handle } from '@vue-flow/core'
 import { t } from '@/i18n'
 
@@ -60,8 +60,6 @@ const props = defineProps({
   }
 })
 
-const tableData = ref([])
-
 const toText = (value) => {
   if (Array.isArray(value) || (value && typeof value === 'object')) {
     return JSON.stringify(value)
@@ -70,25 +68,11 @@ const toText = (value) => {
   return String(value)
 }
 
-watch(
-  () => props.data?.list,
-  (newList) => {
-    if (newList) {
-      tableData.value = newList.map(item => ({
-        name: toText(item.name),
-        shape: toText(item.shape),
-        data_type: toText(item.data_type ?? '0')
-      }))
-    }
-  },
-  { immediate: true, deep: true }
-)
-
-const handleChange = (index, field, value) => {
-  if (typeof props.data?.onUpdate === 'function') {
-    props.data.onUpdate(index, { [field]: value })
-  }
-}
+const tableData = computed(() => (props.data?.list || []).map(item => ({
+  name: toText(item.name),
+  shape: toText(item.shape),
+  data_type: toText(item.data_type ?? '0')
+})))
 </script>
 
 <style scoped lang="scss">

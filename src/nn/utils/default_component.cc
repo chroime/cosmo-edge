@@ -44,7 +44,7 @@ DefaultComponent::DefaultComponent(const Options& options, std::string json_path
         throw std::runtime_error("Failed to create pipeline for: " + config.model_type);
 
     status = pipeline_->Init(config, model_path, device_type, options.device_id, options.profiler,
-                             options.tokenizer_path, options.word_table_path, options.use_skip);
+                             options.tokenizer_path, options.word_table_path);
     if (!bool(status))
         throw std::runtime_error("Pipeline init failed: " + std::string(status.description()));
 }

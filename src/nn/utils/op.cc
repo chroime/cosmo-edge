@@ -19,12 +19,9 @@ Resize::Resize(const std::string name_) : Op(name_) {}
 Resize::~Resize() {}
 std::string Resize::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "dszie: " << VectorToString<int>(this->dsize) << ","
-           << "padding: " << BoolToString(this->padding) << ","
-           << "gravity: " << this->gravity << ","
-           << "color: " << VectorToString<int>(this->color) << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "dszie: " << VectorToString<int>(this->dsize) << ","
+           << "padding: " << BoolToString(this->padding) << "," << "gravity: " << this->gravity << ","
+           << "color: " << VectorToString<int>(this->color);
 
     return stream.str();
 }
@@ -33,30 +30,10 @@ Normalize::Normalize(const std::string name_) : Op(name_) {}
 Normalize::~Normalize() {}
 std::string Normalize::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "mean: " << VectorToString<float>(this->mean) << ","
-           << "std: " << VectorToString<float>(this->std) << ","
-           << "scale: " << this->scale << ","
-           << "is_bgr: " << BoolToString(this->is_bgr) << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "mean: " << VectorToString<float>(this->mean) << ","
+           << "std: " << VectorToString<float>(this->std) << "," << "scale: " << this->scale << ","
+           << "is_bgr: " << BoolToString(this->is_bgr);
 
-    return stream.str();
-}
-
-RectCrop::RectCrop(const std::string name_) : Op(name_) {}
-RectCrop::~RectCrop() {}
-std::string RectCrop::Description() {
-    std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "type: " << this->type << ","
-           << "hw_ratio_levels: " << VectorToString<float>(this->bbox_hw_ratio_levels) << ","
-           << "h_top_crop: " << VectorToString<float>(this->h_top_crop) << ","
-           << "h_bottom_crop: " << VectorToString<float>(this->h_bottom_crop) << ","
-           << "w_left_crop: " << VectorToString<float>(this->w_left_crop) << ","
-           << "w_right_crop: " << VectorToString<float>(this->w_right_crop) << ","
-           << "square: " << BoolToString(this->square) << ","
-           << "square_mode: " << this->square_mode << ","
-           << "skip:" << BoolToString(this->skip);
     return stream.str();
 }
 
@@ -64,19 +41,15 @@ CropResize::CropResize(const std::string name_) : Op(name_) {}
 CropResize::~CropResize() {}
 std::string CropResize::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "type: " << this->type << ","
+    stream << "name: " << this->name << "," << "type: " << this->type << ","
            << "hw_ratio_levels: " << VectorToString<float>(this->bbox_hw_ratio_levels) << ","
            << "h_top_crop: " << VectorToString<float>(this->h_top_crop) << ","
            << "h_bottom_crop: " << VectorToString<float>(this->h_bottom_crop) << ","
            << "w_left_crop: " << VectorToString<float>(this->w_left_crop) << ","
            << "w_right_crop: " << VectorToString<float>(this->w_right_crop) << ","
-           << "square: " << BoolToString(this->square) << ","
-           << "square_mode: " << this->square_mode << ","
-           << "dszie: " << VectorToString<int>(this->dsize) << ","
-           << "gravity: " << this->gravity << ","
-           << "color: " << VectorToString<int>(this->color) << ","
-           << "skip:" << BoolToString(this->skip);
+           << "square: " << BoolToString(this->square) << "," << "square_mode: " << this->square_mode << ","
+           << "dszie: " << VectorToString<int>(this->dsize) << "," << "gravity: " << this->gravity << ","
+           << "color: " << VectorToString<int>(this->color);
     return stream.str();
 }
 
@@ -84,10 +57,8 @@ YoloPost::YoloPost(const std::string name_) : Op(name_) {}
 YoloPost::~YoloPost() {}
 std::string YoloPost::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "nms_threshold: " << this->nms_threshold << ","
-           << "nms_detection_conf: " << this->nms_detection_conf << ","
-           << "top_k: " << this->top_k;
+    stream << "name: " << this->name << "," << "nms_threshold: " << this->nms_threshold << ","
+           << "nms_detection_conf: " << this->nms_detection_conf << "," << "top_k: " << this->top_k;
 
     return stream.str();
 }
@@ -96,10 +67,8 @@ YoloNpuPost::YoloNpuPost(const std::string name_) : Op(name_) {}
 YoloNpuPost::~YoloNpuPost() {}
 std::string YoloNpuPost::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "nms_threshold: " << this->nms_threshold << ","
-           << "nms_detection_conf: " << this->nms_detection_conf << ","
-           << "top_k: " << this->top_k << ","
+    stream << "name: " << this->name << "," << "nms_threshold: " << this->nms_threshold << ","
+           << "nms_detection_conf: " << this->nms_detection_conf << "," << "top_k: " << this->top_k << ","
            << "anchor grids: [";
     for (size_t i = 0; i < this->anchors.size(); i++) {
         stream << "[";
@@ -120,12 +89,9 @@ AffineCrop::AffineCrop(const std::string name_) : Op(name_) {}
 AffineCrop::~AffineCrop() {}
 std::string AffineCrop::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "norm_ratio: " << this->norm_ratio << ","
-           << "norm_mode: " << this->norm_mode << ","
-           << "output_hw: " << VectorToString<int>(this->output_hw) << ","
-           << "center_index: " << VectorToString<int>(this->center_index) << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "norm_ratio: " << this->norm_ratio << ","
+           << "norm_mode: " << this->norm_mode << "," << "output_hw: " << VectorToString<int>(this->output_hw)
+           << "," << "center_index: " << VectorToString<int>(this->center_index);
 
     return stream.str();
 }
@@ -146,12 +112,9 @@ Sequence::~Sequence() {}
 
 std::string Sequence::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "size: " << this->size << ","
-           << "dsize: " << VectorToString<int>(this->dsize) << ","
-           << "scale: " << this->scale << ","
-           << "is_bgr: " << BoolToString(this->is_bgr) << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "size: " << this->size << ","
+           << "dsize: " << VectorToString<int>(this->dsize) << "," << "scale: " << this->scale << ","
+           << "is_bgr: " << BoolToString(this->is_bgr);
 
     return stream.str();
 }
@@ -162,8 +125,7 @@ ArgMax::~ArgMax() {}
 
 std::string ArgMax::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "axis: " << this->axis;
+    stream << "name: " << this->name << "," << "axis: " << this->axis;
 
     return stream.str();
 }
@@ -173,8 +135,7 @@ Split::~Split() {}
 
 std::string Split::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "axis: " << this->axis << ","
+    stream << "name: " << this->name << "," << "axis: " << this->axis << ","
            << "split: " << VectorToString<int>(this->split);
 
     return stream.str();
@@ -185,8 +146,7 @@ SplitArgMax::~SplitArgMax() {}
 
 std::string SplitArgMax::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "split: " << VectorToString<int>(this->split);
+    stream << "name: " << this->name << "," << "split: " << VectorToString<int>(this->split);
 
     return stream.str();
 }
@@ -197,11 +157,8 @@ CombineImage::~CombineImage() {}
 
 std::string CombineImage::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "count: " << this->count << ","
-           << "dst_height: " << this->dst_height << ","
-           << "dst_width: " << this->dst_width << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "count: " << this->count << ","
+           << "dst_height: " << this->dst_height << "," << "dst_width: " << this->dst_width;
 
     return stream.str();
 }
@@ -211,13 +168,10 @@ DinoEncoder::~DinoEncoder() {}
 
 std::string DinoEncoder::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "dst_height: " << this->dst_height << ","
-           << "dst_width: " << this->dst_width << ","
-           << "is_bgr:" << BoolToString(this->is_bgr) << ","
+    stream << "name: " << this->name << "," << "dst_height: " << this->dst_height << ","
+           << "dst_width: " << this->dst_width << "," << "is_bgr:" << BoolToString(this->is_bgr) << ","
            << "mean: " << VectorToString<float>(this->mean) << ","
-           << "std: " << VectorToString<float>(this->std) << ","
-           << "skip:" << BoolToString(this->skip);
+           << "std: " << VectorToString<float>(this->std);
 
     return stream.str();
 }
@@ -227,8 +181,7 @@ DinoDecode::~DinoDecode() {}
 
 std::string DinoDecode::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "text_threshold: " << this->text_threshold << ","
+    stream << "name: " << this->name << "," << "text_threshold: " << this->text_threshold << ","
            << "box_threshold: " << this->box_threshold;
 
     return stream.str();
@@ -239,13 +192,10 @@ SAMEncoder::~SAMEncoder() {}
 
 std::string SAMEncoder::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "dst_height: " << this->dst_height << ","
-           << "dst_width: " << this->dst_width << ","
-           << "is_bgr:" << BoolToString(this->is_bgr) << ","
+    stream << "name: " << this->name << "," << "dst_height: " << this->dst_height << ","
+           << "dst_width: " << this->dst_width << "," << "is_bgr:" << BoolToString(this->is_bgr) << ","
            << "mean: " << VectorToString<float>(this->mean) << ","
-           << "std: " << VectorToString<float>(this->std) << ","
-           << "skip:" << BoolToString(this->skip);
+           << "std: " << VectorToString<float>(this->std);
 
     return stream.str();
 }
@@ -255,12 +205,9 @@ SAMPromptEncode::~SAMPromptEncode() {}
 
 std::string SAMPromptEncode::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "prompt_type: " << this->prompt_type << ","
-           << "normalize: " << BoolToString(this->normalize) << ","
-           << "encoder_size: " << this->encoder_size << ","
-           << "max_points: " << this->max_points << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "prompt_type: " << this->prompt_type << ","
+           << "normalize: " << BoolToString(this->normalize) << "," << "encoder_size: " << this->encoder_size
+           << "," << "max_points: " << this->max_points;
 
     return stream.str();
 }
@@ -270,10 +217,8 @@ SAMDecode::~SAMDecode() {}
 
 std::string SAMDecode::Description() {
     std::stringstream stream;
-    stream << "name: " << this->name << ","
-           << "threshold: " << this->threshold << ","
-           << "output_size: " << VectorToString<int>(this->output_size) << ","
-           << "skip:" << BoolToString(this->skip);
+    stream << "name: " << this->name << "," << "threshold: " << this->threshold << ","
+           << "output_size: " << VectorToString<int>(this->output_size);
 
     return stream.str();
 }

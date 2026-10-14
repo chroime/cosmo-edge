@@ -8,8 +8,7 @@ namespace cosmo::nn {
 LayaPipeline::LayaPipeline()  = default;
 LayaPipeline::~LayaPipeline() = default;
 Status LayaPipeline::Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
-                          int device_id, IProfiler*, const std::string& tokenizer_path, const std::string&,
-                          bool) {
+                          int device_id, IProfiler*, const std::string& tokenizer_path, const std::string&) {
 #ifdef COSMO_NN_USE_SOPHON_BACKEND
     if (device_type != DEVICE_SOPHON_TPU || config.chip_type != "BM1688" || config.models.size() != 3)
         return Status(COSMO_NN_ERR_INVALID_INPUT, "Laya requires BM1688 and its three-segment model package");

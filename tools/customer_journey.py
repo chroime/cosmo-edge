@@ -19,11 +19,13 @@ import sys
 import shutil
 
 try:
-    from customer_journey_workbook import compile_workbook, sha256, export_results
+    from customer_journey_workbook import compile_workbook, workbook_cells, sha256, export_results
     import customer_journey_resources as resource_kit
+    from customer_journey_quick import compile_quick
 except ModuleNotFoundError:
-    from tools.customer_journey_workbook import compile_workbook, sha256, export_results
+    from tools.customer_journey_workbook import compile_workbook, workbook_cells, sha256, export_results
     from tools import customer_journey_resources as resource_kit
+    from tools.customer_journey_quick import compile_quick
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUITE = ROOT / 'test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx'
@@ -41,7 +43,13 @@ def read(path):
 
 
 def load_suite(path):
-    suite = compile_workbook(path) if Path(path).suffix.lower() == '.xlsx' else read(path)
+    if Path(path).suffix.lower() == '.xlsx':
+        if '主要用例' in workbook_cells(path):
+            suite = compile_quick(path)
+        else:
+            suite = compile_workbook(path)
+    else:
+        suite = read(path)
     validate_suite(suite)
     return suite
 
@@ -78,7 +86,8 @@ def validate_suite(suite):
     resources = set(suite['resourceDefinitions'])
     for case in suite['cases']:
         cid = case['id']
-        if not re.fullmatch(r'[A-Z]+-\d+', cid) or cid in ids:
+        pattern = r'Q\d{2}' if suite.get('suiteKind') == 'quick' else r'[A-Z]+-\d+'
+        if not re.fullmatch(pattern, cid) or cid in ids:
             raise ValueError('Invalid or duplicate case ID: ' + cid)
         ids.add(cid)
         for key in ('title', 'module', 'preconditions', 'expected', 'cleanup', 'source', 'revision'):
@@ -441,7 +450,7 @@ def main():
     p = sub.add_parser('compile'); p.add_argument('--workbook', default=str(DEFAULT_SUITE)); p.add_argument('--output', default=str(GENERATED_SUITE)); p.add_argument('--check', action='store_true')
     p = sub.add_parser('init'); p.add_argument('--run', required=True); p.add_argument('--suite', default=str(DEFAULT_SUITE)); p.add_argument('--profile', default=str(resource_kit.default_profile(ROOT)))
     p = sub.add_parser('configure-resources'); p.add_argument('--root', required=True)
-    p = sub.add_parser('check-resources'); p.add_argument('--root'); p.add_argument('--full', action='store_true'); p.add_argument('--network', action='store_true'); p.add_argument('--output')
+    p = sub.add_parser('check-resources'); p.add_argument('--root'); p.add_argument('--suite', default=str(DEFAULT_SUITE)); p.add_argument('--full', action='store_true'); p.add_argument('--network', action='store_true'); p.add_argument('--output')
     p = sub.add_parser('set-version'); p.add_argument('--run', required=True); p.add_argument('--version', required=True); p.add_argument('--evidence', required=True)
     for name in ('preflight', 'report', 'refresh-profile'):
         p = sub.add_parser(name); p.add_argument('--run', required=True)
@@ -469,7 +478,7 @@ def main():
         root = Path(args.root).resolve() if args.root else resource_kit.configured_root(ROOT)
         if root is None:
             raise ValueError('Configure the resource root first')
-        suite = load_suite(DEFAULT_SUITE)
+        suite = load_suite(args.suite)
         checked = resource_kit.inspect_resources(read(root / resource_kit.PROFILE), suite['resourceDefinitions'],
                                                 suite['cases'], root=root, full=args.full, network=args.network)
         output = private_run(args.output) if args.output else root / 'checks/latest.json'

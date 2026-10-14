@@ -30,12 +30,14 @@ workflow.
 
 ## Full-device customer journey testing
 
-When a user requests full or regression testing of a deployed CosmoEdge device
+When a user requests full, quick, or regression testing of a deployed CosmoEdge device
 and supplies its platform login, follow
 `test/customer-journey/skill/SKILL.md` (also installable as
-`cosmoedge-full-test`). The versioned source of cases is
-`test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx`; `suite.json` is generated
-for review, never maintained separately. `tools/customer_journey.py` freezes
+`cosmoedge-full-test`). The versioned full casebook is
+`test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx`; the quick casebook is
+`test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx`.
+`suite.json` and `quick-suite.json` are generated for review, never maintained
+separately. `tools/customer_journey.py` freezes
 both XLSX and execution schema, maintains per-case progress, and exports results
 to a separate XLSX and HTML by stable case ID. The tool does
 not perform browser actions itself: Codex must execute the specified steps and

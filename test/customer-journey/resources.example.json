@@ -9,6 +9,14 @@
       "password": "",
       "gap": "设备IP、平台用户名和密码。"
     },
+    "VLM-MODEL": {
+      "status": "missing",
+      "gap": "目标芯片可运行的视觉语言模型、分词器和设备加载结果。原始 bmodel 不等于可导入包。"
+    },
+    "DINO-MODEL": {
+      "status": "missing",
+      "gap": "目标芯片可运行的视觉检测大模型、词表和设备加载结果。"
+    },
     "CAM-HK-A": {
       "status": "missing",
       "host": "",

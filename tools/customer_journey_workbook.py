@@ -197,7 +197,8 @@ def export_results(run, suite, meta):
     if not meta.get('workbookSnapshot'):
         raise ValueError('This legacy run has no frozen XLSX. Create a new XLSX-backed run and import legacy records explicitly.')
     node, modules = artifact_runtime()
-    script = Path(__file__).with_name('customer_journey_xlsx.mjs')
+    script_name = 'customer_journey_quick_xlsx.mjs' if suite.get('suiteKind') == 'quick' else 'customer_journey_xlsx.mjs'
+    script = Path(__file__).with_name(script_name)
     result = subprocess.run([str(node), str(script), str(run), str(modules)], text=True,
                             encoding='utf-8', errors='replace', capture_output=True, timeout=180)
     if result.returncode:

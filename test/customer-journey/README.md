@@ -1,12 +1,18 @@
 # CosmoEdge 逐用例测试套件
 
-在 Codex 中输入：
+在 Codex 中可直接选择两种测试：
 
-> 使用 $cosmoedge-full-test，对 CosmoEdge `<设备IP>`，平台用户名 `<用户名>`、密码 `<密码>`，按完整用例库执行测试并输出逐用例报告。
+> 对 CosmoEdge `<设备IP>`，平台用户名 `<用户名>`、密码 `<密码>`，按仓库 `test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx` 逐条执行全量测试，输出通过、失败、阻塞及原因和证据的 XLSX/HTML 报告。
+
+> 对 CosmoEdge `<设备IP>`，平台用户名 `<用户名>`、密码 `<密码>`，按仓库 `test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx` 逐条执行主要功能快测，输出通过、失败、阻塞及原因和证据的 XLSX/HTML 报告。
+
+快测使用 [`CosmoEdge-主要功能客户旅程测试用例.xlsx`](CosmoEdge-主要功能客户旅程测试用例.xlsx)，当前 v0.5、28 条核心用例、95 步，设计预算 141–232 分钟（资源已就绪时）。覆盖 RTSP、ONVIF、国标、本地视频、USB、模型和场景任务、底库识别、图片分析、VLM/DINO、大屏预览叠加、事件、HTTP/MQTT、系统设置及清理。`quick-suite.json` 是由快测 XLSX 生成的 Git 审阅副本，不手工修改。快测的抽样结论不代表全量 327 条及其子矩阵全部通过。
+
+两种模式都由 Codex 实际操作界面、保存逐步证据；工具只管理队列、状态和报告。输入设备 IP/账号/密码后，应先用私有资源包做预检，缺资源只阻塞依赖用例。快测的 VLM 与 DINO 模型分别检查；缺可运行模型时保留明确阻塞原因。资源包仍放在 ignored 私有目录或配置的统一根目录，不提交设备账号、照片、模型或测试报告。
 
 技能负责实际调用浏览器/API/精度工具；`tools/customer_journey.py` 是持久化队列和报告工具，不是无人值守浏览器执行器。修改凭据的用户接管、物理外设确认及尚未授权的高影响操作仍需按实际条件处理，不会因一句全量测试而绕过审批。
 
-[`CosmoEdge-客户旅程测试用例.xlsx`](CosmoEdge-客户旅程测试用例.xlsx) 是唯一维护入口，当前版本为 1.4.0。从原 v0.1 工作簿持续保留客户旅程及覆盖表，现有 327 条父用例、1445 条验收检查。修改“详细用例”及设备/参数/组件/接口矩阵，下一轮直接读取 XLSX。额外验收点写在“补充检查”。历史测试报告仍对应各轮冻结的用例库版本，不自动覆盖新增用例。
+[`CosmoEdge-客户旅程测试用例.xlsx`](CosmoEdge-客户旅程测试用例.xlsx) 是全量用例的维护入口，当前版本为 1.4.0。从原 v0.1 工作簿持续保留客户旅程及覆盖表，现有 327 条父用例、1445 条验收检查。修改“详细用例”及设备/参数/组件/接口矩阵，下一轮直接读取 XLSX。额外验收点写在“补充检查”。历史测试报告仍对应各轮冻结的用例库版本，不自动覆盖新增用例。
 
 `suite.json` 由 XLSX 编译生成，提交它是为了在 GitHub 查看文字差异，不手工维护。`coverage.json` 仅为早期源码盘点参考，不参与执行；新增功能需同步工作簿内用例及覆盖表。每轮冻结 `casebook.snapshot.xlsx` 和 `suite.snapshot.json`，并记录 SHA-256。历史结果始终对应当时版本。
 
@@ -29,6 +35,8 @@
 
 读取/校验/记录使用 Python 3 标准库。XLSX 导出使用 Codex 随附的 Node 和 `@oai/artifact-tool`，不安装仓库依赖。若运行时位于其他路径，先用 `load_workspace_dependencies` 获取路径，再设置 `COSMO_JOURNEY_NODE` 和 `COSMO_JOURNEY_NODE_MODULES`。缺少导出运行时会明确失败，已保存的 HTML/JSON 不丢失。
 
+快测使用仓库最新的 `tools/customer_journey.py`，初始化时指定 `--suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx`。全量测试不指定 `--suite`。运行入口及断点续测见 [执行说明](skill/references/execution.md)。旧资源包内的 `runtime/` 是历史快照，不能替代快测所需的最新仓库工具。
+
 运行和维护方式见 [技能入口](skill/SKILL.md)、[执行说明](skill/references/execution.md) 和 [维护说明](skill/references/maintenance.md)。
 
 修改主库后的检查：
@@ -37,6 +45,8 @@
 python tools/customer_journey.py compile
 python tools/customer_journey.py compile --check
 python tools/customer_journey.py validate
+python tools/customer_journey.py compile --workbook test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx --output test/customer-journey/quick-suite.json --check
+python tools/customer_journey.py validate --suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx
 python -m unittest discover -s test/customer-journey -p "test_*.py"
 npm run docs:verify
 ```

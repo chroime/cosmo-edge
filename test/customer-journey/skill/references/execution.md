@@ -22,6 +22,19 @@ python tools/customer_journey.py record --run <run> --case CAM-003 --result <run
 python tools/customer_journey.py report --run <run>
 ```
 
+主要功能快测沿用 `next/template/record/report`，初始化时选另一份冻结用例，报告文件名为 `CosmoEdge-主要功能逐用例测试结果.xlsx`：
+
+```text
+python tools/customer_journey.py validate --suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx
+python tools/customer_journey.py check-resources --suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx
+python tools/customer_journey.py init --run <新的快测run> --suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx --profile <本轮私有配置>
+python tools/customer_journey.py preflight --run <新的快测run>
+python tools/customer_journey.py next --run <新的快测run> --limit 1
+python tools/customer_journey.py report --run <新的快测run>
+```
+
+快测逐条执行 Q 编号和步骤验收，共 28 条、95 步。`VLM-MODEL` 与 `DINO-MODEL` 独立检查；原始模型文件或模板存在不代表设备可运行。未具备兼容模型时写明 Q26/Q27 的资源阻塞，继续其他用例。快测结果不写回全量用例，也不声称覆盖其设备、参数和接口矩阵。旧资源包自带 `runtime/` 是先前工具快照；快测应使用拉取最新代码后的仓库 `tools/customer_journey.py`，资源包只提供私有配置和素材。
+
 用户补充资源后修改私有配置，运行 `refresh-profile --run <run>` 保存配置哈希变更记录，再 `preflight`。既有失败/阻塞项不会自动变绿；直接按其ID生成模板并重新执行。每次 `record` 保留上一轮尝试，报告展示历史失败。
 
 `init` 默认直接读取正式 XLSX，校验列名、编号、资源和矩阵引用，并保存 `casebook.snapshot.xlsx`、`suite.snapshot.json` 及哈希。继续测试时不重新导入当前主库；主库更新必须新建 run。复制结果工作簿作为主库会被拒绝。

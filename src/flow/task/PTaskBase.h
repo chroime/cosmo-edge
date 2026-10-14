@@ -12,11 +12,6 @@
 #include "flow/action/ActionParam.h"
 #include "flow/action/AlgActionBase.h"
 #include "flow/action/PActionBase.h"
-#include "flow/classify/PClassifierMng.h"
-#include "flow/detect/PDetectorMng.h"
-#include "flow/landmark/PLandmarkMng.h"
-#include "flow/logical/PLogicalJudgmentMng.h"
-#include "flow/recognizer/PRecognizerMng.h"
 #include "util/dto/ServerMsgTypes.h"
 #include "util/dto/TaskCreateTypes.h"
 
@@ -77,12 +72,6 @@ private:
     void DetTargetHandFullPicture(AlgDataPtr algData, const std::vector<MsgTaskArea>& inAreas,
                                   MsgPTaskDetectPicRecv& data, MsgPTaskDetectPicSend& retData);
     std::shared_mutex m_mtx;
-
-    PDetectorMng m_detectorMng;              // Detector management instance
-    PClassifierMng m_classifierMng;          // Classifier management instance
-    PLandmarkMng m_landmarkMng;              // Landmark management instance
-    PRecognizerMng m_recognizerMng;          // Feature extractor management instance
-    PLogicalJudgmentMng m_logicJudgmentMng;  // Logical judgment management instance
 };
 
 using PTaskBasePtr = std::shared_ptr<PTaskBase>;

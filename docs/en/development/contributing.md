@@ -136,7 +136,7 @@ This creates a symlink from `.git/hooks/pre-commit` to `scripts/pre-commit`, so 
 
 1. **clang-format** — all staged `.h` and `.cc` files must follow the project style (`.clang-format` at repo root).
    - If formatting fails: run `bash scripts/format_check.sh --staged --fix`, then `git add -u`.
-2. **cppcheck** (optional) — runs only if `cppcheck` is installed locally. Blocks on error-level findings.
+2. **cppcheck** (optional) — when installed locally, runs through the unified entrypoint with `--profile commit` (warning checks plus the default error checks). All enabled, unsuppressed diagnostics and tool errors block the commit.
 
 **Uninstall the hook:**
 
@@ -154,8 +154,8 @@ bash scripts/format_check.sh --staged --check
 bash scripts/format_check.sh --staged --fix
 git add -u
 
-# Run cppcheck on staged files (if installed)
-bash scripts/static_analysis.sh --cppcheck --staged
+# Check staged files with the hook's diagnostic profile (requires cppcheck)
+bash scripts/static_analysis.sh --cppcheck --staged --profile commit
 ```
 
 ## Pull Request Checklist

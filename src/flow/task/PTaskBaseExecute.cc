@@ -6,6 +6,7 @@
 
 #include "flow/recognizer/PPicturePairMatch.h"
 #include "flow/task/PTaskBase.h"
+#include "flow/task/TaskBaseParam.h"
 #include "util/StringUtil.h"
 #include "util/dto/ActionCodes.h"
 #include "util/dto/PictureWorkflow.h"
@@ -73,6 +74,29 @@ namespace {
 
 }  // namespace
 
+bool PictureTaskSupportsAreas(const PTaskElementPtr& task, const MsgTaskConfig& config,
+                              bool inheritTaskParams) {
+    if (!task || !config.shieldedAreas.empty())
+        return false;
+    if (config.areas.empty())
+        return true;
+    MsgTaskConfig stored;
+    if (inheritTaskParams) {
+        std::lock_guard<std::mutex> lock(task->configMutex);
+        stored = task->params;
+    }
+    const auto scenario =
+        task->action_alg ? task->action_alg->pictureDefaults : std::vector<MsgDynamicKeyValue>{};
+    for (const auto& entry : task->actions) {
+        if (entry.action.actionId != PDAQwen3VL_Code)
+            continue;
+        const auto params = EffectiveParams(entry.action, entry.modelParams, stored, config, scenario);
+        if (Param(params, "vlmProvider", Param(params, "provider", "local_model")) == "laya_v")
+            return true;
+    }
+    return false;
+}
+
 util::ErrorEnum PTaskBase::ExecutePicture(PTaskElementPtr task, AlgDataPtr input,
                                           const MsgPTaskDetectPicRecv& request,
                                           MsgPTaskDetectPicSend& response, AlgDataPtr& rendered,
@@ -99,8 +123,17 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
         return util::ErrorEnum::FlowDataInvalid;
     if (request.resultMode != "legacy" && request.resultMode != "business" && request.resultMode != "debug")
         return util::ErrorEnum::InvalidParam;
-    if (!request.taskConfig.areas.empty() || !request.taskConfig.shieldedAreas.empty())
+    if (!PictureTaskSupportsAreas(task, request.taskConfig))
         return util::ErrorEnum::InvalidParam;
+    MsgTaskConfig storedConfig;
+    {
+        std::lock_guard<std::mutex> lock(task->configMutex);
+        storedConfig = task->params;
+    }
+    auto areaConfig = storedConfig;
+    if (!request.taskConfig.areas.empty())
+        areaConfig.areas = request.taskConfig.areas;
+    AreaToLocal(areaConfig);
     const bool paired = std::any_of(task->actions.begin(), task->actions.end(), [](const auto& entry) {
         return entry.action.actionId == PAPairMatch_Code;
     });
@@ -124,7 +157,8 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
     result.targetList.clear();
     result.areaList.clear();
     result.nodes.clear();
-    input->taskId = task->taskId;
+    input->taskId        = task->taskId;
+    input->visualFrameId = util::GenerateUUID();
     std::map<std::string, AlgDataPtr> frames;
     std::set<std::string> parents;
     for (const auto& node : task->actions)
@@ -142,23 +176,26 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
             return util::ErrorEnum::Success;
         }
         const auto params = EffectiveParams(
-            node, entry.modelParams, task->params, request.taskConfig,
+            node, entry.modelParams, storedConfig, request.taskConfig,
             task->action_alg ? task->action_alg->pictureDefaults : std::vector<MsgDynamicKeyValue>{});
         MsgPTaskDetectPicSend::NodeResult trace;
         trace.nodeId   = node.flowActionId;
         trace.actionId = node.actionId;
         if (paired)
             trace.imageSide = referencePass ? "B" : "A";
-        trace.inputCount       = TargetCount(data);
-        const auto start       = std::chrono::steady_clock::now();
-        auto mutable_params    = params;
-        util::ErrorEnum status = util::ErrorEnum::Success;
+        trace.inputCount          = TargetCount(data);
+        const auto start          = std::chrono::steady_clock::now();
+        auto mutable_params       = params;
+        const auto previousAudits = data->visualDecisions.size();
+        util::ErrorEnum status    = util::ErrorEnum::Success;
         if (!data->pictureBranch) {
             trace.status = "skipped";
         } else if (!ValidatePictureParams(params) ||
                    !entry.actionInst->SetParam(task->taskId, mutable_params)) {
             status = util::ErrorEnum::InvalidParam;
         } else {
+            if (node.actionId == PDAQwen3VL_Code)
+                entry.actionInst->SetArea(task->taskId, areaConfig.areas, areaConfig.shieldedAreas);
             std::set<std::string> upstreamIds;
             if (data->chanDataDetect.detRet)
                 for (const auto& target : data->chanDataDetect.detRet->targets)
@@ -284,6 +321,9 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
         }
         if (request.resultMode == "debug")
             result.nodes.push_back(trace);
+        rendered->visualDecisions.insert(rendered->visualDecisions.end(),
+                                         data->visualDecisions.begin() + previousAudits,
+                                         data->visualDecisions.end());
         frames[node.flowActionId] = data;
         if (node.actionId != PAOutput_Code && parents.count(node.flowActionId))
             continue;
@@ -358,14 +398,29 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
             output.reason = unknown && onlyMissingSamples ? "no_comparable_samples" : "insufficient_evidence";
         result.outputs.push_back(std::move(output));
     }
-    if (!business) {
-        MsgPTaskArea legacy;
-        legacy.areaId     = "-1";
-        legacy.areaName   = "default";
-        legacy.targetList = result.targetList;
-        legacy.bDetected  = std::any_of(result.outputs.begin(), result.outputs.end(),
-                                        [](const auto& output) { return output.decision == "matched"; });
-        result.areaList.push_back(std::move(legacy));
+    if (!business && (!result.targetList.empty() || rendered->visualDecisions.empty())) {
+        if (!areaConfig.areas.empty()) {
+            for (const auto& area : areaConfig.areas) {
+                MsgPTaskArea legacy;
+                legacy.areaId   = area.areaId;
+                legacy.areaName = area.name;
+                for (const auto& target : rendered->chanDataDetect.detRet->targets) {
+                    if (std::any_of(target.areaSign.areas.begin(), target.areaSign.areas.end(),
+                                    [&](const auto& member) { return member.area_id == area.areaId; }))
+                        legacy.targetList.push_back(MakeTarget(target, *rendered, false));
+                }
+                legacy.bDetected = !legacy.targetList.empty();
+                result.areaList.push_back(std::move(legacy));
+            }
+        } else if (!result.targetList.empty() || rendered->visualDecisions.empty()) {
+            MsgPTaskArea legacy;
+            legacy.areaId     = "-1";
+            legacy.areaName   = "default";
+            legacy.targetList = result.targetList;
+            legacy.bDetected  = std::any_of(result.outputs.begin(), result.outputs.end(),
+                                            [](const auto& output) { return output.decision == "matched"; });
+            result.areaList.push_back(std::move(legacy));
+        }
     }
     return util::ErrorEnum::Success;
 }

@@ -115,7 +115,9 @@ bash scripts/static_analysis.sh --all
 
 Notes:
 
-- `cppcheck` is a good candidate to wire into CI first; it covers warning, style, performance, and portability categories.
+- The hook, CI, and manual cppcheck checks all use this script. `--profile full` (the default) enables warning, style, performance, and portability; `--profile commit` retains the commit check's warning category. Both include the default error checks. All enabled, unsuppressed diagnostics and tool errors return failure.
+- `--staged` checks staged `.h` / `.cc` files; `--base-ref REF` checks changed files under `src` / `test` between REF and HEAD. These options are mutually exclusive. CI passes the computed merge-base to `--base-ref`; deleted files are excluded.
+- Direct `--cppcheck` invocation fails if the tool is missing. The hook and `--all` skip unavailable tools; `--all` aggregates failures from the checks it runs.
 - `clang-tidy` depends on `build/compile_commands.json` and requires the corresponding build configuration to be completed first.
 - `--summary` aggregates common compile warnings from `build.log`.
 

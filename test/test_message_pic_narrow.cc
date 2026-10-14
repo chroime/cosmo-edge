@@ -93,7 +93,7 @@ TEST_CASE("MessageHandler: picture request parameters never mutate stored task c
     const bool use_fallback = GENERATE(false, true);
     PicTaskServiceImpl pictures;
     ScopedServiceOverride<IPicTaskDetect> detect{pictures};
-    ScopedServiceOverride<IPicTaskQuery> query{pictures};
+    REQUIRE_FALSE(ServiceRegistry::Instance().Has<IPicTaskQuery>());
     MockVideoFrameCodec codec;
     ScopedServiceOverride<IVideoFrameCodec> frame_codec{codec};
     REQUIRE_FALSE(ServiceRegistry::Instance().Has<IPicTaskService>());

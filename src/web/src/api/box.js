@@ -454,6 +454,10 @@ export default {
   },
 
 
+  boxQueryLayaReview(data) {
+    return request({ url: '/gtw/cwai/event/LayaReviewPage', method: 'post', data })
+  },
+
   // 告警记录
   boxQueryEvent(data) {
     return request({
@@ -475,15 +479,6 @@ export default {
   boxDeleteEvent(data) {
     return request({
       url: '/gtw/cwai/event/delete',
-      method: 'post',
-      data
-    })
-  },
-
-  // 查询所有算法信息
-  boxAllAlgorithmInfo(data) {
-    return request({
-      url: '/gtw/cwai/algorithm/page',
       method: 'post',
       data
     })

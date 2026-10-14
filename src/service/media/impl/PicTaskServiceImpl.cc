@@ -19,6 +19,69 @@
 
 namespace cosmo::service {
 
+namespace {
+
+    std::vector<cosmo::MsgTaskArea> ChinaMobileTaskAreaToLocal(
+        const cosmo::MsgPTaskDetectExtParam& ext_param) {
+        std::vector<cosmo::MsgTaskArea> areas;
+        int area_id             = 0;
+        size_t DetectRegionSize = 4;
+        for (auto& rule : ext_param.rules) {
+            area_id += 1;
+            // Rectangle 4 points
+            if (DetectRegionSize != rule.DetectRegion.size()) {
+                continue;
+            }
+            cosmo::MsgTaskArea area;
+            area.areaId = "Area-" + std::to_string(area_id);
+            area.name   = area.areaId;
+            for (auto& coordinate : rule.DetectRegion) {
+                // Coordinate points
+                if (2 != coordinate.size()) {
+                    break;
+                }
+                float x = coordinate.at(0);
+                float y = coordinate.at(1);
+                if (x < 0.0f) {
+                    x = 0.0f;
+                }
+                if (x > 1.0f) {
+                    x = 1.0f;
+                }
+
+                if (y < 0.0f) {
+                    y = 0.0f;
+                }
+                if (y > 1.0f) {
+                    y = 1.0f;
+                }
+                cosmo::MsgPoint point;
+                point.x = x;
+                point.y = y;
+                area.points.push_back(point);
+            }
+            if (DetectRegionSize != area.points.size()) {
+                continue;
+            }
+            areas.push_back(area);
+        }
+
+        return areas;
+    }
+
+    std::vector<cosmo::MsgTaskArea> ChinaMobileTaskAreaToLocal(
+        const std::string& taskId, const std::vector<cosmo::MsgPTaskDetectExtParam>& ext_params) {
+        auto it = std::find_if(ext_params.begin(), ext_params.end(),
+                               [&](const auto& ext_param) { return ext_param.eventCode == taskId; });
+        if (it != ext_params.end()) {
+            return ChinaMobileTaskAreaToLocal(*it);
+        }
+
+        return {};
+    }
+
+}  // namespace
+
 PicTaskServiceImpl::PicTaskServiceImpl() : task_base_(std::make_unique<cosmo::PTaskBase>()) {
     LOG_INFO("{}", "PicTaskServiceImpl Init");
 }
@@ -127,8 +190,7 @@ std::string PicTaskServiceImpl::GetCheckSum() {
 cosmo::util::ErrorEnum PicTaskServiceImpl::DetectPic(const std::string& taskId,
                                                      cosmo::MsgPTaskDetectPicRecv& data,
                                                      cosmo::MsgPTaskDetectPicSend& retData) {
-    if (!data.taskConfig.areas.empty() || !data.taskConfig.shieldedAreas.empty() ||
-        (data.resultMode != "business" && data.resultMode != "debug" && data.resultMode != "legacy"))
+    if (data.resultMode != "business" && data.resultMode != "debug" && data.resultMode != "legacy")
         return cosmo::util::ErrorEnum::InvalidParam;
     if (taskId.empty()) {
         LOG_INFO("Task:{} Empty", taskId);
@@ -148,6 +210,8 @@ cosmo::util::ErrorEnum PicTaskServiceImpl::DetectPic(const std::string& taskId,
     if (!lease)
         return cosmo::util::ErrorEnum::NotCreated;
     if (!data.algorithmCode.empty() && data.algorithmCode != task->GetAlgId())
+        return cosmo::util::ErrorEnum::InvalidParam;
+    if (!cosmo::PictureTaskSupportsAreas(task, data.taskConfig))
         return cosmo::util::ErrorEnum::InvalidParam;
 
     if (!task->is_started) {
@@ -256,13 +320,14 @@ cosmo::MsgDetectSend PicTaskServiceImpl::ProcessDetectGroup(cosmo::MsgDetectRecv
             service::ServiceRegistry::Instance().Get<service::IAppInfoService>().GetPicTaskGroupCount();
         std::string task_unit_ext = taskUnit + "-" + std::to_string(ramdon);
         cosmo::MsgPTaskDetectPicRecv ptaskUnit;
-        ptaskUnit.mvDebug       = data.mvDebug;
-        ptaskUnit.taskId        = task_unit_ext;
-        ptaskUnit.algorithmCode = taskUnit;
-        ptaskUnit.imageUrl      = data.imageUrl;
-        ptaskUnit.imageBase64   = data.imageData;
-        ptaskUnit.needRetImg    = false;  // No overlay image needed
-        ptaskUnit.resultMode    = "legacy";
+        ptaskUnit.mvDebug          = data.mvDebug;
+        ptaskUnit.taskId           = task_unit_ext;
+        ptaskUnit.algorithmCode    = taskUnit;
+        ptaskUnit.imageUrl         = data.imageUrl;
+        ptaskUnit.imageBase64      = data.imageData;
+        ptaskUnit.needRetImg       = false;  // No overlay image needed
+        ptaskUnit.resultMode       = "legacy";
+        ptaskUnit.taskConfig.areas = ChinaMobileTaskAreaToLocal(taskUnit, data.extParam);
 
         std::error_condition unitErrc;
         cosmo::MsgPTaskDetectPicSend ptaskUnitRetData{};
@@ -273,6 +338,11 @@ cosmo::MsgDetectSend PicTaskServiceImpl::ProcessDetectGroup(cosmo::MsgDetectRecv
         unitErrc                               = DetectPic(ptaskUnit.taskId, ptaskUnit, ptaskUnitRetData);
 
         LOG_INFO("[PTask] :Detect Task:{} Get:{}", taskUnit, unitErrc.message());
+        for (auto record : ptaskUnitRetData.resData.visualJudgments) {
+            record["event_code"]     = taskUnit;
+            record["algorithm_code"] = ptaskUnit.algorithmCode;
+            retData.data.visualJudgments.push_back(std::move(record));
+        }
         for (const auto& target : ptaskUnitRetData.resData.targetList) {
             // Skip results where logic judgment flow returned false
             if ((target.bHaveLogicResult) && (!target.bLogicResult) && (!data.forceOutputAll)) {
@@ -346,8 +416,6 @@ std::vector<std::string> PicTaskServiceImpl::QueryRealTasks(bool started) {
 }
 
 bool PicTaskServiceImpl::SetTaskParam(const std::string& taskId, cosmo::MsgTaskConfig& param) {
-    if (!param.areas.empty() || !param.shieldedAreas.empty())
-        return false;
     cosmo::PTaskElementPtr task;
     {
         std::shared_lock<std::shared_mutex> lock(mtx_);
@@ -369,9 +437,7 @@ bool PicTaskServiceImpl::GetTaskParam(const std::string& taskId, cosmo::MsgTaskC
             return false;
         task = it->second;
     }
-    cosmo::PictureTaskLease lease(task);
-    if (!lease)
-        return false;
+    std::lock_guard<std::mutex> lock(task->configMutex);
     param = task->params;
     return true;
 }

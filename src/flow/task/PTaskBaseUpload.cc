@@ -3,6 +3,7 @@
 // Image processing algorithms (ComputeMaskPolygon, ApplyYuvMask, ApplyBgrMask) are in PTaskBaseImageProc.cc.
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 
 #include "flow/detect/PDinoDetector.h"
@@ -13,6 +14,7 @@
 #include "flow/task/PTaskBase.h"
 #include "media/Color.h"
 #include "media/PixelFormat.h"
+#include "service/ai/VisualDecisionFence.h"
 #include "service/detail/ServiceRegistry.h"
 #include "service/media/IVideoFrameCodec.h"
 #include "service/media/IVideoFrameOSD.h"
@@ -33,6 +35,26 @@ std::vector<MsgPoint> ComputeMaskPolygon(const AiMask& mask);
 bool ApplyYuvMask(uint8_t* yuvData, int imgW, int imgH, const AiMask& mask);
 bool ApplyBgrMask(uint8_t* bgrData, int imgW, int imgH, const AiMask& mask);
 
+// A picture may contain several judgment nodes. Publish their records together
+// while all distinct run fences are held, so no partially stale batch escapes.
+static bool PublishVisualAudits(const std::vector<VisualDecisionAudit>& audits,
+                                std::vector<nlohmann::json>& output) {
+    std::vector<std::shared_ptr<service::VisualDecisionRun>> runs;
+    std::vector<nlohmann::json> records;
+    for (const auto& audit : audits) {
+        if (!audit.run)
+            return false;
+        runs.push_back(audit.run);
+        records.insert(records.end(), audit.records.begin(), audit.records.end());
+    }
+    const bool published = service::CommitVisualRuns(std::move(runs), [&] { output = std::move(records); });
+    for (const auto& audit : audits)
+        for (const auto& lease : audit.leases)
+            if (lease)
+                lease->Seal(published ? "returned" : "cancelled");
+    return published;
+}
+
 static VideoFramePtr NormalizePicInputForInference(VideoFramePtr frame) {
     if (!VideoFrameValid(frame)) {
         return nullptr;
@@ -49,10 +71,11 @@ static VideoFramePtr NormalizePicInputForInference(VideoFramePtr frame) {
 }
 
 void DetTarget2MsgTarget(const AiDetectRstEl& target, MsgPTaskTarget& msgTarget) {
-    msgTarget.box.x      = target.box.x;
-    msgTarget.box.y      = target.box.y;
-    msgTarget.box.width  = target.box.width;
-    msgTarget.box.height = target.box.height;
+    msgTarget.box.x            = target.box.x;
+    msgTarget.box.y            = target.box.y;
+    msgTarget.box.width        = target.box.width;
+    msgTarget.box.height       = target.box.height;
+    msgTarget.oriented_corners = target.oriented_corners;
 
     msgTarget.bLogicResult = target.bLogicResult;
     for (const auto& attr : target.attrRst)
@@ -158,7 +181,10 @@ void PTaskBase::DetTargetHandFullPicture(AlgDataPtr algData, MsgPTaskDetectPicRe
         for (const auto& target : algData->chanDataDetect.detRet->targets) {
             if (target.box.width <= 0 || target.box.height <= 0)
                 continue;
-            auto boxLines = GetBoxOsdLines(target.box, origImg->GetWidth(), origImg->GetHeight());
+            auto boxLines =
+                target.oriented_corners
+                    ? GetQuadOsdLines(*target.oriented_corners, origImg->GetWidth(), origImg->GetHeight())
+                    : GetBoxOsdLines(target.box, origImg->GetWidth(), origImg->GetHeight());
             service::ServiceRegistry::Instance().Get<service::IVideoFrameOSD>().DrawLines(
                 origImg, boxLines, box_color, lineWidth);
         }
@@ -323,6 +349,14 @@ util::ErrorEnum PTaskBase::TaskDetectPic(PTaskElementPtr task, MsgPTaskDetectPic
         MsgPTaskDetectPicSend referenceResponse;
         DetTargetHandFullPicture(referenceRendered, inData, referenceResponse);
         retData.resData.referencePicture = referenceResponse.resData.fullPicture;
+    }
+    if (rendered && !PublishVisualAudits(rendered->visualDecisions, retData.resData.visualJudgments)) {
+        retData.resData.visualJudgments.clear();
+        retData.resData.status = "failed";
+        retData.resData.outputs.clear();
+        retData.resData.targetList.clear();
+        retData.resData.areaList.clear();
+        return util::ErrorEnum::ActionStop;
     }
     return util::ErrorEnum::Success;
 }

@@ -11,7 +11,7 @@ const page = await mountComponent('views/gam/countManagement/algorithmicManageme
   },
   api: {
     algorithmInquire: async params => { requests.push({ ...params }); return { resData: { rows: [], total: 0 } } },
-    boxCameraPage: async () => ({ resData: { rows: [] } })
+    getChannelList: async () => ({ resData: { rows: [] } })
   }
 })
 try {

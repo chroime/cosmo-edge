@@ -41,6 +41,8 @@ public:
                              const std::vector<std::string>& prompts, const Qwen3VLGenerationParam& gen_param,
                              std::vector<Qwen3VLResult>& results);
 
+    util::ErrorEnum PrepareText(const std::string& input, std::string& output);
+
     util::ErrorEnum GetMaxBatchSize(size_t* value) const;
 
 private:
@@ -57,7 +59,6 @@ private:
 #else
     std::unique_ptr<cosmo::nn::DefaultComponent> generator_;
 #endif
-    AppProfiler profiler_;
 };
 
 using Qwen3VLUnifyPtr = std::shared_ptr<Qwen3VLUnify>;

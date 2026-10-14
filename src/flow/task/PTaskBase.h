@@ -31,6 +31,8 @@ struct PTaskAction {
 
 struct PTaskElement {
     std::atomic<bool> is_started{false};
+    // Short snapshot lock; status reads must not wait for model inference.
+    std::mutex configMutex;
     int startFailedCount{0};
     std::mutex mtx;
     std::condition_variable idle;
@@ -55,6 +57,11 @@ struct PTaskElement {
     }
 };
 using PTaskElementPtr = std::shared_ptr<PTaskElement>;
+
+// Region overrides are implemented by typed visual picture nodes. Other picture
+// actions must not silently accept region or shielding configuration they ignore.
+bool PictureTaskSupportsAreas(const PTaskElementPtr& task, const MsgTaskConfig& config,
+                              bool inheritTaskParams = true);
 
 // A task lease serializes mutable model instances without holding a lock during inference.
 class PictureTaskLease {

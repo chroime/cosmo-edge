@@ -44,7 +44,6 @@ util::ErrorEnum Qwen3VLUnify::Init() {
 
     try {
         cosmo::nn::DefaultComponent::Options options;
-        options.profiler       = &profiler_;
         options.tokenizer_path = tokenizer_path_;
         generator_ =
             std::make_unique<cosmo::nn::DefaultComponent>(options, cfg_path_, model_path_, GetDeviceType());
@@ -231,6 +230,18 @@ util::ErrorEnum Qwen3VLUnify::Forward(const std::vector<VideoFramePtr>& images,
     LOG_DEBUG("[Qwen3VL] Forward done. images:{} results:{}", images.size(), results.size());
     return util::ErrorEnum::Success;
 #endif
+}
+
+util::ErrorEnum Qwen3VLUnify::PrepareText(const std::string& input, std::string& output) {
+#ifndef COSMO_NN_USE_RKLLM_BACKEND
+    if (generator_) {
+        auto status = generator_->PrepareText(input, output);
+        if (bool(status))
+            return util::ErrorEnum::Success;
+        LOG_WARN("VLM prompt preparation failed: {}", status.description());
+    }
+#endif
+    return util::ErrorEnum::Failed;
 }
 
 util::ErrorEnum Qwen3VLUnify::GetMaxBatchSize(size_t* value) const {

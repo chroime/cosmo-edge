@@ -113,6 +113,8 @@ MsgPTaskDetectPicSend MessageHandler::Handle(MsgPTaskDetectPicRecv&& data, std::
     if (data.taskId.empty()) {
         data.taskId = data.algorithmCode;
     }
+    // DetectPic binds transient request configuration to inference under one task lease.
+    // Do not persist per-request overrides through a separate SetTaskParam call.
     errc = service::ServiceRegistry::Instance().Get<service::IPicTaskDetect>().DetectPic(data.taskId, data,
                                                                                          retData);
     return retData;

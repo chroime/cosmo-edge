@@ -54,7 +54,9 @@ PTaskElementPtr PTaskBase::TaskCreate(const std::string& taskId, ActionAlgPtr ac
         return nullptr;
     }
     std::map<std::string, std::string> featureModels;
+    std::map<std::string, bool> targetOutputs;
     for (auto actionNode : workflow) {
+        const bool hasUpstreamTargets = targetOutputs[actionNode.preFlowActionId];
         for (const auto& param : actionNode.configObject.params)
             if (param.key == "atomicCode")
                 actionNode.atomicCode = param.value.ToString();
@@ -91,12 +93,15 @@ PTaskElementPtr PTaskBase::TaskCreate(const std::string& taskId, ActionAlgPtr ac
         else if (id == PDASam_Code)
             ta.actionInst = std::make_shared<PSamDetector>(actionNode, taskId);
         else if (id == PDAQwen3VL_Code)
-            ta.actionInst = std::make_shared<PQwen3VLWorker>(actionNode, taskId);
+            ta.actionInst = std::make_shared<PQwen3VLWorker>(actionNode, taskId, hasUpstreamTargets);
         else
             ta.actionInst = std::make_shared<PictureRuleAction>(taskId, actionNode);
         if (!ta.actionInst->SetParam(taskId, actionNode.configObject.params))
             return nullptr;
         task->actions.push_back(std::move(ta));
+        targetOutputs[actionNode.flowActionId] = hasUpstreamTargets || id == PADetect_Code ||
+                                                 id == PDADino_Code || id == PDASam_Code ||
+                                                 id == PAClassify_Code || id == PALandmark_Code;
     }
 
     LOG_INFO("[{} Create {}] Ok", taskId, actionAlg->algorithmName);
@@ -183,9 +188,27 @@ bool PTaskBase::ModifyTaskParam(PTaskElementPtr task, MsgTaskConfig& taskConfig)
         return false;
     }
 
-    if (!taskConfig.areas.empty() || !taskConfig.shieldedAreas.empty())
+    if (!PictureTaskSupportsAreas(task, taskConfig, false))
         return false;
-    task->params = taskConfig;
+    for (auto& entry : task->actions) {
+        if (entry.action.actionId != PDAQwen3VL_Code)
+            continue;
+        std::map<std::string, MsgDynamicKeyValue> merged;
+        for (const auto* values :
+             {&entry.action.configObject.params, &task->action_alg->pictureDefaults, &taskConfig.params})
+            for (const auto& value : *values)
+                merged[value.key.ToString()] = value;
+        std::vector<MsgDynamicKeyValue> params;
+        for (const auto& [key, value] : merged)
+            params.push_back(value);
+        if (!entry.actionInst->SetParam(task->taskId, params) ||
+            !entry.actionInst->SetArea(task->taskId, taskConfig.areas, taskConfig.shieldedAreas))
+            return false;
+    }
+    {
+        std::lock_guard<std::mutex> lock(task->configMutex);
+        task->params = taskConfig;
+    }
 
     return true;
 }

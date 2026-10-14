@@ -3,6 +3,7 @@
 #pragma once
 
 #include <map>
+#include <nlohmann/json.hpp>
 
 #include "util/dto/TaskAreaTypes.h"
 
@@ -103,6 +104,7 @@ struct MsgPTaskTarget {
     bool bHaveLogicResult{false};
     bool bLogicResult{false};
     MsgRectReal box;
+    std::optional<util::Quad> oriented_corners;
     std::vector<MsgAiConfidence> confidence;
     std::vector<int> groupEls;
     bool bHaveMatchInfo{false};
@@ -174,6 +176,8 @@ struct MsgPTaskDetectPicSend : public MsgSendHead {
         std::string fullPicture;
         std::vector<MsgPTaskArea> areaList;
         std::vector<MsgPTaskTarget> targetList;
+        // Typed review evidence; does not set legacy business booleans.
+        std::vector<nlohmann::json> visualJudgments;
         friend void to_json(nlohmann::json& j, const ResData& v);
         friend void from_json(const nlohmann::json& j, ResData& v);
     } resData;

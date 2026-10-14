@@ -5,6 +5,8 @@
 # Usage:
 #   scripts/static_analysis.sh --cppcheck           # Run cppcheck on all src/test files
 #   scripts/static_analysis.sh --cppcheck --staged   # Only git-staged files
+#   scripts/static_analysis.sh --cppcheck --staged --profile commit
+#   scripts/static_analysis.sh --cppcheck --base-ref REF # Changed src/test files
 #   scripts/static_analysis.sh --clang-tidy          # Run clang-tidy (requires compile_commands.json)
 #   scripts/static_analysis.sh --all                 # Run all available analyzers
 #   scripts/static_analysis.sh --summary             # Show warning count from last build log
@@ -22,13 +24,15 @@ NC='\033[0m'
 # ── Defaults ────────────────────────────────────────────────────────
 MODE=""
 STAGED_ONLY=false
+BASE_REF=""
+PROFILE="full"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # ── Parse arguments ─────────────────────────────────────────────────
 usage() {
     echo -e "${BOLD}Cosmo Static Analysis Runner${NC}"
     echo ""
-    echo "Usage: $0 [--staged] <--cppcheck|--clang-tidy|--all|--summary>"
+    echo "Usage: $0 [--staged|--base-ref REF] [--profile commit|full] <--cppcheck|--clang-tidy|--all|--summary>"
     echo ""
     echo "Options:"
     echo "  --cppcheck    Run cppcheck static analyzer"
@@ -36,6 +40,8 @@ usage() {
     echo "  --all         Run all available analyzers"
     echo "  --summary     Show compiler warning summary from last build"
     echo "  --staged      Only analyze git-staged .h/.cc files"
+    echo "  --base-ref REF  Analyze changed src/test .h/.cc files against REF (cppcheck)"
+    echo "  --profile commit|full  cppcheck diagnostics: warning or full (default: full)"
     echo "  -h|--help     Show this help"
     exit 1
 }
@@ -47,6 +53,18 @@ while [[ $# -gt 0 ]]; do
         --all)        MODE="all";        shift ;;
         --summary)    MODE="summary";    shift ;;
         --staged)     STAGED_ONLY=true;  shift ;;
+        --base-ref|--profile)
+            if [[ $# -lt 2 || -z "$2" || "$2" == --* ]]; then
+                echo -e "${RED}Error: $1 requires a value${NC}"
+                usage
+            fi
+            if [[ "$1" == --base-ref ]]; then
+                BASE_REF="$2"
+            else
+                PROFILE="$2"
+            fi
+            shift 2
+            ;;
         -h|--help)    usage ;;
         *)
             echo -e "${RED}Error: Unknown option '$1'${NC}"
@@ -57,6 +75,15 @@ done
 
 if [[ -z "$MODE" ]]; then
     echo -e "${RED}Error: Must specify a mode${NC}"
+    usage
+fi
+
+if [[ "$STAGED_ONLY" == true && -n "$BASE_REF" ]]; then
+    echo -e "${RED}Error: --staged and --base-ref are mutually exclusive${NC}"
+    usage
+fi
+if [[ "$PROFILE" != commit && "$PROFILE" != full ]]; then
+    echo -e "${RED}Error: --profile must be commit or full${NC}"
     usage
 fi
 
@@ -78,27 +105,50 @@ collect_files() {
 }
 
 # ── cppcheck ────────────────────────────────────────────────────────
-run_cppcheck() {
+collect_cppcheck_files() (
+    cd "$PROJECT_ROOT" || return $?
+    if [[ "$STAGED_ONLY" == true ]]; then
+        git diff --cached --name-only -z --diff-filter=ACMR -- '*.h' '*.cc'
+    elif [[ -n "$BASE_REF" ]]; then
+        local BASE
+        BASE=$(git rev-parse --verify --end-of-options "${BASE_REF}^{commit}") || return $?
+        git diff --name-only -z --diff-filter=ACMR "$BASE" HEAD -- \
+            'src/*.h' 'src/*.cc' 'test/*.h' 'test/*.cc'
+    else
+        find src test -type f \( -name '*.h' -o -name '*.cc' \) \
+            ! -path '*/3rd/*' ! -path '*/build/*' \
+            ! -name 'catch_amalgamated.*' ! -name 'trompeloeil.hpp' \
+            -print0 | sort -z
+    fi
+)
+
+run_cppcheck() (
     if ! command -v cppcheck &> /dev/null; then
         echo -e "${RED}Error: cppcheck not found. Install via: apt install cppcheck${NC}"
         return 1
     fi
 
     local VERSION
-    VERSION=$(cppcheck --version 2>&1)
+    VERSION=$(cppcheck --version 2>&1) || { echo "$VERSION"; return 1; }
     echo -e "${CYAN}Using: ${VERSION}${NC}"
     echo ""
 
     local SUPPRESSION_FILE="$PROJECT_ROOT/.cppcheck-suppressions"
-    local SUPPRESSION_ARG=""
+    local SUPPRESSION_ARGS=()
     if [[ -f "$SUPPRESSION_FILE" ]]; then
-        SUPPRESSION_ARG="--suppressions-list=$SUPPRESSION_FILE"
+        SUPPRESSION_ARGS+=("--suppressions-list=$SUPPRESSION_FILE")
     fi
 
+    # Capture the collector's status before reading its NUL-delimited output.
+    # Process substitution alone would hide git/find failures as empty success.
+    local FILE_LIST
+    FILE_LIST=$(mktemp) || return $?
+    trap 'rm -f "$FILE_LIST"' EXIT
+    collect_cppcheck_files > "$FILE_LIST" || return $?
     local FILES=()
-    while IFS= read -r line; do
-        [[ -n "$line" ]] && FILES+=("$line")
-    done < <(collect_files)
+    while IFS= read -r -d '' line; do
+        FILES+=("$PROJECT_ROOT/$line")
+    done < "$FILE_LIST"
 
     local TOTAL=${#FILES[@]}
     if [[ $TOTAL -eq 0 ]]; then
@@ -109,17 +159,24 @@ run_cppcheck() {
     echo -e "${CYAN}Analyzing ${BOLD}${TOTAL}${NC}${CYAN} files with cppcheck...${NC}"
     echo ""
 
+    local ENABLE="warning,style,performance,portability"
+    if [[ "$PROFILE" == commit ]]; then
+        ENABLE="warning"
+    fi
+    local JOBS
+    JOBS=$(nproc) || return $?
     local EXIT_CODE=0
     cppcheck \
         --std=c++17 \
         --language=c++ \
-        --enable=warning,style,performance,portability \
+        --enable="$ENABLE" \
+        --error-exitcode=1 \
         --inline-suppr \
-        $SUPPRESSION_ARG \
+        "${SUPPRESSION_ARGS[@]}" \
         --quiet \
         --template='{file}:{line}: [{severity}] {id}: {message}' \
         -I "$PROJECT_ROOT/src" \
-        -j"$(nproc)" \
+        -j"$JOBS" \
         "${FILES[@]}" 2>&1 || EXIT_CODE=$?
 
     echo ""
@@ -129,7 +186,7 @@ run_cppcheck() {
         echo -e "${YELLOW}⚠️  cppcheck: Issues found (see above). Exit code: ${EXIT_CODE}${NC}"
     fi
     return $EXIT_CODE
-}
+)
 
 # ── clang-tidy ──────────────────────────────────────────────────────
 run_clang_tidy() {

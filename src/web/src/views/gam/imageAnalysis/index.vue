@@ -268,6 +268,7 @@ import { filterPictureLibraryParams, isPairPictureWorkflow } from '@/views/gam/c
 import LibraryMatchResults from './LibraryMatchResults.vue'
 import PairComparisonPanel from './PairComparisonPanel.vue'
 import { normalizeApiError } from '@/utils/apiError'
+import { drawTargetGeometry } from '@/utils/targetGeometry'
 
 const { proxy } = getCurrentInstance()
 const $API = proxy.$API
@@ -644,7 +645,7 @@ const drawOverlay = (index) => {
     if (bw > 0 || bh > 0) {
       ctx.strokeStyle = color
       ctx.lineWidth = 2
-      ctx.strokeRect(x, y, bw, bh)
+      drawTargetGeometry(ctx, target)
     }
 
     const label = `${getTargetLabel(target)} ${getTargetConfidence(target)}`
@@ -748,7 +749,7 @@ const drawPreviewOverlay = () => {
       if (bw > 0 || bh > 0) {
         ctx.strokeStyle = color
         ctx.lineWidth = Math.max(2, Math.round(imgW / 500))
-        ctx.strokeRect(x, y, bw, bh)
+        drawTargetGeometry(ctx, target)
       }
 
       const label = `${getTargetLabel(target)} ${getTargetConfidence(target)}`

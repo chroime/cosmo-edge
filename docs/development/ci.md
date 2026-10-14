@@ -114,7 +114,9 @@ bash scripts/static_analysis.sh --all
 
 说明：
 
-- `cppcheck` 适合先接入 CI，覆盖 warning、style、performance、portability 等类别。
+- hook、CI 和手动 cppcheck 检查统一通过此脚本执行。`--profile full`（默认）启用 warning、style、performance、portability；`--profile commit` 保留提交检查的 warning 类别，两者均包含默认的 error 检查。所有已启用且未抑制的诊断、工具错误均返回失败。
+- `--staged` 检查暂存的 `.h` / `.cc` 文件；`--base-ref REF` 检查 REF 与 HEAD 之间 `src` / `test` 下的变更文件，两者互斥。CI 计算 merge-base 后传入 `--base-ref`，删除文件不参与检查。
+- 直接运行 `--cppcheck` 时缺少工具会失败；hook 和 `--all` 会跳过未安装的工具，`--all` 汇总已执行检查的失败。
 - `clang-tidy` 依赖 `build/compile_commands.json`，需要先完成对应构建配置。
 - `--summary` 可从 `build.log` 中汇总常见编译告警。
 

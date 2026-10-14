@@ -13,12 +13,7 @@
 #include "flow/action/ActionInstMngBase.h"
 #include "flow/classify/AiClassifyAreaMng.h"
 #include "flow/classify/AiClassifyGroupMng.h"
-#include "flow/classify/PClassifierMng.h"
-#include "flow/detect/PDetectorMng.h"
-#include "flow/landmark/PLandmarkMng.h"
-#include "flow/logical/PLogicalJudgmentMng.h"
 #include "flow/ocr/AiOcrMng.h"
-#include "flow/recognizer/PRecognizerMng.h"
 #include "flow/target/TargetChooseBestMng.h"
 
 using namespace cosmo;
@@ -226,21 +221,6 @@ TEST_CASE("Named action managers preserve identity and ownership", "[ActionInstM
     }
     SECTION("AiClassifyGroupMng") {
         CheckManagerLifecycle<AiClassifyGroupMng>();
-    }
-    SECTION("PClassifierMng") {
-        CheckManagerLifecycle<PClassifierMng>();
-    }
-    SECTION("PDetectorMng") {
-        CheckManagerLifecycle<PDetectorMng>();
-    }
-    SECTION("PLandmarkMng") {
-        CheckManagerLifecycle<PLandmarkMng>();
-    }
-    SECTION("PRecognizerMng") {
-        CheckManagerLifecycle<PRecognizerMng>();
-    }
-    SECTION("PLogicalJudgmentMng") {
-        CheckManagerLifecycle<PLogicalJudgmentMng>();
     }
     SECTION("AiOcrMng") {
         CheckManagerLifecycle<AiOcrMng>();

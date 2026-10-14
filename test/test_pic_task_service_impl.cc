@@ -22,6 +22,7 @@
 #include "support/MockDefaults.h"
 #include "support/ScopedServiceOverride.h"
 #include "util/Keys.h"
+#include "util/dto/ActionCodes.h"
 
 using namespace cosmo::service;
 
@@ -280,23 +281,36 @@ TEST_CASE("PicTaskServiceImpl: GetTaskParam / SetTaskParam validation", "[PicTas
 // ============================================================================
 
 TEST_CASE("PicTaskServiceImpl: TaskCreate duplicate handling", "[PicTaskService]") {
+    cosmo::test::MockModelService model_svc;
+    cosmo::test::ScopedServiceOverride<IModelPathMapping> model{model_svc};
     PicTaskServiceImpl sut;
 
     auto alg = std::make_shared<cosmo::ActionAlg>();
+    cosmo::ActionNode action;
+    action.actionId     = cosmo::PADetect_Code;
+    action.flowActionId = "detector";
+    action.atomicCode   = "model-v1";
+    alg->workFlow.push_back(action);
 
-    SECTION("Creating the same taskId twice returns Created") {
+    SECTION("Creating the same taskId and version preserves the original node") {
         auto r1 = sut.TaskCreate("dup", alg);
         REQUIRE(r1 == cosmo::util::ErrorEnum::Success);
-        auto r2 = sut.TaskCreate("dup", alg);
+        auto duplicate                         = std::make_shared<cosmo::ActionAlg>(*alg);
+        duplicate->workFlow.front().atomicCode = "model-v2";
+        auto r2                                = sut.TaskCreate("dup", duplicate);
         REQUIRE(r2 == cosmo::util::ErrorEnum::Created);
         REQUIRE(sut.TaskCount() == 1);
+
+        REQUIRE_CALL(model_svc, GetModelCfg("model-v1", trompeloeil::_, trompeloeil::_)).RETURN(false);
+        REQUIRE_FALSE(sut.TaskStart("dup"));
     }
 
     SECTION("Creating with updated version replaces the task") {
-        auto algV1                 = std::make_shared<cosmo::ActionAlg>();
-        algV1->algorithmUpdateTime = "v1";
-        auto algV2                 = std::make_shared<cosmo::ActionAlg>();
-        algV2->algorithmUpdateTime = "v2";
+        auto algV1                         = std::make_shared<cosmo::ActionAlg>(*alg);
+        algV1->algorithmUpdateTime         = "v1";
+        auto algV2                         = std::make_shared<cosmo::ActionAlg>(*alg);
+        algV2->algorithmUpdateTime         = "v2";
+        algV2->workFlow.front().atomicCode = "model-v2";
 
         auto r1 = sut.TaskCreate("versioned", algV1);
         REQUIRE(r1 == cosmo::util::ErrorEnum::Success);
@@ -304,6 +318,9 @@ TEST_CASE("PicTaskServiceImpl: TaskCreate duplicate handling", "[PicTaskService]
         // Should recreate (delete old + create new) = Success
         REQUIRE(r2 == cosmo::util::ErrorEnum::Success);
         REQUIRE(sut.TaskCount() == 1);
+
+        REQUIRE_CALL(model_svc, GetModelCfg("model-v2", trompeloeil::_, trompeloeil::_)).RETURN(false);
+        REQUIRE_FALSE(sut.TaskStart("versioned"));
     }
 }
 

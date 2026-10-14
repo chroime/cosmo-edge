@@ -5,9 +5,12 @@
 #include <algorithm>
 #include <filesystem>
 
+#include "flow/classify/PClassifier.h"
+#include "flow/detect/PDetector.h"
 #include "flow/detect/PDinoDetector.h"
 #include "flow/detect/PSamDetector.h"
 #include "flow/landmark/PLandmark.h"
+#include "flow/logical/PLogicalJudgment.h"
 #include "flow/qwen3vl/PQwen3VLWorker.h"
 #include "flow/recognizer/PRecognizer.h"
 #include "media/Color.h"
@@ -19,6 +22,21 @@
 #include "util/dto/ActionCodes.h"
 
 namespace cosmo {
+
+namespace {
+
+    template <typename ActionT>
+    PActionBasePtr GetOrCreateTaskAction(const PTaskElement& task, ActionNode& action) {
+        auto it = std::find_if(task.actions.begin(), task.actions.end(), [&](const PTaskAction& node) {
+            return node.action.actionId == action.actionId && node.action.flowActionId == action.flowActionId;
+        });
+        if (it != task.actions.end()) {
+            return it->actionInst;
+        }
+        return std::make_shared<ActionT>(task.taskId, action);
+    }
+
+}  // namespace
 
 PTaskBase::PTaskBase() {
     LOG_INFO("{}", "PTaskBase Init");
@@ -50,21 +68,13 @@ PTaskElementPtr PTaskBase::TaskCreate(const std::string& taskId, ActionAlgPtr ac
         PTaskAction ta;
         ta.action = actionNode;
         if (0 == PADetect_Code.compare(actionNode.actionId)) {
-            // Detection instance
-            auto detectorInst = m_detectorMng.GetInst(taskId, actionNode);
-            ta.actionInst     = detectorInst;
+            ta.actionInst = GetOrCreateTaskAction<PDetector>(*task, actionNode);
         } else if (0 == PAClassify_Code.compare(actionNode.actionId)) {
-            // Classification instance
-            auto detectorInst = m_classifierMng.GetInst(taskId, actionNode);
-            ta.actionInst     = detectorInst;
+            ta.actionInst = GetOrCreateTaskAction<PClassifier>(*task, actionNode);
         } else if (0 == PALandmark_Code.compare(actionNode.actionId)) {
-            // Landmark instance
-            auto landmarkInst = m_landmarkMng.GetInst(taskId, actionNode);
-            ta.actionInst     = landmarkInst;
+            ta.actionInst = GetOrCreateTaskAction<PLandmark>(*task, actionNode);
         } else if (0 == PARecognizer_Code.compare(actionNode.actionId)) {
-            // Feature extraction instance
-            auto recognizerInst = m_recognizerMng.GetInst(taskId, actionNode);
-            ta.actionInst       = recognizerInst;
+            ta.actionInst = GetOrCreateTaskAction<PRecognizer>(*task, actionNode);
         } else if (0 == PDADino_Code.compare(actionNode.actionId)) {
             ta.actionInst = std::make_shared<PDinoDetector>(actionNode, taskId);
         } else if (0 == PDASam_Code.compare(actionNode.actionId)) {
@@ -72,13 +82,10 @@ PTaskElementPtr PTaskBase::TaskCreate(const std::string& taskId, ActionAlgPtr ac
         } else if (0 == PDAQwen3VL_Code.compare(actionNode.actionId)) {
             ta.actionInst = std::make_shared<PQwen3VLWorker>(actionNode, taskId, hasUpstreamTargets);
         } else if (0 == PALogicalJudgment_Code.compare(actionNode.actionId)) {
-            // Logical judgment instance
-            auto detectorInst = m_logicJudgmentMng.GetInst(taskId, actionNode);
-            ta.actionInst     = detectorInst;
+            ta.actionInst = GetOrCreateTaskAction<PLogicalJudgment>(*task, actionNode);
         } else {
             LOG_WARN("[{} Create {}] Action: {}-{} Not Support", taskId, actionAlg->algorithmName,
                      actionNode.actionId, actionNode.actionName);
-            // Release nodes on unsupported action?
             return nullptr;
         }
         LOG_INFO("[{} Create {}] Action Add: {} ", taskId, actionAlg->algorithmName, ta.action.actionId);
@@ -102,40 +109,13 @@ bool PTaskBase::TaskDelete(PTaskElementPtr task) {
 
     LOG_INFO("[{} Remove {}]", task->taskId, task->GetAlgName());
 
-    // Unregister tasks (legacy code, kept for reference via git history)
-
     // Release actions
     for (auto& taNode : task->actions) {
-        auto actionInst = taNode.actionInst;
-        if (!actionInst) {
+        if (!taNode.actionInst) {
             LOG_WARN("[{} Remove {}] Failed, ActionInst Is Empty", task->taskId, task->GetAlgName());
             return false;
         }
-        bool instDelRet = false;
-        auto actionId   = actionInst->GetActionId();
-        if (0 == PADetect_Code.compare(actionId)) {
-            instDelRet = m_detectorMng.DeleteInst(std::dynamic_pointer_cast<PDetector>(actionInst));
-        } else if (0 == PAClassify_Code.compare(actionId)) {
-            instDelRet = m_classifierMng.DeleteInst(std::dynamic_pointer_cast<PClassifier>(actionInst));
-        } else if (0 == PALandmark_Code.compare(actionId)) {
-            instDelRet = m_landmarkMng.DeleteInst(std::dynamic_pointer_cast<PLandmark>(actionInst));
-        } else if (0 == PARecognizer_Code.compare(actionId)) {
-            instDelRet = m_recognizerMng.DeleteInst(std::dynamic_pointer_cast<PRecognizer>(actionInst));
-        } else if (0 == PALogicalJudgment_Code.compare(actionId)) {
-            instDelRet =
-                m_logicJudgmentMng.DeleteInst(std::dynamic_pointer_cast<PLogicalJudgment>(actionInst));
-        } else if (0 == PDADino_Code.compare(actionId) || 0 == PDASam_Code.compare(actionId) ||
-                   0 == PDAQwen3VL_Code.compare(actionId)) {
-            instDelRet = true;  // Standalone instance, destroyed by std::shared_ptr when taNode is released
-        } else {
-            LOG_WARN("[{} Remove {}] Failed, Action Unknow :ID:{} ActionName:{}", task->taskId,
-                     task->GetAlgName(), taNode.action.actionId, actionInst->GetName());
-            return false;
-        }
-
-        if (instDelRet) {
-            taNode.actionInst.reset();
-        }
+        taNode.actionInst.reset();
 
         LOG_INFO("[{} Remove {}] Action ID:{} ", task->taskId, task->GetAlgName(), taNode.action.actionId);
     }

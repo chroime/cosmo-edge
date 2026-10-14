@@ -114,8 +114,7 @@ protected:
 // MapActionMng: Stores instances using map<string, shared_ptr<T>>
 // Applicable to: AiClassifyMng, AiClassifyGroupMng, AiClassifyAreaMng,
 //         AiClassifyAttrMng, AiTrackMng, AiLandmarkMng,
-//         AiVideoQualityMng, TargetChooseBestMng,
-//         PClassifierMng, PDetectorMng, PLogicalJudgmentMng
+//         AiVideoQualityMng, TargetChooseBestMng
 // ──────────────────────────────────────────────────────
 template <typename InstT>
 class MapActionMng {

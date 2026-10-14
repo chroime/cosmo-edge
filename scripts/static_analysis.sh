@@ -163,6 +163,29 @@ run_cppcheck() (
     if [[ "$PROFILE" == commit ]]; then
         ENABLE="warning"
     fi
+    local TEST_ARGS=()
+    local FILE
+    for FILE in "${FILES[@]}"; do
+        if [[ "$FILE" == "$PROJECT_ROOT/test/"* ]]; then
+            # Older preprocessors can stop inside Catch2's __has_include checks,
+            # before analyzing assertions. Do not accept that as a clean result.
+            if [[ ! "$VERSION" =~ Cppcheck[[:space:]]+([0-9]+)\.([0-9]+) ]] ||
+                (( BASH_REMATCH[1] < 2 || (BASH_REMATCH[1] == 2 && BASH_REMATCH[2] < 13) )); then
+                echo "Error: Cppcheck 2.13 or newer is required to analyze Catch2 tests; found: $VERSION"
+                return 1
+            fi
+            # Keep assertions enabled and model their evaluated expressions.
+            # Catch2's own analysis mode preserves mutually exclusive sections.
+            TEST_ARGS+=(
+                -I "$PROJECT_ROOT/test"
+                -UCATCH_CONFIG_DISABLE
+                -UCATCH_CONFIG_PREFIX_ALL
+                -DCATCH_CONFIG_EXPERIMENTAL_STATIC_ANALYSIS_SUPPORT
+                "--include=$PROJECT_ROOT/tools/cppcheck/Catch2Model.h"
+            )
+            break
+        fi
+    done
     local JOBS
     JOBS=$(nproc) || return $?
     local EXIT_CODE=0
@@ -173,6 +196,7 @@ run_cppcheck() (
         --error-exitcode=1 \
         --inline-suppr \
         "${SUPPRESSION_ARGS[@]}" \
+        "${TEST_ARGS[@]}" \
         --quiet \
         --template='{file}:{line}: [{severity}] {id}: {message}' \
         -I "$PROJECT_ROOT/src" \

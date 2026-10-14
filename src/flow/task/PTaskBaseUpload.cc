@@ -22,6 +22,7 @@
 #include "service/path/IFileService.h"
 #include "util/CipherUtil.h"
 #include "util/FileUtil.h"
+#include "util/GeometricPos.h"
 #include "util/Keys.h"
 #include "util/Log.h"
 #include "util/PathUtil.h"

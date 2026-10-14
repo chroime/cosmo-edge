@@ -20,8 +20,10 @@ import shutil
 
 try:
     from customer_journey_workbook import compile_workbook, sha256, export_results
+    import customer_journey_resources as resource_kit
 except ModuleNotFoundError:
     from tools.customer_journey_workbook import compile_workbook, sha256, export_results
+    from tools import customer_journey_resources as resource_kit
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SUITE = ROOT / 'test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx'
@@ -107,6 +109,16 @@ def init_run(run, suite_path, profile_path):
                             'suiteVersion': suite['version'], 'suiteSha256': digest(suite),
                             'profilePath': str(Path(profile_path).resolve()),
                             'profileSha256': digest(profile), 'deviceVersion': 'UNVERIFIED'}
+    if profile.get('portableVersion') == 1:
+        root = Path(profile_path).resolve().parent
+        if not (root / resource_kit.MANIFEST).is_file():
+            root = resource_kit.configured_root(ROOT)
+        if root is None or read(root / resource_kit.PROFILE).get('kitId') != profile['kitId']:
+            raise ValueError('Configure the matching resource kit before using a copied profile')
+        resource_kit.resolve_profile(profile, root)
+        write(run / 'resources.private.json', profile)
+        metadata.update(profilePath='resources.private.json', profileInRun=True,
+                        resourceRoot=str(root), resourceKitId=profile['kitId'])
     if Path(suite_path).suffix.lower() == '.xlsx':
         snapshot = run / 'casebook.snapshot.xlsx'
         shutil.copyfile(suite_path, snapshot)
@@ -117,7 +129,9 @@ def init_run(run, suite_path, profile_path):
     write(run / 'results.json', {c['id']: {'status': 'NOT_EXECUTED', 'reasonCode': 'INCOMPLETE',
           'reason': '尚未执行，不能判为通过。', 'actual': '', 'evidence': [],
           'steps': [], 'assertions': [], 'attempts': []} for c in suite['cases']})
-    return {'run': str(run), 'caseCount': len(suite['cases']), 'suiteVersion': suite['version']}
+    checked = preflight(run)
+    return {'run': str(run), 'caseCount': len(suite['cases']), 'suiteVersion': suite['version'],
+            'resourceGapCount': len(checked['gaps']), 'preflight': str(run / 'preflight.json')}
 
 
 def load_run(run):
@@ -136,16 +150,26 @@ def load_run(run):
     return run, meta, suite, results
 
 
-def load_profile(meta):
-    profile = read(meta['profilePath'])
+def profile_file(meta, run=None):
+    if meta.get('profileInRun'):
+        if run is None:
+            raise ValueError('Run path required for portable profile')
+        return resource_kit.within(run, meta['profilePath'])
+    return Path(meta['profilePath'])
+
+
+def load_profile(meta, run=None, resolve=True):
+    profile = read(profile_file(meta, run))
     if digest(profile) != meta['profileSha256']:
         raise ValueError('Profile changed. Use refresh-profile to record the change before continuing')
+    if resolve and profile.get('portableVersion') == 1:
+        return resource_kit.resolve_profile(profile, resource_kit.root_for_run(ROOT, meta))
     return profile
 
 
 def refresh_profile(run):
     run, meta, _, _ = load_run(run)
-    profile = read(meta['profilePath'])
+    profile = read(profile_file(meta, run))
     meta.setdefault('profileChanges', []).append({'at': now(), 'previousSha256': meta['profileSha256']})
     meta['profileSha256'] = digest(profile)
     write(run / 'run.json', meta)
@@ -162,43 +186,27 @@ def set_device_version(run, version, evidence):
     return {'deviceVersion': version}
 
 
-def preflight(run):
+def preflight(run, full=False, network=False):
     run, meta, suite, _ = load_run(run)
-    profile = load_profile(meta)
-    inventory = []
-    for rid, spec in suite['resourceDefinitions'].items():
-        item = profile['resources'].get(rid, {})
-        state = item.get('status', 'missing')
-        if state == 'available' and spec['kind'] in ('file', 'directory'):
-            path = Path(item.get('path', ''))
-            valid = path.is_file() if spec['kind'] == 'file' else path.is_dir()
-            state = 'available' if item.get('path') and valid else 'missing'
-        if state == 'available' and spec.get('fields'):
-            if any(item.get(k) in (None, '') for k in spec['fields']):
-                state = 'incomplete'
-        if state not in ('available', 'generated', 'not_applicable'):
-            gap = item.get('gap') or spec['request']
-        else:
-            gap = ''
-        inventory.append({'id': rid, 'title': spec['title'], 'status': state,
-                          'owner': spec.get('owner', '用户/设备管理员'), 'request': gap,
-                          'affectedCases': [c['id'] for c in suite['cases'] if rid in c['requires']],
-                          'note': item.get('note', '')})
-    result = {'at': now(), 'scope': 'local resource admission; remote availability rechecked at execution',
-              'resources': inventory, 'gaps': [x for x in inventory if x['request']]}
+    profile = load_profile(meta, run, resolve=False)
+    root = resource_kit.root_for_run(ROOT, meta) if profile.get('portableVersion') == 1 else None
+    result = resource_kit.inspect_resources(profile, suite['resourceDefinitions'], suite['cases'],
+                                            root=root, full=full, network=network)
+    result['at'] = now()
     write(run / 'preflight.json', result)
     return result
 
 
 def queue(run, limit):
-    _, meta, suite, results = load_run(run)
-    load_profile(meta)
+    run, meta, suite, results = load_run(run)
+    load_profile(meta, run)
     rows = []
     for case in suite['cases']:
         r = results[case['id']]
         if r['status'] in ('NOT_EXECUTED', 'PARTIAL'):
             rows.append({'case': case, 'currentResult': r,
-                         'privateResourceFile': meta['profilePath'],
+                         'privateResourceFile': str(profile_file(meta, run)),
+                         'resourceRoot': str(resource_kit.root_for_run(ROOT, meta)) if meta.get('resourceKitId') else None,
                          'instruction': 'Read only this case resources; execute all steps, assert, clean up, then record.'})
             if len(rows) >= limit:
                 break
@@ -285,7 +293,7 @@ def validate_result(run, case, result):
 
 def record(run, cid, result):
     run, meta, suite, results = load_run(run)
-    load_profile(meta)
+    load_profile(meta, run)
     case = next((c for c in suite['cases'] if c['id'] == cid), None)
     if case is None:
         raise ValueError('Unknown case ID')
@@ -431,10 +439,14 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('validate'); p.add_argument('--suite', default=str(DEFAULT_SUITE))
     p = sub.add_parser('compile'); p.add_argument('--workbook', default=str(DEFAULT_SUITE)); p.add_argument('--output', default=str(GENERATED_SUITE)); p.add_argument('--check', action='store_true')
-    p = sub.add_parser('init'); p.add_argument('--run', required=True); p.add_argument('--suite', default=str(DEFAULT_SUITE)); p.add_argument('--profile', default=str(DEFAULT_PROFILE))
+    p = sub.add_parser('init'); p.add_argument('--run', required=True); p.add_argument('--suite', default=str(DEFAULT_SUITE)); p.add_argument('--profile', default=str(resource_kit.default_profile(ROOT)))
+    p = sub.add_parser('configure-resources'); p.add_argument('--root', required=True)
+    p = sub.add_parser('check-resources'); p.add_argument('--root'); p.add_argument('--full', action='store_true'); p.add_argument('--network', action='store_true'); p.add_argument('--output')
     p = sub.add_parser('set-version'); p.add_argument('--run', required=True); p.add_argument('--version', required=True); p.add_argument('--evidence', required=True)
     for name in ('preflight', 'report', 'refresh-profile'):
         p = sub.add_parser(name); p.add_argument('--run', required=True)
+        if name == 'preflight':
+            p.add_argument('--full', action='store_true'); p.add_argument('--network', action='store_true')
     p = sub.add_parser('next'); p.add_argument('--run', required=True); p.add_argument('--limit', type=int, default=1)
     p = sub.add_parser('record'); p.add_argument('--run', required=True); p.add_argument('--case', required=True); p.add_argument('--result', required=True)
     p = sub.add_parser('explain'); p.add_argument('--run', required=True); p.add_argument('--case', required=True); p.add_argument('--input', required=True)
@@ -452,10 +464,22 @@ def main():
                 raise ValueError('Generated JSON must not overwrite the workbook')
             write(args.output, compiled)
         out = {'caseCount': len(compiled['cases']), 'output': args.output, 'check': args.check}
+    elif args.command == 'configure-resources': out = resource_kit.configure(ROOT, args.root)
+    elif args.command == 'check-resources':
+        root = Path(args.root).resolve() if args.root else resource_kit.configured_root(ROOT)
+        if root is None:
+            raise ValueError('Configure the resource root first')
+        suite = load_suite(DEFAULT_SUITE)
+        checked = resource_kit.inspect_resources(read(root / resource_kit.PROFILE), suite['resourceDefinitions'],
+                                                suite['cases'], root=root, full=args.full, network=args.network)
+        output = private_run(args.output) if args.output else root / 'checks/latest.json'
+        write(output, checked)
+        out = {'resourceCount': len(checked['resources']), 'gaps': checked['gaps'],
+               'integrity': checked['integrity'], 'network': checked['network'], 'savedTo': str(output)}
     elif args.command == 'init': out = init_run(args.run, args.suite, args.profile)
     elif args.command == 'set-version': out = set_device_version(args.run, args.version, args.evidence)
     elif args.command == 'preflight':
-        checked = preflight(args.run)
+        checked = preflight(args.run, args.full, args.network)
         out = {'resourceCount': len(checked['resources']),
                'gaps': [{k: row[k] for k in ('id', 'title', 'request', 'affectedCases')} for row in checked['gaps']],
                'savedTo': str(Path(args.run) / 'preflight.json')}

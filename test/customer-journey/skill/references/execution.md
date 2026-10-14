@@ -1,5 +1,15 @@
 # 执行与记录
 
+## 可迁移资源包优先
+
+先检查环境变量 `COSMO_JOURNEY_RESOURCE_ROOT`，其次读取 ignored 的 `output/agent-runs/cosmoedge-test-kit/resource-root.local.json`。存在根目录配置时，使用该目录下的 `resources.private.json`，不要退回旧的绝对路径配置。新机器只需在仓库根执行 `python <资源包根目录>/kit.py configure`；包内工具可兼容尚未包含资源根目录功能的仓库版本。
+
+开始或换机续测前执行 `python <资源包根目录>/kit.py check --network`；首次迁移加 `--full` 做 SHA-256 校验。读取 `checks/latest.json`，按资源编号把缺口绑定到依赖用例，端口可达不代表登录或业务验收。`kit.py` 的 `init/preflight/next/record/report` 参数与下列工具一致。包内 `runtime/` 是工具快照，不是另一份用例库；正式用例仍读取当前仓库 XLSX。
+
+新轮次复制私有配置后仅覆盖 DUT；保持 `portableVersion`、`kitId` 和素材相对路径，先配置资源根目录再初始化。不要把远端 `workspace/script/sampleRoot` 改写为本地素材路径。新格式运行已保存本轮私有配置快照，迁移完整 run 后重新配置相同 kitId 的根目录即可读取；旧格式运行要单独核对绝对配置/证据引用，不能声称自动迁移完成。
+
+## 常规命令
+
 以下命令在仓库根执行。`<run>` 必须在 `output/agent-runs/`，例如按时间创建的新目录；不要复用历史run执行另一台设备。私有配置采用 `test/customer-journey/resources.example.json` 的结构，一次配置以后由技能复用。当前用户的既有设备、账号、国标原始字段和素材路径已填入默认私有配置。
 
 ```text

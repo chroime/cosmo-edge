@@ -7,7 +7,7 @@ description: 按稳定编号的客户旅程用例逐条实测 CosmoEdge（也识
 
 目标：用户一句“对 CosmoEdge <IP> 用户名 <账号> 密码 <密码> 做全量测试”，即可由 Codex 调度用例库，逐条执行、保存进度并给出清楚的通过/未通过原因。这里的执行者是 Codex 及可用浏览器/API工具；`customer_journey.py` 管理队列、校验记录、生成报告，不会自己点击网页。
 
-在 CosmoEdge 仓库工作，先读其 AGENTS.md。唯一用例源是 `test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx`；`suite.json` 仅为自动生成的 Git 审阅副本。默认私有资源位于 `output/agent-runs/cosmoedge-test-kit/resources.private.json`。流程详见 [references/execution.md](references/execution.md)，添加用例详见 [references/maintenance.md](references/maintenance.md)。不要重复生成另一份用例库。
+在 CosmoEdge 仓库工作，先读其 AGENTS.md。唯一用例源是 `test/customer-journey/CosmoEdge-客户旅程测试用例.xlsx`；`suite.json` 仅为自动生成的 Git 审阅副本。优先读取 `COSMO_JOURNEY_RESOURCE_ROOT` 或 ignored 的 `output/agent-runs/cosmoedge-test-kit/resource-root.local.json` 所指向的私有资源包；未配置根目录时才使用 `output/agent-runs/cosmoedge-test-kit/resources.private.json`。包内 `kit.py` 提供配套工具，启动前检查资源缺口，换机首次检查包含文件哈希。流程详见 [references/execution.md](references/execution.md)，添加用例详见 [references/maintenance.md](references/maintenance.md)。不要重复生成另一份用例库。
 
 ## 入口和准备
 

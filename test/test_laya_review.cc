@@ -1,4 +1,5 @@
 #include <filesystem>
+#include <future>
 #include <thread>
 
 #include "catch_amalgamated.hpp"
@@ -109,21 +110,30 @@ TEST_CASE("Laya unfinished requests become unknown after restart", "[laya][revie
 TEST_CASE("Laya timeout includes image preparation and late results cannot overwrite", "[laya][review]") {
     StoreFixture f;
     std::atomic<int> calls{0};
-    cosmo::LayaReview service(f.store, [&](const auto&, const auto& request, const auto&) {
-        ++calls;
-        return Response(request);
-    });
-    auto run   = std::make_shared<cosmo::LayaShadowRun>("epoch-1");
-    auto start = std::chrono::steady_clock::now();
-    REQUIRE(service.Submit(
-        Identity(), run,
-        [] {
-            std::this_thread::sleep_for(150ms);
-            return Image();
-        },
-        true, 30ms));
-    REQUIRE(std::chrono::steady_clock::now() - start < 120ms);
-    std::this_thread::sleep_for(180ms);
+    {
+        std::promise<void> release;
+        auto gate = release.get_future().share();
+        cosmo::LayaReview service(f.store, [&](const auto&, const auto& request, const auto&) {
+            ++calls;
+            return Response(request);
+        });
+        auto run       = std::make_shared<cosmo::LayaShadowRun>("epoch-1");
+        auto submitted = std::async(std::launch::async, [&] {
+            return service.Submit(
+                Identity(), run,
+                [gate] {
+                    gate.wait();
+                    return Image();
+                },
+                true, 30ms);
+        });
+        // Submit must time out while preparation is blocked, regardless of host scheduling latency.
+        const auto status = submitted.wait_for(5s);
+        // Release before assertions so a failure cannot leave the worker blocked during destruction.
+        release.set_value();
+        REQUIRE(status == std::future_status::ready);
+        REQUIRE(submitted.get());
+    }  // Join the worker before checking that late preparation cannot change the result.
     REQUIRE(calls == 0);
     REQUIRE(f.store.Page("", 1, 10)["rows"][0]["result"]["reason"] == "deadline_exceeded");
 }

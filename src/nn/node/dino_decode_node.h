@@ -24,8 +24,8 @@ public:
                            std::vector<std::shared_ptr<Blob>>& top_blobs) override;
 
 private:
-    float text_threshold;
-    float box_threshold;
+    float text_threshold = 0.25f;
+    float box_threshold  = 0.3f;
 };
 
 }  // namespace cosmo::nn

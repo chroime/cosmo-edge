@@ -40,11 +40,11 @@ private:
 private:
     std::vector<float> mean{};
     std::vector<float> std{};
-    float scale = 0;
-    bool is_bgr = true;
-    float bm_model_input_scale;
-    float alpha;
-    float beta;
+    float scale                = 0;
+    bool is_bgr                = true;
+    float bm_model_input_scale = 1.0f;
+    float alpha                = 0.0f;
+    float beta                 = 0.0f;
     // bmcv_convert_to_attr converto_attr;
 };
 

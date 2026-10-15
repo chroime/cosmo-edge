@@ -13,7 +13,7 @@ Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& m
     model_info_.reduce        = config.reduce;
     model_info_.type          = "classify";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
 
         ModelInfo model;
@@ -57,7 +57,7 @@ Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& m
         }
         preprocess.push_back(pipeline_utils::MakeNormalizeOp(mean, scale, is_bgr));
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
@@ -65,7 +65,7 @@ Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& m
             input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
-        for (auto& out_def : mc.outputs) {
+        for (const auto& out_def : mc.outputs) {
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;

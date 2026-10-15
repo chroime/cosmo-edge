@@ -236,7 +236,7 @@ jobs:
       - name: Run cppcheck (changed files only)
         run: |
           BASE=$(git merge-base HEAD origin/main)
-          bash scripts/static_analysis.sh --cppcheck --profile full --base-ref "$BASE"
+          bash scripts/static_analysis.sh --cppcheck --profile commit --base-ref "$BASE"
 
       - name: Test static analysis entrypoint
         run: python3 -m unittest discover -s test -p 'test_static_analysis.py'

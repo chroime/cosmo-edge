@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -319,14 +320,10 @@ Status Graph::WireNetNode(const ModelInfo& model, const std::vector<std::string>
             if (from_prev) {
                 net_bottom_blobs.push_back(matched_blob);
             } else {
-                int current_input_num  = NodeTypeUtils::TypedNodeCount(nodes, NODE_INPUT);
-                int required_input_num = current_input_num + 1;
-
-                if (required_input_num > current_input_num) {
-                    auto new_input = NodeTypeUtils::CreateNode(NODE_INPUT, current_input_num, max_batch_size,
-                                                               device_type_);
-                    nodes.emplace_back(std::move(new_input));
-                }
+                int current_input_num = NodeTypeUtils::TypedNodeCount(nodes, NODE_INPUT);
+                auto new_input =
+                    NodeTypeUtils::CreateNode(NODE_INPUT, current_input_num, max_batch_size, device_type_);
+                nodes.emplace_back(std::move(new_input));
 
                 std::string input_blob_name = "input_" + std::to_string(current_input_num) + "/0";
                 net_bottom_blobs.push_back(input_blob_name);
@@ -410,9 +407,7 @@ Status Graph::WireNetNode(const ModelInfo& model, const std::vector<std::string>
     net_ptr->SetInputContract(model.input_contract);
 
     // Insert copy nodes right before net_node (after all preprocess nodes)
-    for (auto& copy_node : new_copy_nodes) {
-        nodes.emplace_back(std::move(copy_node));
-    }
+    std::move(new_copy_nodes.begin(), new_copy_nodes.end(), std::back_inserter(nodes));
 
     Node* net_raw = net_node.get();
     nodes.emplace_back(std::move(net_node));
@@ -446,8 +441,7 @@ Status Graph::WireNetNode(const ModelInfo& model, const std::vector<std::string>
         copy->SetBottomBlobNames({copy_top});  // same blob: copy Forward is memcpy(dst,dst) no-op
         nodes.emplace_back(std::move(copy));
         net_raw->AddTopBlobName(copy_top);  // net writes directly to copy's top (CPU)
-        if (net_ptr)
-            net_ptr->SetOutputToCpu(true);  // net will D2S to CPU blob
+        net_ptr->SetOutputToCpu(true);      // net will D2S to CPU blob
         current_model_output_blobs.push_back(copy_top);
         output_blob_names.push_back(copy_top);
     } else {
@@ -476,7 +470,7 @@ Status Graph::WireNetNode(const ModelInfo& model, const std::vector<std::string>
 // Phase 3: build postprocess chain for one model
 // ---------------------------------------------------------------------------
 Status Graph::BuildPostprocessChain(const ModelInfo& model,
-                                    std::vector<std::string>& current_model_output_blobs) {
+                                    const std::vector<std::string>& current_model_output_blobs) {
     auto& output_node_infos = model.output_node_infos;
     auto net_output_num     = output_node_infos.size();
 
@@ -529,8 +523,7 @@ Status Graph::MakeUp(CombinedModelInfo& info) {
     for (size_t i = 0; i < model_node_num; i++) {
         auto& model                  = info.models.at(i);
         auto& model_input_node_infos = model.input_node_infos;
-        if (max_batch_size != model.max_batch)
-            max_batch_size = model.max_batch;
+        max_batch_size               = model.max_batch;
 
         // Track preprocess node outputs for this model (to connect to NetNode)
         std::vector<std::string> preprocess_output_blobs;
@@ -578,7 +571,7 @@ Status Graph::MakeUp(CombinedModelInfo& info) {
     return status;
 }
 
-Status Graph::AddCombinedModelNode(CombinedModelInfo& info) {
+Status Graph::AddCombinedModelNode(const CombinedModelInfo& info) {
     auto model_count = info.models.size();
     if (model_count < 2)
         return COSMO_NN_OK;
@@ -1061,8 +1054,7 @@ Status Graph::InferTopDesc() {
 }
 
 void Graph::AddInputNodeIfNecessary(Node* node) {
-    auto node_type = node->GetNodeType();
-    int input_num  = node->GetBottomCount();
+    int input_num = node->GetBottomCount();
 
     int current_input_node_num = NodeTypeUtils::TypedNodeCount(nodes, NODE_INPUT);
 

@@ -22,10 +22,13 @@ SophonSequenceNode::SophonSequenceNode() : Node() {
 SophonSequenceNode::~SophonSequenceNode() {}
 
 void SophonSequenceNode::LoadParam(Op* op) {
+    dst_depth = dst_width = dst_height = 0;
     if (!op)
         return;
 
     auto sequence_op = dynamic_cast<Sequence*>(op);
+    if (!sequence_op || sequence_op->dsize.size() < 2)
+        return;
 
     dst_batch  = max_batch;
     dst_depth  = sequence_op->size;
@@ -45,6 +48,8 @@ size_t SophonSequenceNode::GetBottomCount() {
 }
 
 Status SophonSequenceNode::InferTopShapes() {
+    if (dst_depth <= 0 || dst_width <= 0 || dst_height <= 0)
+        return Status(COSMO_NN_ERR_PARAM, "Sequence dimensions are not configured");
     top_blob_shapes     = {{max_batch, 3, dst_height, dst_width}};
     top_blob_data_types = {DataType::DATA_TYPE_FLOAT};
     return COSMO_NN_OK;

@@ -58,7 +58,7 @@ private:
 
     Status InferTopDesc();
 
-    Status AddCombinedModelNode(CombinedModelInfo&);
+    Status AddCombinedModelNode(const CombinedModelInfo&);
 
     void AddInputNodeIfNecessary(Node*);
 
@@ -101,7 +101,7 @@ private:
 
     // Phase 3: build postprocess node chain for one model
     Status BuildPostprocessChain(const ModelInfo& model,
-                                 std::vector<std::string>& current_model_output_blobs);
+                                 const std::vector<std::string>& current_model_output_blobs);
 
 private:
     int device_id           = 0;

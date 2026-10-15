@@ -30,7 +30,7 @@ DefaultComponent::DefaultComponent(const Options& options, std::string json_path
     auto& registry = ModelPipelineRegistry::Instance();
     if (!registry.Has(config.model_type)) {
         std::string registered;
-        for (auto& t : registry.GetRegisteredTypes()) {
+        for (const auto& t : registry.GetRegisteredTypes()) {
             if (!registered.empty())
                 registered += ", ";
             registered += t;

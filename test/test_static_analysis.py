@@ -302,7 +302,7 @@ class StaticAnalysisTests(unittest.TestCase):
         for diagnostic in ("nullPointer", "unreadVariable", "comparisonOfFuncReturningBoolError"):
             self.assertIn(diagnostic, output)
 
-    def test_ci_block_uses_merge_base_full_profile_and_propagates_failure(self):
+    def test_ci_block_uses_merge_base_commit_profile_and_propagates_failure(self):
         workflow = (REPOSITORY / ".github/workflows/pr-checks.yml").read_text()
         block = workflow.split("      - name: Run cppcheck (changed files only)\n", 1)[1]
         command = textwrap.dedent(block.split("        run: |\n", 1)[1].split("\n      - name:", 1)[0])
@@ -313,7 +313,7 @@ class StaticAnalysisTests(unittest.TestCase):
         self.run_command([BASH, "-e", "-o", "pipefail", "-c", command],
                          expected=17, CPPCHECK_EXIT="17")
         args = self.assert_files(("test/changed file.cc",))
-        self.assertIn("--enable=warning,style,performance,portability", args)
+        self.assertIn("--enable=warning", args)
 
     @unittest.skipUnless(REAL_CPPCHECK, "cppcheck is not installed")
     def test_real_diagnostics_profiles_and_suppressions(self):

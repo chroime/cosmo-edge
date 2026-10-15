@@ -1,13 +1,15 @@
 #include "nn/utils/op.h"
 
+#include <utility>
+
 #include "nn/utils/string_format.h"
 
 namespace cosmo::nn {
 
-Op::Op(const std::string name_) : name(name_) {}
+Op::Op(std::string name_) : name(std::move(name_)) {}
 Op::~Op() {}
 
-UnknownOp::UnknownOp(const std::string name_) : Op(name_) {}
+UnknownOp::UnknownOp(std::string name_) : Op(std::move(name_)) {}
 UnknownOp::~UnknownOp() {}
 std::string UnknownOp::Description() {
     std::stringstream stream;
@@ -15,7 +17,7 @@ std::string UnknownOp::Description() {
     return stream.str();
 }
 
-Resize::Resize(const std::string name_) : Op(name_) {}
+Resize::Resize(std::string name_) : Op(std::move(name_)) {}
 Resize::~Resize() {}
 std::string Resize::Description() {
     std::stringstream stream;
@@ -26,7 +28,7 @@ std::string Resize::Description() {
     return stream.str();
 }
 
-Normalize::Normalize(const std::string name_) : Op(name_) {}
+Normalize::Normalize(std::string name_) : Op(std::move(name_)) {}
 Normalize::~Normalize() {}
 std::string Normalize::Description() {
     std::stringstream stream;
@@ -37,7 +39,7 @@ std::string Normalize::Description() {
     return stream.str();
 }
 
-CropResize::CropResize(const std::string name_) : Op(name_) {}
+CropResize::CropResize(std::string name_) : Op(std::move(name_)) {}
 CropResize::~CropResize() {}
 std::string CropResize::Description() {
     std::stringstream stream;
@@ -53,7 +55,7 @@ std::string CropResize::Description() {
     return stream.str();
 }
 
-YoloPost::YoloPost(const std::string name_) : Op(name_) {}
+YoloPost::YoloPost(std::string name_) : Op(std::move(name_)) {}
 YoloPost::~YoloPost() {}
 std::string YoloPost::Description() {
     std::stringstream stream;
@@ -63,7 +65,7 @@ std::string YoloPost::Description() {
     return stream.str();
 }
 
-YoloNpuPost::YoloNpuPost(const std::string name_) : Op(name_) {}
+YoloNpuPost::YoloNpuPost(std::string name_) : Op(std::move(name_)) {}
 YoloNpuPost::~YoloNpuPost() {}
 std::string YoloNpuPost::Description() {
     std::stringstream stream;
@@ -85,7 +87,7 @@ std::string YoloNpuPost::Description() {
     return stream.str();
 }
 
-AffineCrop::AffineCrop(const std::string name_) : Op(name_) {}
+AffineCrop::AffineCrop(std::string name_) : Op(std::move(name_)) {}
 AffineCrop::~AffineCrop() {}
 std::string AffineCrop::Description() {
     std::stringstream stream;
@@ -96,7 +98,7 @@ std::string AffineCrop::Description() {
     return stream.str();
 }
 
-Sum::Sum(const std::string name_) : Op(name_) {}
+Sum::Sum(std::string name_) : Op(std::move(name_)) {}
 Sum::~Sum() {}
 
 std::string Sum::Description() {
@@ -107,7 +109,7 @@ std::string Sum::Description() {
 }
 
 // Sequence
-Sequence::Sequence(const std::string name_) : Op(name_) {}
+Sequence::Sequence(std::string name_) : Op(std::move(name_)) {}
 Sequence::~Sequence() {}
 
 std::string Sequence::Description() {
@@ -120,7 +122,7 @@ std::string Sequence::Description() {
 }
 
 // ArgMax
-ArgMax::ArgMax(const std::string name_) : Op(name_) {}
+ArgMax::ArgMax(std::string name_) : Op(std::move(name_)) {}
 ArgMax::~ArgMax() {}
 
 std::string ArgMax::Description() {
@@ -130,7 +132,7 @@ std::string ArgMax::Description() {
     return stream.str();
 }
 
-Split::Split(const std::string name_) : Op(name_) {}
+Split::Split(std::string name_) : Op(std::move(name_)) {}
 Split::~Split() {}
 
 std::string Split::Description() {
@@ -141,7 +143,7 @@ std::string Split::Description() {
     return stream.str();
 }
 
-SplitArgMax::SplitArgMax(const std::string name_) : Op(name_) {}
+SplitArgMax::SplitArgMax(std::string name_) : Op(std::move(name_)) {}
 SplitArgMax::~SplitArgMax() {}
 
 std::string SplitArgMax::Description() {
@@ -152,7 +154,7 @@ std::string SplitArgMax::Description() {
 }
 
 // combine image
-CombineImage::CombineImage(const std::string name_) : Op(name_) {}
+CombineImage::CombineImage(std::string name_) : Op(std::move(name_)) {}
 CombineImage::~CombineImage() {}
 
 std::string CombineImage::Description() {
@@ -163,7 +165,7 @@ std::string CombineImage::Description() {
     return stream.str();
 }
 
-DinoEncoder::DinoEncoder(const std::string name_) : Op(name_) {}
+DinoEncoder::DinoEncoder(std::string name_) : Op(std::move(name_)) {}
 DinoEncoder::~DinoEncoder() {}
 
 std::string DinoEncoder::Description() {
@@ -176,7 +178,7 @@ std::string DinoEncoder::Description() {
     return stream.str();
 }
 
-DinoDecode::DinoDecode(const std::string name_) : Op(name_) {}
+DinoDecode::DinoDecode(std::string name_) : Op(std::move(name_)) {}
 DinoDecode::~DinoDecode() {}
 
 std::string DinoDecode::Description() {
@@ -187,7 +189,7 @@ std::string DinoDecode::Description() {
     return stream.str();
 }
 
-SAMEncoder::SAMEncoder(const std::string name_) : Op(name_) {}
+SAMEncoder::SAMEncoder(std::string name_) : Op(std::move(name_)) {}
 SAMEncoder::~SAMEncoder() {}
 
 std::string SAMEncoder::Description() {
@@ -200,7 +202,7 @@ std::string SAMEncoder::Description() {
     return stream.str();
 }
 
-SAMPromptEncode::SAMPromptEncode(const std::string name_) : Op(name_) {}
+SAMPromptEncode::SAMPromptEncode(std::string name_) : Op(std::move(name_)) {}
 SAMPromptEncode::~SAMPromptEncode() {}
 
 std::string SAMPromptEncode::Description() {
@@ -212,7 +214,7 @@ std::string SAMPromptEncode::Description() {
     return stream.str();
 }
 
-SAMDecode::SAMDecode(const std::string name_) : Op(name_) {}
+SAMDecode::SAMDecode(std::string name_) : Op(std::move(name_)) {}
 SAMDecode::~SAMDecode() {}
 
 std::string SAMDecode::Description() {

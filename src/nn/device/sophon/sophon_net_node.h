@@ -21,8 +21,8 @@ using OwnedBmrt = std::unique_ptr<void, BmrtDeleter>;
 typedef struct _netInfos {
     std::vector<std::vector<int>> inPuts;
     std::vector<std::vector<int>> outPuts;
-    int netInputH;
-    int netInputW;
+    int netInputH = 0;
+    int netInputW = 0;
 } netInfos;
 
 class SophonNetNode : public NetNode {

@@ -68,7 +68,7 @@ struct PUBLIC FaceInfo {
     std::string testset_name{};
     std::vector<float> score_level{};
     std::vector<float> cmp_score{};
-    size_t feature_dim;
+    size_t feature_dim = 0;
 };
 
 struct PUBLIC CombinedModelConfig {

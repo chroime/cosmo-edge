@@ -37,11 +37,11 @@ private:
     float Sigmoid(float value);
 
 private:
-    float nms_threshold;
-    float base_conf;
+    float nms_threshold = 0.35f;
+    float base_conf     = 0.1f;
 
     int top_col = 6;
-    int top_k;
+    int top_k   = 1000;
 
     std::vector<std::vector<std::vector<float>>> anchors{};
     std::vector<float> stride{};

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <iterator>
 
 #include "flow/detect/PDinoDetector.h"
 #include "flow/detect/PSamDetector.h"
@@ -72,12 +73,8 @@ static VideoFramePtr NormalizePicInputForInference(VideoFramePtr frame) {
 }
 
 static bool IsTargetInArea(const AiDetectRstEl& target, const std::string& areaId) {
-    for (const auto& targetArea : target.areaSign.areas) {
-        if (areaId == targetArea.area_id) {
-            return true;
-        }
-    }
-    return false;
+    return std::any_of(target.areaSign.areas.begin(), target.areaSign.areas.end(),
+                       [&](const auto& targetArea) { return areaId == targetArea.area_id; });
 }
 
 static void DetTarget2MsgTarget(const AiDetectRstEl& target, MsgPTaskTarget& msgTarget) {
@@ -185,14 +182,13 @@ void DetData2MsgData(const std::vector<MsgTaskArea>& inAreas, DataDetTrackClassi
         return;
     }
 
-    for (const auto& area : inAreas) {
-        outAreas.push_back(ProcessAreaTargets(area, frame->targets, bHaveLogic));
-    }
+    std::transform(inAreas.begin(), inAreas.end(), std::back_inserter(outAreas),
+                   [&](const auto& area) { return ProcessAreaTargets(area, frame->targets, bHaveLogic); });
 }
 
-void RecogData2MsgData(const std::vector<MsgTaskArea>& /*inAreas*/, AlgTaskDataRecog taskDatarecog,
+void RecogData2MsgData(const std::vector<MsgTaskArea>& /*inAreas*/, const AlgTaskDataRecog& taskDatarecog,
                        std::vector<MsgPTaskArea>& outAreas, std::vector<MsgPTaskTarget>& outTargets) {
-    for (auto& area : taskDatarecog.areas) {
+    for (const auto& area : taskDatarecog.areas) {
         if (area.bLogicResult) {
             MsgPTaskArea recArea;
             recArea.areaId   = area.areaId;
@@ -262,9 +258,9 @@ void PTaskBase::DetTargetHandFullPicture(AlgDataPtr algData, const std::vector<M
     box_color.red   = uint8_t(255);
     box_color.green = 0;
     box_color.blue  = 0;
-    for (auto& areaTargets : retData.resData.areaList)  // Overlay all targets
+    for (const auto& areaTargets : retData.resData.areaList)  // Overlay all targets
     {
-        for (auto& target : areaTargets.targetList) {
+        for (const auto& target : areaTargets.targetList) {
             // target.box.height);
             // Skip targets that have logic judgment but failed
             if ((algData->bHaveLogic) && (!target.bLogicResult)) {
@@ -291,11 +287,11 @@ void PTaskBase::DetTargetHandFullPicture(AlgDataPtr algData, const std::vector<M
         int lmLineWidth = 2;
         int imgW        = origImg->GetWidth();
         int imgH        = origImg->GetHeight();
-        for (auto& target : algData->chanDataDetect.detRet->targets) {
+        for (const auto& target : algData->chanDataDetect.detRet->targets) {
             if (target.landmark.landmark.empty()) {
                 continue;
             }
-            for (auto& pt : target.landmark.landmark) {
+            for (const auto& pt : target.landmark.landmark) {
                 int px = static_cast<int>(pt.x);
                 int py = static_cast<int>(pt.y);
                 // Ensure within image bounds

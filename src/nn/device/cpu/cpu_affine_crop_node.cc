@@ -20,10 +20,11 @@ CpuAffineCropNode::CpuAffineCropNode() : Node() {
 }
 
 void CpuAffineCropNode::LoadParam(Op* op) {
+    dst_width = dst_height = 0;
     if (!op)
         return;
     auto affine_crop_op = dynamic_cast<AffineCrop*>(op);
-    if (!affine_crop_op)
+    if (!affine_crop_op || affine_crop_op->output_hw.size() < 2)
         return;
 
     norm_ratio   = affine_crop_op->norm_ratio;
@@ -38,6 +39,8 @@ DeviceType CpuAffineCropNode::GetTopBlobDeviceType() {
 }
 
 Status CpuAffineCropNode::InferTopShapes() {
+    if (dst_width <= 0 || dst_height <= 0)
+        return Status(COSMO_NN_ERR_PARAM, "Affine crop output dimensions are not configured");
     shared_resource->net_input_w = dst_width;
     shared_resource->net_input_h = dst_height;
 

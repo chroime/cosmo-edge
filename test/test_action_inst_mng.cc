@@ -1,7 +1,9 @@
 #include <array>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -130,7 +132,7 @@ public:
         AlgActionDataQueueStatus status;
         status.actionId = action_.actionId;
         status.taskIds.push_back(task_);
-        status.queueStatus.status.periodMs = durationSec * 1000;
+        status.queueStatus.status.periodMs = static_cast<uint64_t>(durationSec) * 1000;
         statuses.push_back(status);
     }
 
@@ -211,6 +213,12 @@ void CheckReportedAction(CountingManager& manager, const ActionNode& action) {
     CHECK(statuses.front().actionId == action.actionId);
     CHECK(statuses.front().queueStatus.status.periodMs == 7000);
     CHECK(infos.front().actionId == action.actionId);
+
+    statuses.clear();
+    const auto duration = std::numeric_limits<unsigned int>::max();
+    manager.QueueStatus(statuses, duration);
+    REQUIRE(statuses.size() == 1);
+    CHECK(statuses.front().queueStatus.status.periodMs == 4'294'967'295'000ULL);
 }
 
 }  // namespace

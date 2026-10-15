@@ -59,8 +59,8 @@ private:
     Status CalculateMatrix(float* landmark, std::vector<float>& matrix);
 
 private:
-    float norm_ratio;
-    int norm_mode;
+    float norm_ratio              = 0.4f;
+    int norm_mode                 = 1;
     int dst_width                 = 0;
     int dst_height                = 0;
     std::vector<int> center_index = {};

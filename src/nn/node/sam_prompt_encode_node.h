@@ -24,9 +24,9 @@ public:
 
 private:
     std::string prompt_type;  // "point" or "box"
-    bool normalize;
-    int encoder_size;  // encoder input size (e.g., 1024)
-    int max_points;    // maximum number of points for padding
+    bool normalize   = true;
+    int encoder_size = 1024;  // encoder input size (e.g., 1024)
+    int max_points   = 6;     // maximum number of points for padding
 
     // Helper functions
     void NormalizeCoords(float* coords, int num_points, int orig_width, int orig_height);

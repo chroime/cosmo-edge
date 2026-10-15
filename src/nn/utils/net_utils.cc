@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <iterator>
 #include <limits>
 #include <sstream>
 #include <utility>
@@ -28,7 +29,7 @@ namespace cosmo::nn {
 
 Size::Size(int w, int h) : width(w), height(h) {}
 
-static ObjectInfo ScaleSize(ObjectInfo& info, Size old_, Size new_) {
+static ObjectInfo ScaleSize(const ObjectInfo& info, Size old_, Size new_) {
     float scale_x = new_.width / float(old_.width);
     float scale_y = new_.height / float(old_.height);
 
@@ -55,17 +56,18 @@ static ObjectInfo ScaleSize(ObjectInfo& info, Size old_, Size new_) {
 
     // key point
     std::vector<std::pair<float, float>> key_points;
-    for (auto item : info.key_points) {
-        key_points.emplace_back(item.first * scale_x, item.second * scale_y);
-    }
+    std::transform(
+        info.key_points.begin(), info.key_points.end(), std::back_inserter(key_points),
+        [=](const auto& item) { return std::make_pair(item.first * scale_x, item.second * scale_y); });
     new_info.key_points = key_points;
 
     // key point 3d
     std::vector<triple<float, float, float>> key_points_3d;
-    for (auto item : info.key_points_3d) {
-        key_points_3d.emplace_back(std::get<0>(item) * scale_x, std::get<1>(item) * scale_y,
-                                   std::get<2>(item));
-    }
+    std::transform(info.key_points_3d.begin(), info.key_points_3d.end(), std::back_inserter(key_points_3d),
+                   [=](const auto& item) {
+                       return triple<float, float, float>{std::get<0>(item) * scale_x,
+                                                          std::get<1>(item) * scale_y, std::get<2>(item)};
+                   });
     new_info.key_points_3d = key_points_3d;
 
     new_info.key_point_confidences = info.key_point_confidences;
@@ -73,7 +75,7 @@ static ObjectInfo ScaleSize(ObjectInfo& info, Size old_, Size new_) {
     return new_info;
 }
 
-static ObjectInfo AddOffset(ObjectInfo& info, float offset_x, float offset_y) {
+static ObjectInfo AddOffset(const ObjectInfo& info, float offset_x, float offset_y) {
     ObjectInfo offset_info;
     offset_info.angle      = info.angle;
     offset_info.class_id   = info.class_id;
@@ -87,17 +89,18 @@ static ObjectInfo AddOffset(ObjectInfo& info, float offset_x, float offset_y) {
 
     // key point
     std::vector<std::pair<float, float>> key_points;
-    for (auto item : info.key_points) {
-        key_points.emplace_back(item.first + offset_x, item.second + offset_y);
-    }
+    std::transform(
+        info.key_points.begin(), info.key_points.end(), std::back_inserter(key_points),
+        [=](const auto& item) { return std::make_pair(item.first + offset_x, item.second + offset_y); });
     offset_info.key_points = key_points;
 
     // key point 3d
     std::vector<triple<float, float, float>> key_points_3d;
-    for (auto item : info.key_points_3d) {
-        key_points_3d.emplace_back(std::get<0>(item) + offset_x, std::get<1>(item) + offset_y,
-                                   std::get<2>(item));
-    }
+    std::transform(info.key_points_3d.begin(), info.key_points_3d.end(), std::back_inserter(key_points_3d),
+                   [=](const auto& item) {
+                       return triple<float, float, float>{std::get<0>(item) + offset_x,
+                                                          std::get<1>(item) + offset_y, std::get<2>(item)};
+                   });
     offset_info.key_points_3d = key_points_3d;
 
     offset_info.key_point_confidences = info.key_point_confidences;
@@ -522,7 +525,7 @@ Status NetUtils::ParseKeypointOutput(std::vector<std::shared_ptr<Blob>>& blobs, 
 
     auto data = reinterpret_cast<float*>(output_blob->GetHandle().base);
     for (int i = 0; i < current_batch; i++) {
-        auto b_data = data + i * keypoint_count * 2;
+        const auto* b_data = data + i * keypoint_count * 2;
 
         ObjectInfoV1 obj_info;
         for (int j = 0; j < keypoint_count; j++) {
@@ -633,9 +636,9 @@ Status NetUtils::ParseDINOOutput(std::vector<std::shared_ptr<Blob>>& blobs, void
         if (size.width <= 0 || size.height <= 0)
             return Status(COSMO_NN_ERR_PARAM, "GroundingDINO input size is invalid");
         for (int query = 0; query < h; ++query) {
-            auto* logit_data = logits_data + (batch_index * h + query) * w;
-            auto* box_data   = boxes_data + (batch_index * h + query) * 4;
-            float score      = -std::numeric_limits<float>::infinity();
+            const auto* logit_data = logits_data + (batch_index * h + query) * w;
+            const auto* box_data   = boxes_data + (batch_index * h + query) * 4;
+            float score            = -std::numeric_limits<float>::infinity();
             for (int token_index = 0; token_index < w; ++token_index)
                 score = std::max(score, logit_data[token_index]);
             if (!std::isfinite(score) || score <= box_threshold)
@@ -649,7 +652,7 @@ Status NetUtils::ParseDINOOutput(std::vector<std::shared_ptr<Blob>>& blobs, void
 #ifdef COSMO_NN_USE_HOST_BACKEND
                 auto* tokenizer = reinterpret_cast<CpuTokenizer*>(tokenizer_handle);
 #else
-                auto* tokenizer = reinterpret_cast<SophonTokenizer*>(tokenizer_handle);
+                const auto* tokenizer = static_cast<const SophonTokenizer*>(tokenizer_handle);
 #endif
                 if (!IsDinoSpecialToken(tokenizer, token_id))
                     ids.push_back(token_id);
@@ -660,7 +663,7 @@ Status NetUtils::ParseDINOOutput(std::vector<std::shared_ptr<Blob>>& blobs, void
 #ifdef COSMO_NN_USE_HOST_BACKEND
             auto* tokenizer = reinterpret_cast<CpuTokenizer*>(tokenizer_handle);
 #else
-            auto* tokenizer = reinterpret_cast<SophonTokenizer*>(tokenizer_handle);
+            const auto* tokenizer = static_cast<const SophonTokenizer*>(tokenizer_handle);
 #endif
             std::string phrase = DecodeDinoWordPieces(tokenizer, ids);
             if (phrase.empty())
@@ -756,27 +759,25 @@ void NetUtils::MaskScale(uint8_t* src, size_t src_width, size_t src_height, uint
     size_t src_s = src_width * src_height;
     size_t dst_s = dst_width * dst_height;
     for (size_t c = 0; c < channel; c++) {
-        auto src_c = src + c * src_s;
-        auto dst_c = dst + c * dst_s;
+        const auto* src_c = src + c * src_s;
+        auto dst_c        = dst + c * dst_s;
 
         for (size_t i = 0; i < dst_height; i++) {
             float y  = i * scale_y;
             int y0   = static_cast<int>(y);
-            int y1   = std::min(y0 + 1, (int)src_height - 1);
             float dy = y - y0;
             int yi   = y0;
             if (dy >= 0.5) {
-                yi = y1;
+                yi = std::min(y0 + 1, (int)src_height - 1);
             }
 
             for (size_t j = 0; j < dst_width; j++) {
                 float x  = j * scale_x;
                 int x0   = static_cast<int>(x);
-                int x1   = std::min(x0 + 1, (int)src_width - 1);
                 float dx = x - x0;
                 int xi   = x0;
                 if (dx >= 0.5) {
-                    xi = x1;
+                    xi = std::min(x0 + 1, (int)src_width - 1);
                 }
 
                 dst_c[i * dst_width + j] = src_c[yi * src_width + xi];
@@ -814,21 +815,15 @@ Status NetUtils::WarpAffine(std::shared_ptr<Blob> blob, std::vector<std::pair<fl
     CalculateWarpAffineMatrix(src_points, dst_points, matrix);
     WarpAffineMatrixInverse(matrix, invert);
 
-    auto in_handle = blob->GetHandle();
-    auto in_data   = reinterpret_cast<uint8_t*>(in_handle.base);
-    auto in_w = in_size.width, in_h = in_size.height;
-    auto in_c = ImageFormatChannels(in_desc.image_format);
-
-    auto out_handle = out_blob->GetHandle();
-    auto out_data   = reinterpret_cast<uint8_t*>(out_handle.base);
-    auto out_w = out_size.width, out_h = out_size.height;
-    auto out_c = ImageFormatChannels(out_desc.image_format);
+    // Preserve deferred handle materialization on every backend.
+    const auto in_handle  = blob->GetHandle();
+    const auto out_handle = out_blob->GetHandle();
+    (void)in_handle;
+    (void)out_handle;
 
 #ifdef COSMO_NN_USE_SOPHON_BACKEND
-    (void)in_c;
-    (void)out_c;
-    (void)in_data;
-    (void)out_data;
+    const int in_w = in_size.width, in_h = in_size.height;
+    const int out_w = out_size.width, out_h = out_size.height;
     bm_handle_t pbmhandle;
     int ret = bm_dev_request(&pbmhandle, 0);
     if (in_desc.device_type != DeviceType::DEVICE_SOPHON_TPU) {

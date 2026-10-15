@@ -140,7 +140,7 @@ std::vector<std::string> ModelPipeline::GetSelectedClassnames() const {
 // ─── Graph Lifecycle ───────────────────────────────────
 
 Status ModelPipeline::InitGraph(const std::string& model_path, DeviceType device_type, int device_id,
-                                IProfiler* profiler, const std::string& tokenizer_path, bool use_skip) {
+                                IProfiler* profiler, const std::string& tokenizer_path) {
     graph_ = std::make_unique<Graph>();
     if (profiler)
         graph_->SetProfiler(profiler);
@@ -148,7 +148,7 @@ Status ModelPipeline::InitGraph(const std::string& model_path, DeviceType device
     num_models_ = static_cast<int>(model_info_.models.size());
 
     std::string mp = model_path;
-    RETURN_ON_FAIL(graph_->Init(model_info_, mp, device_type, tokenizer_path, device_id, use_skip));
+    RETURN_ON_FAIL(graph_->Init(model_info_, mp, device_type, tokenizer_path, device_id));
     return COSMO_NN_OK;
 }
 

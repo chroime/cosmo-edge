@@ -21,7 +21,7 @@ class SAM2Pipeline : public ModelPipeline {
 public:
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override {
         return max_batch_;
@@ -42,7 +42,7 @@ class DinoPipeline : public ModelPipeline {
 public:
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override {
         return max_batch_;
@@ -66,7 +66,7 @@ public:
     ~Qwen3VLPipeline() override;
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override;
     std::string GetModelType() const override {
@@ -86,7 +86,7 @@ public:
     ~Qwen3_5Pipeline() override;
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override;
     std::string GetModelType() const override {
@@ -105,7 +105,7 @@ class SegmentationPipeline : public ModelPipeline {
 public:
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override {
         return max_batch_;
@@ -126,7 +126,7 @@ class OcrPipeline : public ModelPipeline {
 public:
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     int GetMaxBatchSize() const override {
         return max_batch_;

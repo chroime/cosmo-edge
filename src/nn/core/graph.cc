@@ -54,7 +54,7 @@ Graph::~Graph() {
 }
 
 Status Graph::Init(CombinedModelInfo& info, const std::string& model_path, DeviceType device_type,
-                   const std::string& tokenizer_path, int device_id, bool use_skip) {
+                   const std::string& tokenizer_path, int device_id) {
     this->device_type_ = device_type;
     this->blob_store   = std::make_unique<BlobStore>(device_type, device_id);
 
@@ -68,7 +68,7 @@ Status Graph::Init(CombinedModelInfo& info, const std::string& model_path, Devic
     if (!tokenizer_path.empty())
         shared_resource->tokenizer_path = tokenizer_path;
 
-    RETURN_ON_FAIL(MakeUp(info, use_skip));
+    RETURN_ON_FAIL(MakeUp(info));
 
     for (auto& node : nodes) {
         if (!NodeTypeUtils::IsInputNode(node.get())) {
@@ -191,7 +191,7 @@ Node* Graph::CreateIdentityNodeForInput(const InputNodeInfo& input_info,
 // ---------------------------------------------------------------------------
 // Phase 3: build preprocess chain for one model input
 // ---------------------------------------------------------------------------
-Status Graph::BuildPreprocessChain(ModelInfo& model, size_t input_idx, bool use_skip,
+Status Graph::BuildPreprocessChain(ModelInfo& model, size_t input_idx,
                                    const std::vector<std::string>& prev_output_blobs,
                                    const std::vector<std::string>& prev_output_names,
                                    const std::vector<DimsVector>& prev_output_shapes,
@@ -212,28 +212,10 @@ Status Graph::BuildPreprocessChain(ModelInfo& model, size_t input_idx, bool use_
         }
     }
 
-    if (ops.empty()) {
-        // No preprocess, and not from previous model
-        // Create an IdentityNode as a pass-through first_calculate_node
-        // This will convert params to blobs for decoder inputs like point_labels, mask_input,
-        // has_mask_input
-        auto* node = CreateIdentityNodeForInput(input_node_infos.at(input_idx), preprocess_output_blobs);
-        if (!node)
-            return Status(COSMO_NN_ERR_NODE_CREATE,
-                          "Failed to create identity node for input: " + input_name);
+    ops.erase(std::remove_if(ops.begin(), ops.end(), [](const std::unique_ptr<Op>& op) { return !op; }),
+              ops.end());
 
-        auto top_blobs = node->GetTopBlobNames();
-        if (top_blobs.empty()) {
-            return Status(COSMO_NN_ERR_NODE_CREATE,
-                          "IdentityNode created but has no top blobs for input: " + input_name);
-        }
-        return COSMO_NN_OK;
-    }
-
-    NetUtils::OptimizePreOps(ops, use_skip);
-
-    // After optimization, ops might become empty (e.g., all ops were skipped)
-    // In this case, treat it as no preprocess and create an IdentityNode
+    // Inputs without preprocessing or a previous model output pass through an IdentityNode.
     if (ops.empty()) {
         auto* node = CreateIdentityNodeForInput(input_node_infos.at(input_idx), preprocess_output_blobs);
         if (!node)
@@ -529,7 +511,7 @@ Status Graph::BuildPostprocessChain(const ModelInfo& model,
     return COSMO_NN_OK;
 }
 
-Status Graph::MakeUp(CombinedModelInfo& info, bool use_skip) {
+Status Graph::MakeUp(CombinedModelInfo& info) {
     // add one input node to graph first
     auto input = std::make_unique<InputNode>();
     nodes.emplace_back(std::move(input));
@@ -559,9 +541,9 @@ Status Graph::MakeUp(CombinedModelInfo& info, bool use_skip) {
         // Build preprocess chain for each input
         for (size_t j = 0; j < model_input_node_infos.size(); j++) {
             size_t skip_count = 0;
-            RETURN_ON_FAIL(BuildPreprocessChain(model, j, use_skip, prev_model_output_blobs,
-                                                prev_model_output_names, prev_model_output_shapes,
-                                                used_prev_outputs, preprocess_output_blobs, skip_count));
+            RETURN_ON_FAIL(BuildPreprocessChain(model, j, prev_model_output_blobs, prev_model_output_names,
+                                                prev_model_output_shapes, used_prev_outputs,
+                                                preprocess_output_blobs, skip_count));
             j += skip_count;
         }
 

@@ -18,7 +18,7 @@ namespace cosmo::nn {
 
 Status SAM2Pipeline::Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                           int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                          const std::string& word_table_path, bool use_skip) {
+                          const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = "sequential";
     model_info_.type          = "SAM2";
@@ -54,7 +54,7 @@ Status SAM2Pipeline::Init(const PipelineConfig& config, const std::string& model
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
         for (auto& out_def : mc.outputs) {
@@ -119,7 +119,7 @@ Status SAM2Pipeline::Init(const PipelineConfig& config, const std::string& model
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status SAM2Pipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -205,7 +205,7 @@ Status SAM2Pipeline::ParseSegmentationOutput(std::vector<std::vector<uint8_t>>& 
 
 Status DinoPipeline::Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                           int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                          const std::string& word_table_path, bool use_skip) {
+                          const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "dino";
@@ -259,7 +259,7 @@ Status DinoPipeline::Init(const PipelineConfig& config, const std::string& model
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status DinoPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -308,8 +308,7 @@ Qwen3VLPipeline::~Qwen3VLPipeline() {
 
 Status Qwen3VLPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                              DeviceType device_type, int device_id, IProfiler* profiler,
-                             const std::string& tokenizer_path, const std::string& word_table_path,
-                             bool use_skip) {
+                             const std::string& tokenizer_path, const std::string& word_table_path) {
 #ifdef COSMO_NN_USE_SOPHON_BACKEND
     model_info_.type  = "qwen3vl";
     auto* qwen_runner = Qwen3VLRunner_Create();
@@ -366,8 +365,7 @@ Qwen3_5Pipeline::~Qwen3_5Pipeline() {
 
 Status Qwen3_5Pipeline::Init(const PipelineConfig& config, const std::string& model_path,
                              DeviceType device_type, int device_id, IProfiler* profiler,
-                             const std::string& tokenizer_path, const std::string& word_table_path,
-                             bool use_skip) {
+                             const std::string& tokenizer_path, const std::string& word_table_path) {
 #ifdef COSMO_NN_USE_SOPHON_BACKEND
     model_info_.type  = "qwen3_5";
     auto* qwen_runner = Qwen3VLRunner_Create();
@@ -415,8 +413,7 @@ Status Qwen3_5Pipeline::ParseTextOutput(std::vector<std::vector<std::string>>& o
 
 Status SegmentationPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                   DeviceType device_type, int device_id, IProfiler* profiler,
-                                  const std::string& tokenizer_path, const std::string& word_table_path,
-                                  bool use_skip) {
+                                  const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "segmentation";
@@ -446,7 +443,7 @@ Status SegmentationPipeline::Init(const PipelineConfig& config, const std::strin
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
         for (auto& out_def : mc.outputs) {
@@ -462,7 +459,7 @@ Status SegmentationPipeline::Init(const PipelineConfig& config, const std::strin
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status SegmentationPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -548,7 +545,7 @@ Status SegmentationPipeline::ParseSegmentationOutput(std::vector<std::vector<uin
 
 Status OcrPipeline::Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                          int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                         const std::string& word_table_path, bool use_skip) {
+                         const std::string& word_table_path) {
     if (config.models.size() != 1)
         return Status(COSMO_NN_ERR_PARAM, "OCR requires exactly one model");
 
@@ -581,7 +578,7 @@ Status OcrPipeline::Init(const PipelineConfig& config, const std::string& model_
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
         for (auto& out_def : mc.outputs) {
@@ -646,7 +643,7 @@ Status OcrPipeline::Init(const PipelineConfig& config, const std::string& model_
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status OcrPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {

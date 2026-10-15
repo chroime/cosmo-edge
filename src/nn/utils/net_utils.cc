@@ -341,73 +341,6 @@ ObjectInfoV1 NetUtils::AdjustSize(ObjectInfoV1& info_v1, Size old_, Size new_, i
     return result;
 }
 
-Status NetUtils::GenerateCropParam(RectCrop* rect_crop, int left, int top, int right, int bottom, Size size,
-                                   CropParam& param) {
-    if (!rect_crop)
-        return Status(COSMO_NN_ERR_NULL_PARAM, "Op rect_crop must not be nullptr");
-
-    int x1 = left;
-    int y1 = top;
-    int x2 = right;
-    int y2 = bottom;
-    int w  = x2 - x1 + 1;
-    int h  = y2 - y1 + 1;
-
-    if (rect_crop->square) {
-        int base_len = 0;
-        if (rect_crop->square_mode == 0) {
-            base_len = std::max(w, h);
-        } else if (rect_crop->square_mode == 1) {
-            base_len = std::min(w, h);
-        } else if (rect_crop->square_mode == 2) {
-            base_len = (w + h) / 2;
-        } else {
-            return Status(COSMO_NN_ERR_PARAM, "Invalid square_mode");
-        }
-
-        int center_x = left + w / 2;
-        int center_y = top + h / 2;
-
-        x1 = center_x - base_len * (rect_crop->w_left_crop.at(0) + 0.5f);
-        x2 = center_x + base_len * (rect_crop->w_right_crop.at(0) + 0.5f);
-        y1 = center_y - base_len * (rect_crop->h_top_crop.at(0) + 0.5f);
-        y2 = center_y + base_len * (rect_crop->h_bottom_crop.at(0) + 0.5f);
-
-        x1 = std::max(0, x1);
-        y1 = std::max(0, y1);
-        x2 = std::min(x2, size.width - 1);
-        y2 = std::min(y2, size.height - 1);
-
-        param.top_left_x = x1;
-        param.top_left_y = y1;
-        param.width      = x2 - x1 + 1;
-        param.height     = y2 - y1 + 1;
-        return COSMO_NN_OK;
-    }
-
-    // Unified signed ratio: negative or 0 means crop, positive means expand
-    float top_ratio    = rect_crop->h_top_crop.at(0);
-    float bottom_ratio = rect_crop->h_bottom_crop.at(0);
-    float left_ratio   = rect_crop->w_left_crop.at(0);
-    float right_ratio  = rect_crop->w_right_crop.at(0);
-
-    x1 -= w * left_ratio;
-    y1 -= h * top_ratio;
-    x2 += w * right_ratio;
-    y2 += h * bottom_ratio;
-
-    x1 = std::max(0, x1);
-    y1 = std::max(0, y1);
-    x2 = std::min(x2, size.width - 1);
-    y2 = std::min(y2, size.height - 1);
-
-    param.top_left_x = x1;
-    param.top_left_y = y1;
-    param.width      = x2 - x1 + 1;
-    param.height     = y2 - y1 + 1;
-    return COSMO_NN_OK;
-}
-
 Status NetUtils::GenerateCropResizeParam(CropResize* crop_resize, int left, int top, int right, int bottom,
                                          Size size, CropResizeParam& param) {
     if (!crop_resize)
@@ -480,43 +413,6 @@ Status NetUtils::GenerateCropResizeParam(CropResize* crop_resize, int left, int 
     param.dst_height = crop_resize->dsize[0];
     param.dst_width  = crop_resize->dsize[1];
     param.val        = crop_resize->color.at(0);
-    return COSMO_NN_OK;
-}
-
-Status NetUtils::OptimizePreOps(std::vector<std::unique_ptr<Op>>& ops, bool use_skip) {
-    auto begin = ops.begin();
-    auto end   = ops.end();
-    ops.erase(std::remove_if(begin, end, [](const std::unique_ptr<Op>& op) { return !op; }), end);
-
-    if (use_skip) {
-        begin = ops.begin();
-        end   = ops.end();
-        ops.erase(std::remove_if(begin, end, [](const std::unique_ptr<Op>& op) { return op->skip; }), end);
-    }
-
-    // fuse crop and resize
-    if (ops.at(0)->name == "rect_crop" && ops.at(1)->name == "resize") {
-        auto* crop   = dynamic_cast<RectCrop*>(ops.at(0).get());
-        auto* resize = dynamic_cast<Resize*>(ops.at(1).get());
-
-        auto crop_resize                  = std::make_unique<CropResize>("crop_resize");
-        crop_resize->type                 = crop->type;
-        crop_resize->bbox_hw_ratio_levels = crop->bbox_hw_ratio_levels;
-        crop_resize->h_top_crop           = crop->h_top_crop;
-        crop_resize->h_bottom_crop        = crop->h_bottom_crop;
-        crop_resize->w_left_crop          = crop->w_left_crop;
-        crop_resize->w_right_crop         = crop->w_right_crop;
-        crop_resize->square               = crop->square;
-        crop_resize->square_mode          = crop->square_mode;
-        crop_resize->dsize                = resize->dsize;
-        crop_resize->gravity              = resize->gravity;
-        crop_resize->color                = resize->color;
-
-        // erase auto-deletes the old crop and resize via unique_ptr
-        ops.erase(ops.begin(), ops.begin() + 2);
-        ops.insert(ops.begin(), std::move(crop_resize));
-    }
-
     return COSMO_NN_OK;
 }
 

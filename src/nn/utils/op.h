@@ -15,7 +15,6 @@ public:
     virtual std::string Description() = 0;
 
     std::string name = {};
-    bool skip        = false;
 };
 
 class PUBLIC UnknownOp : public Op {
@@ -61,32 +60,6 @@ public:
     std::vector<float> std{};
     float scale = 1.0f;
     bool is_bgr = true;
-};
-
-class PUBLIC RectCrop : public Op {
-public:
-    explicit RectCrop(const std::string name_ = "rect_crop");
-
-    virtual ~RectCrop();
-
-    virtual std::string Description() override;
-
-    std::string type                        = {};
-    std::vector<float> bbox_hw_ratio_levels = {};
-    std::vector<float> h_top_crop           = {};
-    std::vector<float> h_bottom_crop        = {};
-    std::vector<float> w_left_crop          = {};
-    std::vector<float> w_right_crop         = {};
-
-    // square
-    bool square = false;
-
-    /**
-     * 0: max
-     * 1: min
-     * 2: avg
-     */
-    int square_mode = 0;
 };
 
 class PUBLIC CropResize : public Op {

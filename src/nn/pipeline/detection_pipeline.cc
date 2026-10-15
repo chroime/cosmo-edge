@@ -90,8 +90,7 @@ static Status DetectionParseOutput(std::vector<std::shared_ptr<Blob>> output_blo
 
 Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolov5_det";
@@ -165,7 +164,7 @@ Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status YoloV5DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -183,8 +182,7 @@ Status YoloV5DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolov8_det";
@@ -245,7 +243,7 @@ Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status YoloV8DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -263,8 +261,7 @@ Status YoloV8DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolo26_det";
@@ -327,7 +324,7 @@ Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status Yolo26DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -345,8 +342,7 @@ Status Yolo26DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status Yolo26ObbPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     if (config.models.size() != 1 || config.models[0].inputs.size() != 1 ||
         config.models[0].outputs.size() != 1)
         return Status(COSMO_NN_ERR_INVALID_CFG,
@@ -414,7 +410,7 @@ Status Yolo26ObbPipeline::Init(const PipelineConfig& config, const std::string& 
     if (!config.labels.empty())
         BuildLabels(config, out_def.name, {-1, -1, 10}, model_info_);
     InitThresholdsAndLabels();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status Yolo26ObbPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -457,8 +453,7 @@ Status Yolo26ObbPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                      DeviceType device_type, int device_id, IProfiler* profiler,
-                                     const std::string& tokenizer_path, const std::string& word_table_path,
-                                     bool use_skip) {
+                                     const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "detector";
@@ -540,7 +535,7 @@ Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::st
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status GenericDetectorPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {

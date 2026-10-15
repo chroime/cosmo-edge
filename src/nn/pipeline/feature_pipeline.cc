@@ -10,8 +10,7 @@ namespace cosmo::nn {
 
 Status FeaturePipeline::Init(const PipelineConfig& config, const std::string& model_path,
                              DeviceType device_type, int device_id, IProfiler* profiler,
-                             const std::string& tokenizer_path, const std::string& word_table_path,
-                             bool use_skip) {
+                             const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce.empty() ? "concat" : config.reduce;
     model_info_.type          = "feature";
@@ -82,7 +81,7 @@ Status FeaturePipeline::Init(const PipelineConfig& config, const std::string& mo
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
         for (auto& out_def : mc.outputs) {
@@ -108,7 +107,7 @@ Status FeaturePipeline::Init(const PipelineConfig& config, const std::string& mo
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status FeaturePipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {

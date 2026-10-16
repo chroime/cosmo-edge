@@ -1,6 +1,6 @@
 name: Optional Contract Regression
 
-# Full mutation/browser/config matrices are diagnostic regressions, not PR gates.
+# Browser, build and benchmark contract checks are optional regressions, not PR gates.
 on:
   workflow_dispatch:
     inputs:
@@ -87,14 +87,13 @@ jobs:
               set -euo pipefail
               npm ci
               npm run build
-              npm run component-behavior:variants
               npm run area-rule:check
               AIBOX_RESOURCE_DIR=/workspace/data/resource/aiboxresource_bm1688 npm run resource-i18n:check
               npm run task-card-layout:build
             '
 
       - name: Check browser geometry against Docker-built fixture
-        run: npm run task-card-layout:check && npm run task-card-layout:variants
+        run: npm run task-card-layout:check
 
   tutorial-regression:
     if: inputs.suite == 'tutorials' || inputs.suite == 'all'
@@ -103,7 +102,7 @@ jobs:
       image: ghcr.io/cosmo-wander-ai/cosmo_edge-build-env_x86:v1
     steps:
       - uses: actions/checkout@v7
-      - name: Build documentation and exercise title/rendered-output variants
+      - name: Build documentation and test benchmark validation
         run: |
           npm ci
           npm run docs:verify

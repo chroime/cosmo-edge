@@ -6,7 +6,14 @@ import { findI18nRepoRoot } from './i18n_repo_root.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const workspaceRoot = findI18nRepoRoot(__dirname)
 const glossaryPath = path.join(workspaceRoot, 'docs', 'i18n', 'GLOSSARY.md')
+const scopesPath = path.join(workspaceRoot, 'docs', 'i18n', 'SHORT-SCOPES.md')
 const glossaryModulePath = path.resolve(__dirname, '..', 'src', 'i18n', 'glossary.js')
+const scopeSection = fs.readFileSync(scopesPath, 'utf8')
+  .split('## Scope 一览')[1]?.split('## 使用规则')[0] || ''
+const allowedScopes = new Set(
+  [...scopeSection.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map(match => match[1])
+)
+const invalidScopes = []
 
 const keyOverrides = new Map([
   ['批量删除', 'action.bulkDelete'],
@@ -79,21 +86,31 @@ const parseGlossaryShorts = () => {
     if (!activeGlossaryTable || line.includes('---')) continue
     if (cells.length < 4) continue
     const [term, english, short, scopeCell] = cells
-    if (!short || short === '-' || !scopeCell || scopeCell === '-') continue
+    if (!scopeCell || scopeCell === '-') continue
     const scopes = scopeCell
       .replace(/`/g, '')
       .split(',')
       .map(scope => scope.trim())
       .filter(Boolean)
       .sort()
+    for (const scope of scopes) {
+      if (!allowedScopes.has(scope)) invalidScopes.push(`${term}: ${scope}`)
+    }
+    if (!short || short === '-') continue
     const key = inMenuSection ? navKeyOverrides.get(term) : inferKey(term, english)
     rows.push({ term, key, scopes })
   }
   return rows
 }
 
-const { shortGlossary } = await import(pathToFileURL(glossaryModulePath).href)
 const glossaryRows = parseGlossaryShorts()
+if (invalidScopes.length) {
+  console.error('Invalid I18N short scopes:')
+  invalidScopes.forEach(scope => console.error(`- ${scope}`))
+  process.exit(1)
+}
+
+const { shortGlossary } = await import(pathToFileURL(glossaryModulePath).href)
 const errors = []
 
 for (const row of glossaryRows) {
@@ -124,4 +141,5 @@ if (errors.length) {
   process.exit(1)
 }
 
+console.log(`I18N short scopes OK (${allowedScopes.size} allowed scopes).`)
 console.log(`I18N glossary sync OK (${glossaryRows.length} short terms).`)

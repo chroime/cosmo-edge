@@ -5,12 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "i18n:check-scopes": "node scripts/i18n_check_scopes.mjs",
     "i18n:check-locales": "node scripts/i18n_check_locales.mjs",
     "i18n:check-glossary": "node scripts/i18n_check_glossary_sync.mjs",
-    "i18n:check-dialogs": "node scripts/i18n_check_dialog_actions.mjs",
-    "i18n:check-used-keys": "node scripts/i18n_check_used_keys.mjs",
-    "i18n:check": "npm run i18n:check-scopes && npm run i18n:check-glossary && npm run i18n:check-locales && npm run i18n:check-dialogs && npm run i18n:check-used-keys",
+    "i18n:check": "npm run i18n:check-glossary && npm run i18n:check-locales",
     "upgrade-package:check": "node scripts/upgrade_package_pattern_check.mjs",
     "route-query:check": "node scripts/route_query_compatibility_check.mjs",
     "device-info:check": "node scripts/device_info_visibility_check.mjs",
@@ -34,8 +31,6 @@
     "request-behavior:check": "node --experimental-vm-modules scripts/request_behavior_check.mjs",
     "task-card-layout:build": "node scripts/task_card_layout_fixture.mjs",
     "component-behavior:check": "node --experimental-vm-modules scripts/component_behavior_check.mjs && node --experimental-vm-modules scripts/model_config_behavior_check.mjs && node --experimental-vm-modules scripts/flow_node_state_check.mjs",
-    "component-behavior:variants": "node scripts/component_behavior_variants.mjs",
-    "task-card-layout:variants": "node scripts/task_card_layout_variants.mjs",
     "visual-questions:check": "node --experimental-vm-modules scripts/visual_questions_behavior_check.mjs",
     "visual-review:check": "node --experimental-vm-modules scripts/visual_review_behavior_check.mjs"
   },

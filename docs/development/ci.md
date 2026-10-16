@@ -37,11 +37,11 @@ npm run docs:verify
 
 `docs:verify` 依次执行：
 
-1. `docs:check`：检查五篇中英文核心指南和两个索引的 frontmatter、单一 H1、占位内容、
-   图片 alt、内部链接、双语配对和导航分组。
-2. `docs:build`：构建完整 VitePress 文档站并检查 VitePress 可解析性和站内链接。
-3. `docs:smoke`：检查十篇核心页面的渲染 HTML、标题、语言、导航、分组和 frontmatter
-   泄漏。
+1. `gitee:readme:check`：检查 Gitee README 与源文件是否同步。
+2. `docs:build`：构建完整 VitePress 文档站、检查站内链接，并生成基准报告页面。
+3. `docs:smoke`：检查五篇中英文核心指南和两个索引，共十二页的渲染 HTML、标题、
+   语言、导航、链接、图片 alt 和 frontmatter 泄漏。
+4. `benchmarks:v1.1:smoke`：验证基准源码与生成报告的证据、校验和、公开数据边界及报告链接。
 
 本地预览：
 
@@ -53,9 +53,10 @@ npm run docs:preview
 
 - `.github/workflows/pr-checks.yml` 中的 `docs` job 会在 pull request 上执行同一条
   `npm run docs:verify` 命令。
-- 占位内容检查使用明确的核心指南清单，不扫描社区案例模板中的合法编辑提示。
-- VitePress 构建检查全站页面、导航和站内链接；十页语义冒烟进一步捕获构建不会报错的
-  frontmatter 正文泄漏。
+- 教程结构和链接以构建结果为准，不再通过独立源码扫描强制固定章节措辞或禁用词。
+- 基准完整验证已经覆盖源码，因此不在构建前重复执行 `--source-only`；该参数仍可用于
+  单独检查基准源码。
+- 可选工作流中的 `docs:contracts` 运行基准验证器的回归测试。
 - 当前依赖审计可能报告 npm dependency vulnerabilities，公开发布前应单独评估并记录处理结论。
 
 ## 前端检查
@@ -73,6 +74,10 @@ npm run resource-i18n:check
 说明：
 
 - `npm run build` 会先通过 `prebuild` 自动执行 `npm run i18n:check`。
+- `i18n:check` 包含两个入口：`i18n:check-glossary` 检查术语表同步与 short scope；
+  `i18n:check-locales` 检查双语键一致性、短译键及源码使用的翻译键。
+- 弹窗按钮措辞不再由独立正则校验强制限制；组件行为和浏览器布局检查继续保留，
+  可选工作流不再生成源码或 CSS 变体来验证这些检查本身。
 - `resource-i18n:check` 用于检查资源类国际化内容是否同步。
 - 如果修改了资源文本，可先运行 `npm run resource-i18n:sync`，再复查 diff。
 

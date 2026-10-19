@@ -1,15 +1,28 @@
 import assert from 'node:assert/strict'
 import { mountComponent } from './helpers/mount_behavior_component.mjs'
+import { loadBehaviorModule } from './helpers/load_behavior_module.mjs'
 
-for (const [type, key, apiName, listKey] of [
-  ['workClothesSet', 'param.workClothesSet', 'boxQueryPersonLibInfo', 'personLibList'],
-  ['faceSet', 'param.faceSet', 'boxQueryFaceLibInfo', 'faceLibList']
+// Keep the production API exports in the loop: a mocked method name can hide
+// a selector calling an API that the application never exposes.
+const libraryApi = async request => (await loadBehaviorModule('api/index.js', {
+  mocks: { '@/utils/request': { request } }
+})).default
+
+for (const [type, key, endpoint, listKey] of [
+  ['workClothesSet', 'param.workClothesSet', '/gtw/cwai/BodyLibrary/QueryPersonLibInfo', 'personLibList'],
+  ['faceSet', 'param.faceSet', '/gtw/cwai/Library/QueryFaceLibInfo', 'faceLibList']
 ]) {
   for (const mode of ['simple', 'detail']) {
     let libraries = [{ id: 12, name: 'Available library' }, { id: '34', name: 'Second library' }]
     const form = await mountComponent('views/gam/countManagement/arrangeDetail/flow/ParameterSetting.vue', {
       props: { algorithmMetadata: { params: [{ key, type, name: type, defaultValue: '99', level: '2' }] } },
-      api: { [apiName]: async () => ({ resData: { [listKey]: libraries } }) }
+      api: await libraryApi(async config => {
+        assert.equal(config.url, endpoint)
+        assert.equal(config.method, 'post')
+        assert.equal(config.data.pageNum, 1)
+        assert.equal(config.data.pageSize, 1000)
+        return { resData: { [listKey]: libraries } }
+      })
     })
     try {
       if (mode === 'detail') {
@@ -51,10 +64,9 @@ for (const [type, key, apiName, listKey] of [
 let resolveWorkwear
 const switching = await mountComponent('views/gam/countManagement/arrangeDetail/flow/LibrarySelect.vue', {
   props: { type: 'workClothesSet', modelValue: '77' },
-  api: {
-    boxQueryPersonLibInfo: () => new Promise(resolve => { resolveWorkwear = resolve }),
-    boxQueryFaceLibInfo: async () => ({ resData: { faceLibList: [{ id: '77', name: 'Face library' }] } })
-  }
+  api: await libraryApi(config => config.url === '/gtw/cwai/BodyLibrary/QueryPersonLibInfo'
+    ? new Promise(resolve => { resolveWorkwear = resolve })
+    : Promise.resolve({ resData: { faceLibList: [{ id: '77', name: 'Face library' }] } }))
 })
 try {
   switching.instance.$.props.type = 'faceSet'
@@ -66,7 +78,7 @@ try {
 
 const failing = await mountComponent('views/gam/countManagement/arrangeDetail/flow/LibrarySelect.vue', {
   props: { type: 'faceSet', modelValue: '77' },
-  api: { boxQueryFaceLibInfo: async () => { throw new Error('Library service unavailable') } }
+  api: await libraryApi(async () => { throw new Error('Library service unavailable') })
 })
 try {
   const select = failing.all(n => n.type === 'el-select')[0]

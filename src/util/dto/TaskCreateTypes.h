@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "util/dto/TaskAreaTypes.h"
+#include "util/dto/VlmResult.h"
 
 namespace cosmo {
 
@@ -178,6 +179,7 @@ struct MsgPTaskDetectPicSend : public MsgSendHead {
         std::vector<MsgPTaskTarget> targetList;
         // Typed review evidence; does not set legacy business booleans.
         std::vector<nlohmann::json> visualJudgments;
+        std::vector<VlmResult> vlmResults;
         friend void to_json(nlohmann::json& j, const ResData& v);
         friend void from_json(const nlohmann::json& j, ResData& v);
     } resData;

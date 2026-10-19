@@ -275,6 +275,7 @@ util::ErrorEnum PQwen3VLWorker::HandPic(AlgDataPtr alg_data) {
     std::shared_ptr<VisualJudgment> visual;
     std::vector<MsgTaskArea> areas;
     std::string prompt;
+    std::string question;
     Qwen3VLGenerationParam gen_param;
     bool targets_input;
     {
@@ -286,6 +287,7 @@ util::ErrorEnum PQwen3VLWorker::HandPic(AlgDataPtr alg_data) {
         areas          = areas_;
         gen_param      = gen_param_;
         targets_input  = target_input_;
+        question       = prompt_;
         prompt         = advanced_mode_
                              ? prompt_ + "，回答是或者否,不要换行，不要其他内容。"
                              : "判断图片中是否存在【" + prompt_ + "】目标，回答是或者否,不要换行，不要其他内容。";
@@ -414,6 +416,7 @@ util::ErrorEnum PQwen3VLWorker::HandPic(AlgDataPtr alg_data) {
         if (!frame || !transform.EnsureHostData(frame))
             return util::ErrorEnum::InvalidParam;
         std::vector<Qwen3VLResult> results;
+        const auto started = std::chrono::steady_clock::now();
         const auto status =
             open_ai_config.Enabled()
                 ? OpenAiVlmClient::Generate(open_ai_config, {frame}, {prompt}, gen_param, results)
@@ -423,6 +426,8 @@ util::ErrorEnum PQwen3VLWorker::HandPic(AlgDataPtr alg_data) {
             return status;
         if (results.size() != 1)
             return util::ErrorEnum::FlowDataInvalid;
+        const auto durationMs =
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
         const auto judge           = ParseJudgeYesNo(results.front().text);
         const std::string decision = judge == LlmJudgeYesNo::Unknown
                                          ? "unknown"
@@ -433,6 +438,17 @@ util::ErrorEnum PQwen3VLWorker::HandPic(AlgDataPtr alg_data) {
         confidence.atomic_code = GetAtomicCode();
         confidence.confidence  = 1.0F;
         target.classifyRst.push_back(confidence);
+        VlmResult answer;
+        answer.nodeId     = GetFlowActionId();
+        answer.targetId   = target.targetId;
+        answer.modelCode  = open_ai_config.Enabled() ? open_ai_config.model : GetAtomicCode();
+        answer.question   = question;
+        answer.answer     = results.front().text;
+        answer.decision   = decision;
+        answer.durationMs = durationMs;
+        answer.frameIndex = std::to_string(alg_data->chanDataDec.frame->GetFrameIndex());
+        answer.timestamp  = std::to_string(alg_data->chanDataDec.frame->GetTimestamp());
+        alg_data->vlmResults.push_back(std::move(answer));
         alg_data->pictureRules[GetFlowActionId()][target.targetId] = decision;
         alg_data->pictureDecisions[target.targetId]                = decision;
         if (!targets_input) {

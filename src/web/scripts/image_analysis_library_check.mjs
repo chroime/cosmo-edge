@@ -1,5 +1,17 @@
 import assert from 'node:assert/strict'
+import { h, KeepAlive, ref } from 'vue'
 import { mountComponent } from './helpers/mount_behavior_component.mjs'
+import { loadBehaviorModule } from './helpers/load_behavior_module.mjs'
+
+const { default: libraryApi } = await loadBehaviorModule('api/index.js', {
+  mocks: { '@/utils/request': { request: async ({ url }) => {
+    if (url === '/gtw/cwai/Library/QueryFaceLibInfo') {
+      return { resData: { faceLibList: [{ id: 12, name: 'Face library' }, { id: '34', name: 'Second face library' }] } }
+    }
+    assert.equal(url, '/gtw/cwai/BodyLibrary/QueryPersonLibInfo')
+    return { resData: { personLibList: [{ id: '12', name: 'Workwear library' }, { id: 34, name: 'Second workwear library' }] } }
+  } } }
+})
 
 const cases = [
   ['face', 'param.faceSet', 'faceSet', 'Face library'],
@@ -19,6 +31,7 @@ const page = await mountComponent('views/gam/imageAnalysis/index.vue', {
   },
   globals: { document: { querySelector() { return null } }, URL: { createObjectURL: () => 'blob:test', revokeObjectURL() {} } },
   api: {
+    ...libraryApi,
     algorithmInquire: async () => ({ resData: { rows: cases.map(([id]) => ({ algorithmId: id, algorithmName: id })) } }),
     algorithmLayoutDetail: async ({ id }) => {
       const [, key, type] = cases.find(([code]) => code === id)
@@ -31,8 +44,6 @@ const page = await mountComponent('views/gam/imageAnalysis/index.vue', {
         { key: 'mode', type: 'select', name: 'Mode', defaultValue: 'yes', options: [{ value: 'yes', name: 'Yes' }] }
       ] }) } }
     },
-    boxQueryFaceLibInfo: async () => ({ resData: { faceLibList: [{ id: 12, name: 'Face library' }, { id: '34', name: 'Second face library' }] } }),
-    boxQueryPersonLibInfo: async () => ({ resData: { personLibList: [{ id: '12', name: 'Workwear library' }, { id: 34, name: 'Second workwear library' }] } }),
     pTaskCreate: async () => ({}), pTaskCancle: async () => ({}),
     imageAnalysis: async params => { requests.push(JSON.parse(JSON.stringify(params))); return { resData: {
       schemaVersion: 2,
@@ -81,3 +92,30 @@ try {
   assert.deepEqual(errors, [])
 } finally { page.unmount() }
 console.log('Image analysis page library checks passed')
+
+// The main layout caches this page across an expired session and a new login.
+const active = ref(true)
+let loads = 0
+const recovery = await mountComponent('views/gam/imageAnalysis/index.vue', {
+  mocks: {
+    uuid: { v4: () => 'recovery-request' },
+    '@element-plus/icons-vue': { Upload: 'Upload', VideoPlay: 'VideoPlay', Delete: 'Delete' },
+    '@/utils/chunkUpload': { UploadPurpose: { IMAGE: 'image' }, uploadFileInChunks: async () => ({}) }
+  },
+  api: { algorithmInquire: async () => {
+    if (++loads === 1) throw new Error('Expired session')
+    return { resData: { rows: [{ algorithmId: 'recovered', algorithmName: 'Recovered scene' }] } }
+  } },
+  wrap: component => ({ render: () => h(KeepAlive, null, { default: () => active.value ? h(component) : null }) })
+})
+try {
+  assert.equal(loads, 1, 'first activation must not duplicate the initial request')
+  active.value = false
+  await recovery.settle()
+  active.value = true
+  await recovery.settle()
+  assert.equal(loads, 2)
+  assert.ok(recovery.all(n => n.type === 'el-option' && n.props.value === 'recovered').length,
+    'reactivation after login must recover the scene list without a browser refresh')
+} finally { recovery.unmount() }
+console.log('Image analysis session recovery checks passed')

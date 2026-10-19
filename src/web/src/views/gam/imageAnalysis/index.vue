@@ -122,6 +122,7 @@
               <div v-if="output.decision === 'unknown'" class="decision-reason">{{ decisionReason(output) }}</div>
             </div>
             <LibraryMatchResults :targets="getTargets(item.result)" />
+            <VlmResults :results="item.result.vlmResults" />
             <!-- 检测类结果 -->
             <div v-if="getTargetCount(item.result) > 0" class="result-section">
               <div class="result-label">{{ $t('imageAnalysis.detectedTargets') }}</div>
@@ -139,7 +140,7 @@
               </div>
             </div>
             <!-- 无结果 -->
-            <div v-else class="result-section">
+            <div v-else-if="!item.result.vlmResults?.length" class="result-section">
               <div class="result-label empty-result">{{ emptyResultLabel(item.result) }}</div>
             </div>
           </div>
@@ -203,6 +204,7 @@
             <p v-if="output.decision === 'unknown'">{{ decisionReason(output) }}</p>
           </div>
           <LibraryMatchResults :targets="getTargets(previewItem.result)" />
+          <VlmResults :results="previewItem.result.vlmResults" />
           <el-collapse v-if="previewItem.result.nodes?.length">
             <el-collapse-item :title="$t('imageAnalysis.executionDetails')" name="trace">
               <pre class="execution-json">{{ JSON.stringify(previewItem.result, null, 2) }}</pre>
@@ -256,7 +258,7 @@ export default {
 </script>
 
 <script setup>
-import { ref, computed, getCurrentInstance, nextTick, onUnmounted, onDeactivated } from 'vue'
+import { ref, computed, getCurrentInstance, nextTick, onUnmounted, onDeactivated, onActivated } from 'vue'
 import { t } from '@/i18n'
 import { v4 as uuid } from 'uuid'
 import { ElMessage } from 'element-plus'
@@ -266,6 +268,7 @@ import { uploadFileInChunks, UploadPurpose } from '@/utils/chunkUpload'
 import LibrarySelect from '@/views/gam/countManagement/arrangeDetail/flow/LibrarySelect.vue'
 import { filterPictureLibraryParams, isPairPictureWorkflow } from '@/views/gam/countManagement/arrangeDetail/flow/nodeState'
 import LibraryMatchResults from './LibraryMatchResults.vue'
+import VlmResults from '@/components/VlmResults.vue'
 import PairComparisonPanel from './PairComparisonPanel.vue'
 import { normalizeApiError } from '@/utils/apiError'
 import { drawTargetGeometry } from '@/utils/targetGeometry'
@@ -346,6 +349,11 @@ const loadAlgorithms = () => {
   })
 }
 loadAlgorithms()
+let firstActivation = true
+onActivated(() => {
+  if (firstActivation) firstActivation = false
+  else loadAlgorithms()
+})
 
 // Handlers
 const handleAlgorithmChange = async (val) => {

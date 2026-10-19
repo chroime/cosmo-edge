@@ -183,11 +183,12 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
         trace.actionId = node.actionId;
         if (paired)
             trace.imageSide = referencePass ? "B" : "A";
-        trace.inputCount          = TargetCount(data);
-        const auto start          = std::chrono::steady_clock::now();
-        auto mutable_params       = params;
-        const auto previousAudits = data->visualDecisions.size();
-        util::ErrorEnum status    = util::ErrorEnum::Success;
+        trace.inputCount           = TargetCount(data);
+        const auto start           = std::chrono::steady_clock::now();
+        auto mutable_params        = params;
+        const auto previousAudits  = data->visualDecisions.size();
+        const auto previousAnswers = data->vlmResults.size();
+        util::ErrorEnum status     = util::ErrorEnum::Success;
         if (!data->pictureBranch) {
             trace.status = "skipped";
         } else if (!ValidatePictureParams(params) ||
@@ -316,6 +317,7 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
             result.referenceTargetList.clear();
             result.outputs.clear();
             result.targetList.clear();
+            result.vlmResults.clear();
             result.nodes.push_back(trace);
             return status;
         }
@@ -324,6 +326,8 @@ util::ErrorEnum PTaskBase::ExecutePictureImpl(PTaskElementPtr task, AlgDataPtr i
         rendered->visualDecisions.insert(rendered->visualDecisions.end(),
                                          data->visualDecisions.begin() + previousAudits,
                                          data->visualDecisions.end());
+        result.vlmResults.insert(result.vlmResults.end(), data->vlmResults.begin() + previousAnswers,
+                                 data->vlmResults.end());
         frames[node.flowActionId] = data;
         if (node.actionId != PAOutput_Code && parents.count(node.flowActionId))
             continue;

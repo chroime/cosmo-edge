@@ -38,6 +38,7 @@ AlgDataPtr AlgDataCopy(AlgDataPtr input) {
     algData->taskId           = input->taskId;
     algData->visualFrameId    = input->visualFrameId;
     algData->visualDecisions  = input->visualDecisions;
+    algData->vlmResults       = input->vlmResults;
     algData->bHaveTrack       = input->bHaveTrack;
     algData->bHaveRelated     = input->bHaveRelated;
     algData->bHaveClassify    = input->bHaveClassify;

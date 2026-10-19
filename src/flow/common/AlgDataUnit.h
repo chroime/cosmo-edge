@@ -9,6 +9,7 @@
 #include "flow/common/AlgDetectTypes.h"
 #include "util/Log.h"
 #include "util/dto/ClientMsgEvent.h"
+#include "util/dto/VlmResult.h"
 
 namespace cosmo {
 
@@ -26,6 +27,7 @@ struct AlgData {
     std::string taskId;
     std::string visualFrameId;
     std::vector<VisualDecisionAudit> visualDecisions;
+    std::vector<VlmResult> vlmResults;
     bool bHaveTrack{false};
     bool bHaveRelated{false};  // Has human-face association process
     bool bHaveClassify{false};

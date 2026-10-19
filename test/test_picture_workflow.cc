@@ -42,12 +42,19 @@ public:
     util::ErrorEnum status{util::ErrorEnum::Success};
     size_t seen{0};
     bool modelIds{false};
+    bool negativeVlm{false};
     std::vector<MsgDynamicKeyValue> parameters;
     bool SetParam(const std::string&, std::vector<MsgDynamicKeyValue>& values) override {
         parameters = values;
         return true;
     }
     util::ErrorEnum HandPic(AlgDataPtr data) override {
+        if (negativeVlm) {
+            data->bHaveLogic      = true;
+            data->pictureDecision = "not_matched";
+            data->vlmResults.push_back(
+                {"vlm", "vlm:0", "model", "Is a person visible?", "No", "not_matched", 12.5, "7", "1000"});
+        }
         seen = data->chanDataDetect.detRet ? data->chanDataDetect.detRet->targets.size() : 0;
         if (modelIds && data->chanDataDetect.detRet)
             for (auto& target : data->chanDataDetect.detRet->targets)
@@ -184,6 +191,30 @@ TEST_CASE("Picture business results execute rules and reset request parameters",
     request.resultMode = "legacy";
     REQUIRE(runtime.ExecutePicture(task, Input(), request, response, rendered) == util::ErrorEnum::Success);
     REQUIRE(nlohmann::json(response)["resData"].contains("areaList"));
+}
+
+TEST_CASE("Picture VLM answers survive negative selection and forks without duplicates", "[picture][vlm]") {
+    PTaskBase runtime;
+    auto task         = Task();
+    auto node         = Node("vlm", PDAQwen3VL_Code);
+    auto fake         = std::make_shared<FakePictureAction>(node);
+    fake->negativeVlm = true;
+    task->actions.push_back({node, fake});
+    AddRule(task, Node("out-a", PAOutput_Code, "vlm"));
+    AddRule(task, Node("out-b", PAOutput_Code, "vlm"));
+    MsgPTaskDetectPicRecv request;
+    MsgPTaskDetectPicSend response;
+    AlgDataPtr rendered;
+    REQUIRE(runtime.ExecutePicture(task, Input(), request, response, rendered) == util::ErrorEnum::Success);
+    CHECK(response.resData.targetList.empty());
+    REQUIRE(response.resData.vlmResults.size() == 1);
+    const nlohmann::json json = response;
+    CHECK(json["resData"]["vlmResults"][0]["answer"] == "No");
+    CHECK(json["resData"]["vlmResults"][0]["durationMs"] == 12.5);
+    CHECK(json.get<MsgPTaskDetectPicSend>().resData.vlmResults.front().frameIndex == "7");
+    fake->status = util::ErrorEnum::NotInit;
+    REQUIRE(runtime.ExecutePicture(task, Input(), request, response, rendered) == util::ErrorEnum::NotInit);
+    CHECK(response.resData.vlmResults.empty());
 }
 
 TEST_CASE("Picture forks isolate filtering and stop on inference failures", "[picture][workflow]") {

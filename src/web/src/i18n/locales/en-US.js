@@ -1,4 +1,18 @@
 export default {
+  cameraDiagnostics: {
+    reason: 'Failure reason',
+    connectionFailed: 'Cannot connect to the source. Check its address, port and network.',
+    connectionRefused: 'Connection refused. Check the port and video source service.',
+    connectionTimeout: 'Connection timed out. Check the network and whether the source is online.',
+    networkUnreachable: 'Network unreachable. Check the device network and routing.',
+    invalidUrl: 'Invalid source address or port. Correct it and retry.',
+    unsupportedHost: 'Probing does not support this host address. Use an IPv4 address.',
+    deviceUnavailable: 'Camera device unavailable. Check its connection and device number.',
+    fileNotFound: 'Video file not found or not accessible.',
+    authenticationFailed: 'Source authentication failed. Check the username and password.',
+    streamOpenFailed: 'Cannot open the stream. Check its URL, credentials and service status.',
+    streamReadFailed: 'Stream interrupted. Check the video source and network.'
+  },
   visualQuestions: {
     "decisionMode": "Result handling",
     "reviewOnly": "Record reviews only",
@@ -1012,6 +1026,17 @@ export default {
     remainingSeconds: '{n}s remaining',
     rebootConfirm: 'Reboot the device? It will be temporarily unavailable during restart.',
     passwordChangedLoginAgain: 'Password changed. Please log in again.'
+  },
+  vlmResults: {
+    title: 'Visual question answering',
+    question: 'Question',
+    answer: 'Model answer',
+    emptyAnswer: 'The model returned no text',
+    duration: 'Inference time',
+    batchSize: 'Images in this timed batch',
+    eventId: 'Event ID',
+    frameIndex: 'Source frame index',
+    frameTimestamp: 'Source frame timestamp'
   },
   imageAnalysis: {
     imageA: 'Image A',

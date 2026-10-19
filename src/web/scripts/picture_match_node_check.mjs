@@ -36,8 +36,8 @@ for (const [kind, key, name] of [
     mocks,
     globals: { document: { addEventListener() {}, removeEventListener() {} } },
     api: {
-      boxQueryPersonLibInfo: async () => ({ resData: { personLibList: [{ id: 12, name: 'Workwear library' }] } }),
-      boxQueryFaceLibInfo: async () => ({ resData: { faceLibList: [{ id: '12', name: 'Face library' }] } })
+      queryPersonLibInfo: async () => ({ resData: { personLibList: [{ id: 12, name: 'Workwear library' }] } }),
+      queryFaceLibInfo: async () => ({ resData: { faceLibList: [{ id: '12', name: 'Face library' }] } })
     }
   })
   try {

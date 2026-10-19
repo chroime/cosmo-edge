@@ -34,7 +34,7 @@
     "api-contract:check": "node --experimental-vm-modules scripts/api_contract_check.mjs",
     "request-behavior:check": "node --experimental-vm-modules scripts/request_behavior_check.mjs",
     "task-card-layout:build": "node scripts/task_card_layout_fixture.mjs",
-    "component-behavior:check": "node --experimental-vm-modules scripts/component_behavior_check.mjs && node --experimental-vm-modules scripts/model_config_behavior_check.mjs && node --experimental-vm-modules scripts/flow_node_state_check.mjs && npm run workwear-enrollment:check",
+    "component-behavior:check": "node --experimental-vm-modules scripts/component_behavior_check.mjs && node --experimental-vm-modules scripts/model_config_behavior_check.mjs && node --experimental-vm-modules scripts/model_repository_check.mjs && node --experimental-vm-modules scripts/camera_diagnostics_check.mjs && node --experimental-vm-modules scripts/flow_node_state_check.mjs && node --experimental-vm-modules scripts/picture_library_selection_check.mjs && node --experimental-vm-modules scripts/picture_match_node_check.mjs && node --experimental-vm-modules scripts/image_analysis_library_check.mjs && node --experimental-vm-modules scripts/vlm_results_check.mjs && npm run workwear-enrollment:check",
     "component-behavior:variants": "node scripts/component_behavior_variants.mjs",
     "task-card-layout:variants": "node scripts/task_card_layout_variants.mjs",
     "visual-questions:check": "node --experimental-vm-modules scripts/visual_questions_behavior_check.mjs",

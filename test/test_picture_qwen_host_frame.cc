@@ -97,6 +97,8 @@ TEST_CASE("Picture Qwen accepts host-backed frames and rejects failed transfers"
         transform);
     cosmo::test::ScopedServiceOverride<cosmo::service::ILlmInferService> llm_registration(llm);
     cosmo::ActionNode action{};
+    action.flowActionId = "vlm";
+    action.atomicCode   = "picture-model";
     cosmo::PQwen3VLWorker worker(action, "picture-host-regression");
     auto data = std::make_shared<cosmo::AlgData>();
     data->chanDataDec.frame =
@@ -112,15 +114,25 @@ TEST_CASE("Picture Qwen accepts host-backed frames and rejects failed transfers"
         REQUIRE(data->chanDataDetect.detRet);
         REQUIRE(data->chanDataDetect.detRet->targets.size() == 1);
         CHECK(data->chanDataDetect.detRet->targets.front().classifyRst.front().label == "是");
+        REQUIRE(data->vlmResults.size() == 1);
+        CHECK(data->vlmResults.front().answer == "是");
+        CHECK(data->vlmResults.front().nodeId == "vlm");
+        CHECK(data->vlmResults.front().modelCode == "picture-model");
+        CHECK(data->vlmResults.front().durationMs >= 0);
     }
     SECTION("Negative and ambiguous replies are not positive decisions") {
         llm.reply = "否";
         REQUIRE(worker.HandPic(data) == cosmo::util::ErrorEnum::Success);
         CHECK(data->pictureDecision == "not_matched");
         CHECK_FALSE(data->chanDataDetect.detRet->targets.front().bLogicResult);
+        REQUIRE(data->vlmResults.size() == 1);
+        CHECK(data->vlmResults.front().answer == "否");
+        CHECK(data->vlmResults.front().decision == "not_matched");
         llm.reply = "uncertain";
         REQUIRE(worker.HandPic(data) == cosmo::util::ErrorEnum::Success);
         CHECK(data->pictureDecision == "unknown");
+        CHECK(data->vlmResults.back().answer == "uncertain");
+        CHECK(data->vlmResults.back().decision == "unknown");
         CHECK_FALSE(data->chanDataDetect.detRet->targets.front().bLogicResult);
     }
     SECTION("Target crops preserve original target identity") {

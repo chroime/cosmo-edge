@@ -1,4 +1,18 @@
 export default {
+  cameraDiagnostics: {
+    reason: '失败原因',
+    connectionFailed: '无法连接视频源，请检查地址、端口和网络',
+    connectionRefused: '连接被拒绝，请检查端口和视频源服务',
+    connectionTimeout: '连接超时，请检查网络和视频源是否在线',
+    networkUnreachable: '网络不可达，请检查设备网络和路由',
+    invalidUrl: '视频源地址或端口无效，请修改后重试',
+    unsupportedHost: '探测暂不支持此主机地址，请使用 IPv4 地址',
+    deviceUnavailable: '摄像头设备不可用，请检查连接和设备编号',
+    fileNotFound: '视频文件不存在或不可访问',
+    authenticationFailed: '视频源认证失败，请检查用户名和密码',
+    streamOpenFailed: '打开视频流失败，请检查流地址、认证和服务状态',
+    streamReadFailed: '视频流读取中断，请检查视频源和网络'
+  },
   visualQuestions: {
     "decisionMode": "结果处理",
     "reviewOnly": "仅记录复核结果",
@@ -1012,6 +1026,17 @@ export default {
     remainingSeconds: '剩余 {n}s',
     rebootConfirm: '确定要重启设备吗？重启期间将暂时无法访问。',
     passwordChangedLoginAgain: '修改成功，请重新登录'
+  },
+  vlmResults: {
+    title: '视觉问答结果',
+    question: '问题',
+    answer: '模型回答',
+    emptyAnswer: '模型未返回文本',
+    duration: '推理耗时',
+    batchSize: '该耗时对应的批次图片数',
+    eventId: '事件编号',
+    frameIndex: '原始帧序号',
+    frameTimestamp: '原始帧时间戳'
   },
   imageAnalysis: {
     imageA: '图片 A',

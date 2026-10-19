@@ -466,6 +466,10 @@ bool TaskAlarm::FillAlarmData(AlgDataPtr algData) {
         AttachAlarmMedia(eventData, algData, alarmUnit);
         auto& idData = targetState(alarmUnit.trackId);
         FillEventProperty(eventData, algData, alarmUnit, idData);
+        if (!alarmUnit.vlmResults.empty()) {
+            eventData.bHaveProperty       = true;
+            eventData.property.vlmResults = alarmUnit.vlmResults;
+        }
         if (!alarmUnit.visualJudgments.empty()) {
             eventData.bHaveProperty            = true;
             eventData.property.visualJudgments = alarmUnit.visualJudgments;

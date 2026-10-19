@@ -37,7 +37,7 @@ const loadLibraries = async () => {
   const isFace = props.type === 'faceSet'
   loading.value = true
   try {
-    const query = isFace ? proxy.$API.boxQueryFaceLibInfo : proxy.$API.boxQueryPersonLibInfo
+    const query = isFace ? proxy.$API.queryFaceLibInfo : proxy.$API.queryPersonLibInfo
     const { resData } = await query({ pageNum: 1, pageSize: 1000 })
     if (version !== requestVersion) return
     libraries.value = (isFace ? resData?.faceLibList : resData?.personLibList) || []

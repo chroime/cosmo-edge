@@ -227,12 +227,18 @@ void from_json(const nlohmann::json& j, MsgPTaskDetectPicSend::ResData& v) {
     JSON_OPT(j, v, areaList);
     v.visualJudgments.clear();
     JSON_OPT(j, v, visualJudgments);
+    v.vlmResults.clear();
+    JSON_OPT(j, v, vlmResults);
 }
 
 void to_json(nlohmann::json& j, const MsgPTaskDetectPicSend::ResData& v) {
     j["algorithmCode"] = v.algorithmCode;
     j["timestamp"]     = v.timestamp;
     j["fullPicture"]   = v.fullPicture;
+    if (!v.vlmResults.empty())
+        j["vlmResults"] = v.vlmResults;
+    else
+        j.erase("vlmResults");
     if (!v.visualJudgments.empty())
         j["visualJudgments"] = v.visualJudgments;
     else

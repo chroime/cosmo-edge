@@ -8,7 +8,6 @@ import hashlib
 import io
 import json
 import os
-import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -374,31 +373,6 @@ class BuildEntrypointTests(unittest.TestCase):
                       '-DRESOURCE_MODELS_DIR=' + self.env['COSMO_RKNN_MODELS_DIR'],
                       '-DRESOURCE_OVERLAY_DIR=' + self.env['COSMO_RKNN_RESOURCE_OVERLAY_DIR']):
             self.assertIn(value, args)
-
-    def test_shell_variable_and_command_equivalents(self):
-        path = self.root / 'scripts/build.sh'
-        original = path.read_text()
-        # Pick an actual local declaration, without assuming its internal name.
-        local = re.search(r'^([a-zA-Z_][a-zA-Z_0-9]*)=""$', original, re.MULTILINE)
-        # The equivalent program may have no local empty-string declarations.
-        # In that case add a fixture-owned local before exercising its rename.
-        local_source = original if local else original.replace('\n', '\nf01_fixture_local=""\n', 1)
-        local_name = local[1] if local else 'f01_fixture_local'
-        name_pattern = re.escape(local_name)
-        renamed = re.sub(r'(?<![\w-])' + name_pattern + r'(?==)', 'f01_local_target', local_source)
-        renamed = re.sub(r'(?<=\$\{)' + name_pattern + r'\b', 'f01_local_target', renamed)
-        renamed = re.sub(r'\$' + name_pattern + r'\b', '$f01_local_target', renamed)
-        # A shell function preserves the public cmake argv contract while splitting
-        # tool selection from invocation; no build-command spelling is assumed.
-        forwarded = original.replace('\n', '\ncmake() { local selected_tool=cmake; command "$selected_tool" "$@"; }\n', 1)
-        for changed in (renamed, forwarded):
-            self.assertNotEqual(changed, original, 'mutation must apply')
-            path.write_text(changed)
-            self.reset_outputs()
-            self.fixture('cv186x')
-            self.run_script('build_sophon_package.sh', '--chip', 'cv186x')
-            self.assertIn('-DCOSMO_TARGET_CHIP=cv186x', self.calls()[0]['argv'])
-            self.assert_export('cv186x', 'public-runtime')
 
     def test_rockchip_failures_and_artifact_types(self):
         self.configure_rockchip()

@@ -39,8 +39,9 @@ npm run docs:verify
 
 1. `gitee:readme:check`: checks that the Gitee README matches its sources.
 2. `docs:build`: builds the complete VitePress site, checks internal links, and generates benchmark reports.
-3. `benchmarks:v1.1:smoke`: validates benchmark sources and generated reports, including evidence,
-   checksums, public-data boundaries, and report links.
+3. `benchmarks:v1.1:validate -- --output-root docs/.vitepress/dist/benchmarks/scenario-bench/v1.1`:
+   directly validates benchmark sources and the reports from this build, including evidence,
+   checksums, public-data boundaries, and links within the benchmark pack.
 
 Local preview:
 
@@ -56,6 +57,9 @@ Notes:
   fixed pages' titles, H1 headings, navigation, image alt text, or frontmatter rendering.
 - Full benchmark validation already checks sources, so `--source-only` is not repeated before the build.
   The option remains available for checking benchmark sources independently.
+- Dedicated scanning of website report URLs in READMEs and other documentation has been removed,
+  including mapping those absolute URLs to local build targets. Report inventories and relative links
+  within the benchmark pack are still validated.
 - Dependency auditing may currently report npm dependency vulnerabilities; these should be evaluated separately before public release and the resolution recorded.
 
 ## Frontend Checks

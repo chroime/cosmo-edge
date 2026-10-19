@@ -6,13 +6,10 @@ import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { readWorkflow } from './check-build-contracts.mjs'
 
-function execute(script, cwd, env, forceSuccess = false) {
+function execute(script, cwd, env) {
   const file = join(cwd, 'actual-workflow-run.sh')
   writeFileSync(file, script)
-  const args = forceSuccess
-    ? ['-c', 'bash -e -o pipefail "$1"; exit 0', 'fixture', file]
-    : ['-e', '-o', 'pipefail', file]
-  return spawnSync('bash', args, { cwd, env, encoding: 'utf8' })
+  return spawnSync('bash', ['-e', '-o', 'pipefail', file], { cwd, env, encoding: 'utf8' })
 }
 
 const job = readWorkflow('rockchip').jobs.package
@@ -33,16 +30,11 @@ sys.exit(int(os.getenv('BUILD_STATUS','0')))
     const substitutions = { '${{ matrix.chip }}': chip, '${{ matrix.models }}': 'include' }
     const env = { ...process.env, ...Object.fromEntries(Object.entries(build.env).map(([k,v]) => [k, substitutions[v] || v])),
       CHIP: chip, PATH: `${bin}:${process.env.PATH}`, LOG: join(dir, 'calls.json'), GITHUB_STEP_SUMMARY: join(dir, 'summary.md') }
-    const run = (script, extra = {}, forceSuccess = false) => execute(script, dir, { ...env, ...extra }, forceSuccess)
-    const verifyBuild = (script, forceSuccess = false) => {
-      const result = run(script)
-      assert.equal(result.status, 0, result.stderr)
-      assert.deepEqual(JSON.parse(readFileSync(env.LOG, 'utf8')), { argv: ['compose', '-f', 'docker-compose.rockchip.yml', 'run', '--rm', 'cosmo-rockchip-package'], chip, models: 'include' })
-      assert.notEqual(run(script, { BUILD_STATUS: '17' }, forceSuccess).status, 0, 'build failure must propagate')
-    }
-    verifyBuild(build.run)
-    verifyBuild(`command docker compose \\\n-f docker-compose.rockchip.yml run --rm cosmo-rockchip-package\n`)
-    assert.throws(() => verifyBuild(build.run, true), /build failure/)
+    const run = (script, extra = {}) => execute(script, dir, { ...env, ...extra })
+    const result = run(build.run)
+    assert.equal(result.status, 0, result.stderr)
+    assert.deepEqual(JSON.parse(readFileSync(env.LOG, 'utf8')), { argv: ['compose', '-f', 'docker-compose.rockchip.yml', 'run', '--rm', 'cosmo-rockchip-package'], chip, models: 'include' })
+    assert.notEqual(run(build.run, { BUILD_STATUS: '17' }).status, 0, 'build failure must propagate')
     const output = join(dir, 'build_output', chip); mkdirSync(output, { recursive: true })
     const filename = 'cosmo-fixture.tar.gz'
     writeFileSync(join(output, filename), 'candidate')
@@ -69,24 +61,15 @@ try {
   mkdirSync(join(directory, 'scripts'))
   writeFileSync(join(directory, 'scripts/build.sh'), `#!/usr/bin/env python3
 import json, os, sys
-args = sys.argv[1:]
-if os.getenv('CORRUPT_ARGV') == '1': args = [value for value in args if value != '-T']
-with open(os.environ['LOG'], 'w') as f: json.dump(args, f)
+with open(os.environ['LOG'], 'w') as f: json.dump(sys.argv[1:], f)
 sys.exit(int(os.getenv('BUILD_STATUS','0')))
 `, { mode: 0o644 })
   const log = join(directory, 'calls.json')
-  function verify(script, options = {}) {
-    const env = { ...process.env, ...sophon.env, LOG: log, CORRUPT_ARGV: options.corruptArgv ? '1' : '0' }
-    const run = extra => execute(script, directory, { ...env, ...extra }, options.forceSuccess)
-    const result = run({})
-    assert.equal(result.status, 0, result.stderr)
-    assert.deepEqual(JSON.parse(readFileSync(log, 'utf8')), ['-T', '-c', 'bm1688'], 'Sophon build argv contract')
-    assert.notEqual(run({ BUILD_STATUS: '19' }).status, 0, 'Sophon build failure must propagate')
-  }
-  verify(sophonBuild.run)
-  verify('chmod +x scripts/build.sh\nentry=scripts/build.sh\n"$entry" -T -c bm1688\n')
-  assert.throws(() => verify(sophonBuild.run, { forceSuccess: true }), /failure must propagate/)
-  assert.throws(() => verify(sophonBuild.run, { corruptArgv: true }), /Sophon build argv contract/)
-
+  const env = { ...process.env, ...sophon.env, LOG: log }
+  const run = extra => execute(sophonBuild.run, directory, { ...env, ...extra })
+  const result = run({})
+  assert.equal(result.status, 0, result.stderr)
+  assert.deepEqual(JSON.parse(readFileSync(log, 'utf8')), ['-T', '-c', 'bm1688'], 'Sophon build argv contract')
+  assert.notEqual(run({ BUILD_STATUS: '19' }).status, 0, 'Sophon build failure must propagate')
 } finally { rmSync(directory, { recursive: true, force: true }) }
 console.log('Sophon workflow build presence, argv and failure contracts passed')

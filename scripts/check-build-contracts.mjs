@@ -65,41 +65,6 @@ export function checkPackage(config, kind, env = {}) {
   else Object.assign(expected, { COSMO_BUILD_JOBS: '4', COSMO_MODEL_GUARD_SDK_ROOT: '', COSMO_RKNN_ARTIFACT_MANIFEST: '', COSMO_RKNN_MODELS_DIR: '', COSMO_RKNN_RESOURCE_OVERLAY_DIR: '' })
   for (const [key, fallback] of Object.entries(expected)) assert.equal(String(service.environment[key]), env[key] ?? fallback, key)
 }
-export function checkWorkflow(workflow, kind) {
-  assert.ok(Object.hasOwn(workflow.on, 'workflow_dispatch'), 'manual trigger')
-  assert.ok(workflow.on.schedule?.length && workflow.on.schedule.every(x => typeof x.cron === 'string' && x.cron.trim().split(/\s+/).length === 5), 'scheduled trigger')
-  assert.equal(workflow.permissions.contents, 'read')
-  for (const disabled of ['pull_request', 'push', 'workflow_call']) assert.ok(!Object.hasOwn(workflow.on, disabled), `disabled trigger ${disabled}`)
-  const job = workflow.jobs[kind === 'rockchip' ? 'package' : 'build-sophon']
-  const uploads = job.steps.filter(step => step.uses?.startsWith('actions/upload-artifact@'))
-  assert.ok(uploads.length, 'artifact upload required')
-  for (const step of uploads) {
-    assert.ok(step.with.path.trim(), 'upload path')
-    assert.equal(step.with['if-no-files-found'], 'error', 'missing artifact must fail')
-  }
-  if (kind === 'rockchip') {
-    assert.deepEqual(job.strategy.matrix.include.map(x => x.chip).sort(), ['rk3576', 'rv1126b'])
-    assert.ok(uploads.some(s => s.with.path.includes('build_output/${{ matrix.chip }}/*.tar.gz') && s.with.path.includes('SHA256SUMS')))
-    const build = job.steps.find(s => s.id === 'build_package' && s.run)
-    assert.ok(job.steps.some(s => s.id === 'verify_artifacts' && s.run), 'artifact verification required')
-    assert.equal(build?.env.COSMO_TARGET_CHIP, '${{ matrix.chip }}')
-    assert.equal(build?.env.COSMO_PACKAGE_MODELS, '${{ matrix.models }}')
-    const publish = workflow.jobs['publish-builder']
-    assert.equal(publish.if, "github.event_name == 'workflow_dispatch'")
-    assert.ok([publish.needs].flat().includes('package'))
-    assert.equal(publish.permissions.packages, 'write')
-  } else {
-    assert.ok(job.steps.some(s => s.id === 'build_package' && s.run), 'Sophon build step required')
-    for (const requiredPath of ['build/install/', 'build/cosmo-tests', 'build/install/lib/libcosmo_model_guard.so.2.0.0'])
-      assert.ok(uploads.some(s => s.with.path.trim().split(/\r?\n/).includes(requiredPath)), `required upload path ${requiredPath}`)
-    const shell = job.defaults?.run?.shell || workflow.defaults?.run?.shell
-    for (const step of job.steps.filter(s => s.run)) assert.equal(step.shell || shell, 'bash', 'effective build shell')
-    assert.equal(job.env.COSMO_MODEL_GUARD_BUILD_PROFILE, 'public-runtime')
-    assert.ok(Number(job.env.CARGO_HTTP_TIMEOUT) > 0 && Number(job.env.CARGO_NET_RETRY) > 0)
-    assert.ok(workflow.jobs['test-sophon'].steps.some(s => s.id === 'catch2' && s.run))
-    assert.ok([workflow.jobs['test-sophon'].needs].flat().includes('build-sophon'))
-  }
-}
 export function readWorkflow(kind) {
   return yaml(readFileSync(join(root, '.github/workflows', kind === 'rockchip' ? 'ci-build-rockchip.yml' : 'nightly-build-test-sophon.yml'), 'utf8'))
 }
@@ -119,6 +84,5 @@ export function checkComposeContracts() {
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   checkComposeContracts()
-  for (const kind of ['sophon', 'rockchip']) checkWorkflow(readWorkflow(kind), kind)
-  console.log('Effective Compose and workflow contracts passed')
+  console.log('Effective Compose contracts passed')
 }

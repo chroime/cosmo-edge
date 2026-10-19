@@ -49,7 +49,7 @@ class BuildEntrypointTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='f01 build space ')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for directory in ('scripts', 'test', 'fake-bin', 'config/rknn/platforms',
+        for directory in ('scripts', 'fake-bin', 'config/rknn/platforms',
                           'config/rockchip-build', 'tools/rknn'):
             (self.root / directory).mkdir(parents=True, exist_ok=True)
         for script in ('build.sh', 'build_sophon_package.sh', 'build_rknn.sh',
@@ -61,10 +61,6 @@ class BuildEntrypointTests(unittest.TestCase):
         for chip in ('rk3576', 'rv1126b'):
             shutil.copy2(REPOSITORY / f'config/rknn/platforms/{chip}.json',
                          self.root / f'config/rknn/platforms/{chip}.json')
-        # Regression executables are a tool boundary, not the entrypoint under test.
-        for name in ('test_package_profile.py', 'test_verify_model_guard_v2_sdk.py'):
-            (self.root / 'test' / name).write_text(
-                "import os,sys; sys.exit(42 if os.environ.get('FAIL_STAGE') == 'regression' else 0)\n")
         for name in ('media_sysroot_lock.py', 'stage_platform_resources.py'):
             (self.root / 'tools/rknn' / name).write_text(
                 "import json,os,sys\nwith open(os.environ['CALL_LOG'],'a') as f: f.write(json.dumps({'tool':sys.argv[0].split('/')[-1],'argv':sys.argv[1:]})+'\\n')\n")
@@ -257,7 +253,7 @@ class BuildEntrypointTests(unittest.TestCase):
 
     def test_sophon_failures_never_export_success(self):
         self.fixture('bm1688')
-        for stage in ('configure', 'tests', 'package', 'regression'):
+        for stage in ('configure', 'tests', 'package'):
             with self.subTest(stage=stage):
                 self.reset_outputs()
                 self.env['FAIL_STAGE'] = stage

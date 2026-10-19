@@ -3,6 +3,7 @@
 
 Run with --check in CI, or without it to regenerate checked-in resources.
 The source video templates remain untouched. IDs use the reserved 92000000 range.
+Generated picture templates are available for creating scenes, without shipping preset scenes.
 """
 import argparse
 import copy
@@ -280,10 +281,7 @@ def generate(check=False):
                 save(resource / "algorithm_template" / f"{result['algorithmCode']}_picture.json", result)
                 if result["algorithmCode"] in {92000002, 92000058}:
                     pair = pair_template(result, locales, result["algorithmCode"] == 92000058)
-                    for folder in ("algorithm_template", "algorithm"):
-                        save(resource / folder / f"{pair['algorithmCode']}_pair.json", pair)
-                # Ship one usable scene per generated template in fresh installations.
-                save(resource / "algorithm" / f"{result['algorithmCode']}_picture.json", result)
+                    save(resource / "algorithm_template" / f"{pair['algorithmCode']}_pair.json", pair)
         # Existing picture templates also have no region configuration.
         for path in (resource / "algorithm_template").glob("*.json"):
             document = json.loads(path.read_text(encoding="utf-8"))

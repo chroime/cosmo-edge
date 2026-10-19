@@ -21,8 +21,8 @@ class PictureTemplatesTest(unittest.TestCase):
             for item in report:
                 if item["picture"]:
                     filename = f"{item['picture']}_picture.json"
-                    self.assertEqual((resource / "algorithm" / filename).read_bytes(),
-                                     (resource / "algorithm_template" / filename).read_bytes())
+                    self.assertTrue((resource / "algorithm_template" / filename).is_file())
+                    self.assertFalse((resource / "algorithm" / filename).exists())
             for path in (resource / "algorithm_template").glob("*.json"):
                 document = json.loads(path.read_text(encoding="utf-8"))
                 if document.get("algorithmUsage") != 2:
@@ -37,6 +37,9 @@ class PictureTemplatesTest(unittest.TestCase):
                     for node in nodes:
                         self.assertIn(node["preFlowActionId"], known)
                         self.assertTrue(node["actionId"].startswith("P"))
+                        if document["algorithmCode"] == 38874:
+                            web = node.get("configObject", {}).get("webConfig") or {}
+                            self.assertTrue(all(generator.allowed(p["key"]) for p in web.get("metaDataParams", [])))
                     visited = {"-1"}
                     while len(visited) < len(known):
                         ready = {n["flowActionId"] for n in nodes if n["preFlowActionId"] in visited}
@@ -71,13 +74,13 @@ class PictureTemplatesTest(unittest.TestCase):
                             for lang in locales:
                                 self.assertEqual(locales[lang][key], public[lang][key])
 
-    def test_pair_templates_ship_scenes_with_no_library_or_region_parameters(self):
+    def test_pair_templates_have_no_preset_scenes_or_library_or_region_parameters(self):
         for platform in generator.PLATFORMS:
             resource = ROOT / "data/resource" / ("aiboxresource_" + platform)
             for code, kind in ((93000002, "face"), (93000058, "body")):
                 filename = f"{code}_pair.json"
                 document = json.loads((resource / "algorithm_template" / filename).read_text(encoding="utf-8"))
-                self.assertEqual((resource / "algorithm_template" / filename).read_bytes(), (resource / "algorithm" / filename).read_bytes())
+                self.assertFalse((resource / "algorithm" / filename).exists())
                 self.assertEqual(document["algorithmUsage"], 2)
                 params = generator.decode(document["algorithmMetadata"], {})["params"]
                 self.assertEqual(next(p["defaultValue"] for p in params if p["key"] == "pair.threshold"), "")

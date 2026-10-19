@@ -12,7 +12,7 @@ description: 按稳定编号的客户旅程用例逐条实测 CosmoEdge（也识
 ## 入口和准备
 
 1. 从用户输入读取本轮目标，复制默认资源配置到新的私有 run；覆盖 `resources.DUT` 的地址和登录凭据。不能沿用精度脚本内置目标，也不能把旧版本的算法数字 ID 当作新版本必然存在。
-2. 按仓库 `scripts/agent/start.ps1` / `start.sh` 创建本轮合同和评估。用户明确请求的实机测试、既有精度服务器访问范围按会话授权记录，不重复询问。需要 SSH 时仍用 `connect.ps1` / `connect.sh`，通过交互提示输入密码。
+2. 在仓库根目录运行 `python tools/agent_workflow.py start` 创建本轮合同和评估。用户明确请求的实机测试、既有精度服务器访问范围按会话授权记录，不重复询问。需要 SSH 时使用 `python tools/remote_access.py --contract <本轮合同> --host <主机> --user <用户名>`，通过交互提示输入密码。
 3. 全量使用默认 `python tools/customer_journey.py init --run <run> --profile <本轮私有配置>`；快测加 `--suite test/customer-journey/CosmoEdge-主要功能客户旅程测试用例.xlsx`。两者都校验 XLSX 并冻结工作簿及执行清单，随后运行 `preflight --run <run>`。配置文件明文凭据只有用户明确允许时才保存，且只保存在 ignored 私有路径；报告和通用库不得包含凭据。
 4. 一次性汇总缺少的资源/适用授权；先检查能由 Codex 自己读取、导出、生成或探测的内容。用户无需重新提供已配置的账号和素材。缺资源只阻塞依赖它的用例，继续所有独立用例。
 

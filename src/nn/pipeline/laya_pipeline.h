@@ -10,7 +10,7 @@ public:
     ~LayaPipeline() override;
     Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                 int device_id, IProfiler* profiler, const std::string& tokenizer_path,
-                const std::string& word_table_path, bool use_skip) override;
+                const std::string& word_table_path) override;
     Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) override;
     Status PrepareText(const std::string& input, std::string& output) override;
     int GetMaxBatchSize() const override {

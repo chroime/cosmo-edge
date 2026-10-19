@@ -7,6 +7,8 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
+#include "flow/classify/PClassifier.h"
+#include "flow/detect/PDetector.h"
 #include "flow/detect/PDinoDetector.h"
 #include "flow/detect/PSamDetector.h"
 #include "flow/landmark/PLandmark.h"

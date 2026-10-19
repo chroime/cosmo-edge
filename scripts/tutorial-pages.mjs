@@ -43,21 +43,3 @@ export async function tutorialContext(repositoryRoot) {
     }
   }
 }
-export function navigationLinks(config, language, route) {
-  const locale = config.locales?.[language === 'zh' ? 'root' : 'en']
-  const theme = { ...config.themeConfig, ...locale?.themeConfig }
-  const links = []
-  function visit(value) {
-    if (Array.isArray(value)) return value.forEach(visit)
-    if (!value || typeof value !== 'object') return
-    if (typeof value.link === 'string') links.push(value)
-    for (const child of Object.values(value)) if (typeof child === 'object') visit(child)
-  }
-  visit(theme.nav)
-  if (Array.isArray(theme.sidebar)) visit(theme.sidebar)
-  else if (theme.sidebar && route) {
-    const prefix = Object.keys(theme.sidebar).filter((key) => route.startsWith(key)).sort((a, b) => b.length - a.length)[0]
-    if (prefix) visit(theme.sidebar[prefix])
-  }
-  return links
-}

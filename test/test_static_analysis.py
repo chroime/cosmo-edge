@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,8 @@ class StaticAnalysisTests(unittest.TestCase):
             (self.root / directory).mkdir()
         for name in ("static_analysis.sh", "pre-commit"):
             shutil.copy2(REPOSITORY / "scripts" / name, self.root / "scripts" / name)
+        (self.root / "tools/cppcheck").mkdir(parents=True)
+        shutil.copy2(REPOSITORY / "tools/cppcheck/Catch2Model.h", self.root / "tools/cppcheck")
         shutil.copy2(REPOSITORY / ".cppcheck-suppressions", self.root)
         self.write_executable("scripts/format_check.sh", "#!/bin/bash\nexit ${FORMAT_EXIT:-0}\n")
         # Use a closed PATH so missing-tool checks do not depend on the host.
@@ -56,7 +59,8 @@ class StaticAnalysisTests(unittest.TestCase):
             with open(os.environ['CALL_LOG'], 'a') as log:
                 log.write(json.dumps([tool, *args]) + '\\n')
             if args == ['--version']:
-                print(tool + ' fixture version')
+                print(os.environ.get('CPPCHECK_VERSION', 'Cppcheck 2.13.0')
+                      if tool == 'cppcheck' else tool + ' fixture version')
                 sys.exit(int(os.environ.get('VERSION_EXIT', '0')))
             key = 'CPPCHECK_EXIT' if tool == 'cppcheck' else 'CLANG_EXIT'
             sys.exit(int(os.environ.get(key, '0')))
@@ -92,7 +96,8 @@ class StaticAnalysisTests(unittest.TestCase):
     def assert_files(self, expected):
         calls = self.calls()
         self.assertEqual(len(calls), 1, calls)
-        files = {arg for arg in calls[0] if arg.endswith((".h", ".cc"))}
+        files = {arg for arg in calls[0]
+                 if arg.startswith(str(self.root) + "/") and arg.endswith((".h", ".cc"))}
         self.assertEqual(files, {str(self.root / name) for name in expected})
         return calls[0]
 
@@ -221,7 +226,83 @@ class StaticAnalysisTests(unittest.TestCase):
         self.run_command([str(self.root / ".git/hooks/pre-commit")], expected=1, FORMAT_EXIT="1")
         self.assertEqual(self.calls(), [])
 
-    def test_ci_block_uses_merge_base_full_profile_and_propagates_failure(self):
+    def test_catch_configuration_and_supported_tool_version(self):
+        model = "--include=" + str(self.root / "tools/cppcheck/Catch2Model.h")
+        self.write("src/clean.cc")
+        self.git("add", "src/clean.cc")
+        self.analyze("--cppcheck", "--staged", CPPCHECK_VERSION="Cppcheck 2.7")
+        self.assertNotIn(model, self.calls()[0])
+
+        self.write("test/assertions.cc")
+        self.git("add", "test/assertions.cc")
+        for version in ("Cppcheck 2.13.0", "Cppcheck 2.14.1", "Cppcheck 3.0"):
+            self.analyze("--cppcheck", "--staged", CPPCHECK_VERSION=version)
+            args = self.calls()[0]
+            self.assertIn(model, args)
+            self.assertIn(str(self.root / "test"), args)
+            self.assertIn("-UCATCH_CONFIG_DISABLE", args)
+            self.assertIn("-UCATCH_CONFIG_PREFIX_ALL", args)
+            self.assertIn("-DCATCH_CONFIG_EXPERIMENTAL_STATIC_ANALYSIS_SUPPORT", args)
+        for version in ("Cppcheck 2.7", "Cppcheck 2.12.1", "unknown version"):
+            output = self.analyze("--cppcheck", "--staged", expected=1, CPPCHECK_VERSION=version)
+            self.assertIn("2.13 or newer", output)
+            self.assertEqual(self.calls(), [])
+            self.assertNotIn("No issues found", output)
+
+    @unittest.skipUnless(REAL_CPPCHECK, "cppcheck is not installed")
+    def test_real_catch_assertions_are_analyzed_without_hiding_diagnostics(self):
+        version = subprocess.check_output([REAL_CPPCHECK, "--version"], text=True)
+        match = re.search(r"Cppcheck (\d+)\.(\d+)", version)
+        if not match or tuple(map(int, match.groups())) < (2, 13):
+            self.skipTest("Cppcheck 2.13 or newer is required for real Catch2 analysis")
+        (self.root / "bin/cppcheck").unlink()
+        (self.root / "bin/cppcheck").symlink_to(REAL_CPPCHECK)
+        shutil.copy2(REPOSITORY / "test/catch_amalgamated.hpp", self.root / "test")
+        source = self.write("test/assertions.cc", textwrap.dedent('''\
+            #include "catch_amalgamated.hpp"
+            #include <stdexcept>
+            bool Ready();
+            void MayThrow();
+            void Guard(int *p) { REQUIRE(p); *p = 1; }
+            void GuardFalse(int *p) { REQUIRE_FALSE(p == nullptr); *p = 1; }
+            TEST_CASE("evaluated assertions", "[analysis]") {
+                const bool used = Ready();
+                REQUIRE(used);
+                CHECK(used);
+                CHECK_FALSE(!used);
+                REQUIRE_NOTHROW(MayThrow());
+                CHECK_NOTHROW(MayThrow());
+                REQUIRE_THROWS(MayThrow());
+                CHECK_THROWS(MayThrow());
+                REQUIRE_THROWS_AS(MayThrow(), std::runtime_error);
+                CHECK_THROWS_AS(MayThrow(), std::runtime_error);
+                SECTION("first") { CHECK(used); }
+                SECTION("second") { CHECK_FALSE(!used); }
+            }
+        '''))
+        self.git("add", "test/assertions.cc")
+        self.analyze("--cppcheck", "--staged", "--profile", "full")
+
+        bad_assertions = [f"{name}(1 / zero);" for name in
+                          ("REQUIRE", "REQUIRE_FALSE", "CHECK", "CHECK_FALSE", "REQUIRE_NOTHROW",
+                           "CHECK_NOTHROW", "REQUIRE_THROWS", "CHECK_THROWS")]
+        bad_assertions += [f"{name}(1 / zero, int);" for name in
+                           ("REQUIRE_THROWS_AS", "CHECK_THROWS_AS")]
+        bad_source = '#include "catch_amalgamated.hpp"\nbool Ready();\n'
+        for index, assertion in enumerate(bad_assertions):
+            bad_source += f'void bad_{index}() {{ int zero = 0; {assertion} }}\n'
+        bad_source += textwrap.dedent('''\
+            void nonfatal() { int *p = nullptr; CHECK(p); *p = 1; }
+            void unused() { int not_read = 1; }
+            void comparison() { CHECK(Ready() >= false); }
+        ''')
+        source.write_text(bad_source)
+        output = self.analyze("--cppcheck", "--staged", "--profile", "full", expected=1)
+        self.assertGreaterEqual(output.count("[error] zerodiv"), len(bad_assertions))
+        for diagnostic in ("nullPointer", "unreadVariable", "comparisonOfFuncReturningBoolError"):
+            self.assertIn(diagnostic, output)
+
+    def test_ci_block_uses_merge_base_commit_profile_and_propagates_failure(self):
         workflow = (REPOSITORY / ".github/workflows/pr-checks.yml").read_text()
         block = workflow.split("      - name: Run cppcheck (changed files only)\n", 1)[1]
         command = textwrap.dedent(block.split("        run: |\n", 1)[1].split("\n      - name:", 1)[0])
@@ -232,7 +313,7 @@ class StaticAnalysisTests(unittest.TestCase):
         self.run_command([BASH, "-e", "-o", "pipefail", "-c", command],
                          expected=17, CPPCHECK_EXIT="17")
         args = self.assert_files(("test/changed file.cc",))
-        self.assertIn("--enable=warning,style,performance,portability", args)
+        self.assertIn("--enable=warning", args)
 
     @unittest.skipUnless(REAL_CPPCHECK, "cppcheck is not installed")
     def test_real_diagnostics_profiles_and_suppressions(self):

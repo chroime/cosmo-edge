@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <iterator>
 
 #include "flow/detect/PDinoDetector.h"
 #include "flow/detect/PSamDetector.h"
@@ -22,6 +23,7 @@
 #include "service/path/IFileService.h"
 #include "util/CipherUtil.h"
 #include "util/FileUtil.h"
+#include "util/GeometricPos.h"
 #include "util/Keys.h"
 #include "util/Log.h"
 #include "util/PathUtil.h"
@@ -196,11 +198,11 @@ void PTaskBase::DetTargetHandFullPicture(AlgDataPtr algData, MsgPTaskDetectPicRe
         int lmLineWidth = 2;
         int imgW        = origImg->GetWidth();
         int imgH        = origImg->GetHeight();
-        for (auto& target : algData->chanDataDetect.detRet->targets) {
+        for (const auto& target : algData->chanDataDetect.detRet->targets) {
             if (target.landmark.landmark.empty()) {
                 continue;
             }
-            for (auto& pt : target.landmark.landmark) {
+            for (const auto& pt : target.landmark.landmark) {
                 int px = static_cast<int>(pt.x);
                 int py = static_cast<int>(pt.y);
                 // Ensure within image bounds

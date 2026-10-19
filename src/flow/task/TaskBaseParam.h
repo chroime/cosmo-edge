@@ -33,7 +33,7 @@ inline void AreaToLocalBox(MsgTaskArea& area) {
     double minY = 1.0;
     double maxX = 0.0;
     double maxY = 0.0;
-    for (auto& point : area.points) {
+    for (const auto& point : area.points) {
         if (point.x < minX) {
             minX = point.x;
         }

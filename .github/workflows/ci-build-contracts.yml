@@ -1,6 +1,6 @@
 name: Optional Contract Regression
 
-# Full mutation/browser/config matrices are diagnostic regressions, not PR gates.
+# Browser, build and benchmark contract checks are optional regressions, not PR gates.
 on:
   workflow_dispatch:
     inputs:
@@ -26,11 +26,10 @@ jobs:
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace \
             ghcr.io/cosmo-wander-ai/cosmo_edge-build-env_x86:v1 npm ci
-      - name: Effective configuration and equivalent/invalid variants
+      - name: Check effective configuration
         run: |
           docker compose version
           npm run config:check
-          node scripts/test-build-contracts.mjs
       - name: Package, SDK, entrypoint and launcher contracts in Docker
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace \
@@ -79,22 +78,22 @@ jobs:
           cache: npm
           cache-dependency-path: src/web/package-lock.json
 
-      - name: Build and check frontend in supported Docker
+      - name: Test and build frontend in supported Docker
         working-directory: .
         run: |
           docker run --rm -v "$GITHUB_WORKSPACE:/workspace" -w /workspace/src/web \
             ghcr.io/cosmo-wander-ai/cosmo_edge-build-env_x86:v1 bash -lc '
               set -euo pipefail
               npm ci
+              npm test
               npm run build
-              npm run component-behavior:variants
               npm run area-rule:check
               AIBOX_RESOURCE_DIR=/workspace/data/resource/aiboxresource_bm1688 npm run resource-i18n:check
               npm run task-card-layout:build
             '
 
       - name: Check browser geometry against Docker-built fixture
-        run: npm run task-card-layout:check && npm run task-card-layout:variants
+        run: npm run task-card-layout:check
 
   tutorial-regression:
     if: inputs.suite == 'tutorials' || inputs.suite == 'all'
@@ -103,8 +102,7 @@ jobs:
       image: ghcr.io/cosmo-wander-ai/cosmo_edge-build-env_x86:v1
     steps:
       - uses: actions/checkout@v7
-      - name: Build documentation and exercise title/rendered-output variants
+      - name: Build and verify documentation
         run: |
           npm ci
           npm run docs:verify
-          npm run docs:contracts

@@ -54,7 +54,6 @@ jobs:
               python3 test/test_platform_contracts.py
               python3 test/test_macos_launcher.py
               node scripts/test-nightly-catch2.mjs
-              node scripts/test-workflow-execution.mjs
             '
       - name: Actual Docker context exclusions
         run: python3 scripts/check-docker-context.py

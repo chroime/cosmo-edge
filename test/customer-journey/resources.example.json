@@ -13,6 +13,14 @@
       "status": "missing",
       "gap": "目标芯片可运行的视觉语言模型、分词器和设备加载结果。原始 bmodel 不等于可导入包。"
     },
+    "OPENAI-VLM": {
+      "status": "missing",
+      "baseUrl": "",
+      "model": "",
+      "apiKey": "",
+      "endpoint": "/chat/completions",
+      "gap": "事件上报审核所用的OpenAI兼容多模态服务；填写/v1基地址、实际served-model-name及认证，开测验证图像输入。并发限制维护在私有配置。"
+    },
     "DINO-MODEL": {
       "status": "missing",
       "gap": "目标芯片可运行的视觉检测大模型、词表和设备加载结果。"
@@ -158,7 +166,7 @@
     },
     "USB-CAMERA": {
       "status": "missing",
-      "gap": "接在被测设备上的受支持USB摄像头；若产品/目标无此功能，确认不适用依据。"
+      "gap": "USB接入为必测：准备已连接的受支持摄像头并核对当前枚举、画面、算法及启停恢复。仅真实不支持的其他平台可凭证据判不适用；不得沿用历史资源不足跳过。"
     },
     "OTHER-TARGETS": {
       "status": "missing",

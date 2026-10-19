@@ -15,14 +15,16 @@ class QuickSuiteTests(unittest.TestCase):
     def test_catalog_is_frozen_from_workbook_with_independent_model_gates(self):
         suite = journey.load_suite(quick.QUICK_BOOK)
         self.assertEqual('quick', suite['suiteKind'])
-        self.assertEqual(28, journey.validate_suite(suite))
-        self.assertEqual(95, sum(len(c['steps']) for c in suite['cases']))
+        self.assertEqual(29, journey.validate_suite(suite))
+        self.assertEqual(102, sum(len(c['steps']) for c in suite['cases']))
         by_id = {c['id']: c for c in suite['cases']}
         self.assertIn('VLM-MODEL', by_id['Q26']['requires'])
         self.assertIn('DINO-MODEL', by_id['Q27']['requires'])
         self.assertNotIn('DINO-MODEL', by_id['Q26']['requires'])
         self.assertIn('LIVE-002', by_id['Q28']['sourceCaseIds'])
         self.assertEqual(2, len(by_id['Q18']['steps']))
+        self.assertIn('OPENAI-VLM', by_id['Q29']['requires'])
+        self.assertIn('VLM-MODEL', by_id['Q29']['requires'])
 
     def test_case_recording_exports_by_quick_id_and_preserves_source(self):
         with tempfile.TemporaryDirectory(prefix='quick-journey-', dir=ROOT / 'output/agent-runs') as name:
@@ -51,14 +53,14 @@ class QuickSuiteTests(unittest.TestCase):
             self.assertEqual(original, workbook.sha256(quick.QUICK_BOOK))
             self.assertEqual(1, output['counts']['PASS'])
             self.assertEqual(1, output['counts']['BLOCKED'])
-            self.assertEqual(26, output['counts']['NOT_EXECUTED'])
+            self.assertEqual(27, output['counts']['NOT_EXECUTED'])
             cells = workbook.workbook_cells(output['xlsxReport'])
             rows = cells['主要用例']
             quick_rows = {r[1]['value']: r for n, r in rows.items() if n > 4 and 1 in r}
             self.assertEqual('通过', quick_rows['Q01'][10]['value'])
             self.assertEqual('阻塞', quick_rows['Q26'][10]['value'])
             self.assertIn('Compatible VLM', quick_rows['Q26'][11]['value'])
-            self.assertEqual('26', cells['评审总览'][9][5]['value'])
+            self.assertEqual('27', cells['评审总览'][9][5]['value'])
             with self.assertRaisesRegex(ValueError, 'result workbook'):
                 journey.load_suite(output['xlsxReport'])
 

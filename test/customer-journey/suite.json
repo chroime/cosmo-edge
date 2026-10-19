@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "version": "1.4.0",
+  "version": "1.6.0",
   "title": "CosmoEdge全量客户旅程用例库",
   "generatedFrom": {
     "workbook": "CosmoEdge-客户旅程测试用例.xlsx",
-    "sha256": "3e6396f065ae428eaeb8d07694a680b88b3a791243f4c55689536a842f35ffb6",
+    "sha256": "2510b6259f1b152ddba499abf74ff47f3f1cef3ee63ada87b6f1c439350853f0",
     "doNotEdit": "由XLSX生成；请修改正式工作簿。"
   },
   "resourceDefinitions": {
@@ -216,7 +216,7 @@
     "USB-CAMERA": {
       "title": "USB摄像头",
       "kind": "hardware",
-      "request": "接在被测设备上的受支持USB摄像头；若产品/目标无此功能，确认不适用依据。",
+      "request": "必测硬件：将受支持USB摄像头接在被测设备上，核对枚举、设备标识与实时画面。资源就绪状态记入私有配置，不沿用旧缺口跳过。",
       "owner": "用户/设备管理员"
     },
     "OTHER-TARGETS": {
@@ -242,6 +242,25 @@
       "kind": "discovered",
       "request": "Codex读取实际版本、模板、模型、缺失依赖与能力，不沿用上次ID。",
       "owner": "Codex运行前盘点"
+    },
+    "OPENAI-VLM": {
+      "title": "OpenAI兼容多模态审核服务",
+      "kind": "network",
+      "request": "可用的多模态chat/completions服务；核对/v1基地址、实际served-model-name、认证及图像输入。地址、API Key、并发限制只放私有配置。",
+      "owner": "用户/服务维护者",
+      "fields": [
+        "baseUrl",
+        "model",
+        "apiKey"
+      ],
+      "note": "为事件上报审核的接口模式单独预检；不以普通文本或TCP连通代替图像请求通过。"
+    },
+    "VLM-MODEL": {
+      "title": "视觉语言大模型运行资源",
+      "kind": "hardware",
+      "request": "目标芯片可运行的 VLM 模型包、分词器及设备加载结果；原始 bmodel 不等于可导入模型。",
+      "owner": "测试执行者/模型提供方",
+      "note": "仅本地模型审核依赖此项；OpenAI接口模式独立检查OPENAI-VLM。"
     }
   },
   "modules": [
@@ -1393,7 +1412,7 @@
     },
     {
       "id": "CAM-001",
-      "revision": 1,
+      "revision": 2,
       "title": "逐厂商 RTSP 新增预览抓拍",
       "module": "视频源基础接入",
       "priority": "P0",
@@ -1407,7 +1426,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-001.S01",
@@ -1460,7 +1479,7 @@
     },
     {
       "id": "CAM-002",
-      "revision": 1,
+      "revision": 2,
       "title": "NVR 四路独立接入",
       "module": "视频源基础接入",
       "priority": "P0",
@@ -1475,7 +1494,7 @@
         "NVR-A",
         "ONVIF-SETTINGS"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-002.S01",
@@ -1528,7 +1547,7 @@
     },
     {
       "id": "CAM-003",
-      "revision": 1,
+      "revision": 2,
       "title": "本地视频上传与通道建立",
       "module": "视频源基础接入",
       "priority": "P0",
@@ -1543,7 +1562,7 @@
         "NVR-A",
         "FACE-VIDEO"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-003.S01",
@@ -1580,7 +1599,7 @@
     },
     {
       "id": "CAM-004",
-      "revision": 1,
+      "revision": 2,
       "title": "本地视频总播放次数",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -1595,7 +1614,7 @@
         "NVR-A",
         "FACE-VIDEO"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-004.S01",
@@ -1628,7 +1647,7 @@
     },
     {
       "id": "CAM-005",
-      "revision": 1,
+      "revision": 2,
       "title": "视频编辑及凭据更换",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -1642,7 +1661,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-005.S01",
@@ -1679,7 +1698,7 @@
     },
     {
       "id": "CAM-006",
-      "revision": 1,
+      "revision": 2,
       "title": "错误地址和离线设备",
       "module": "视频源基础接入",
       "priority": "P0",
@@ -1693,7 +1712,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-006.S01",
@@ -1726,7 +1745,7 @@
     },
     {
       "id": "CAM-007",
-      "revision": 1,
+      "revision": 2,
       "title": "码流编码与分辨率组合",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -1740,7 +1759,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-007.S01",
@@ -1805,7 +1824,7 @@
     },
     {
       "id": "CAM-008",
-      "revision": 1,
+      "revision": 2,
       "title": "断流重连与资源释放",
       "module": "视频源基础接入",
       "priority": "P0",
@@ -1819,7 +1838,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-008.S01",
@@ -1872,7 +1891,7 @@
     },
     {
       "id": "CAM-009",
-      "revision": 1,
+      "revision": 2,
       "title": "单个与批量删除通道",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -1886,7 +1905,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-009.S01",
@@ -1923,59 +1942,59 @@
     },
     {
       "id": "CAM-010",
-      "revision": 1,
-      "title": "USB 摄像头",
+      "revision": 2,
+      "title": "USB 摄像头发现、预览与算法运行（必测）",
       "module": "视频源基础接入",
-      "priority": "P2",
+      "priority": "P1",
       "journey": "J02",
-      "preconditions": "已登录；合法取流地址由设备读取或用户确认；USB设备待补且目标支持",
+      "preconditions": "USB 摄像头已纳入必测，开测核对现有硬件枚举和当前画面；已登录且基础检测场景可运行。不得沿用历史缺资源结论跳过。",
       "requires": [
         "DUT",
-        "CAM-HK-A",
-        "CAM-DH",
-        "CAM-HK-B",
-        "CAM-UNV",
-        "NVR-A",
-        "USB-CAMERA"
+        "USB-CAMERA",
+        "MODEL-INVENTORY"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "DUT；USB-CAMERA；MODEL-INVENTORY",
       "steps": [
         {
           "id": "CAM-010.S01",
-          "text": "打开USB列表"
+          "text": "刷新USB列表，核对设备标识与现场硬件"
         },
         {
           "id": "CAM-010.S02",
-          "text": "选择设备新增"
+          "text": "选择设备新增本轮通道，预览并抓拍，确认当前画面"
         },
         {
           "id": "CAM-010.S03",
-          "text": "预览抓拍"
+          "text": "绑定基础检测场景，启动后让目标进入画面并观察30–60秒，核对真实检测结果"
         },
         {
           "id": "CAM-010.S04",
-          "text": "受控拔插再恢复"
+          "text": "停止后确认无新增结果，再启动并核对新时间戳结果"
+        },
+        {
+          "id": "CAM-010.S05",
+          "text": "具备现场操作条件时受控拔插并恢复；清理本轮对象，保留原有任务"
         }
       ],
       "assertions": [
         {
           "id": "CAM-010.A01",
-          "text": "列表与实际硬件一致；异常可解释；恢复后无重复通道；缺硬件记阻塞。"
+          "text": "USB发现、预览、抓拍、算法输出、启停恢复均需实测。设备标识一致且无重复通道；未识别时记录当次证据并排查，不直接按历史资源不足跳过。拔插条件不具备只影响拔插子步骤。"
         }
       ],
-      "expected": "列表与实际硬件一致；异常可解释；恢复后无重复通道；缺硬件记阻塞。",
-      "cleanup": "停止本轮任务后删除本轮通道；恢复视频重复次数",
+      "expected": "USB发现、预览、抓拍、算法输出、启停恢复均需实测。设备标识一致且无重复通道；未识别时记录当次证据并排查，不直接按历史资源不足跳过。拔插条件不具备只影响拔插子步骤。",
+      "cleanup": "停止并删除本轮创建的任务和通道；恢复原USB连接及配置；不得停止或删除用户原有任务。",
       "method": "UI主操作＋API只读核对",
       "executor": "codex-ui-and-evidence",
-      "applicability": "目标设备具备该能力",
+      "applicability": "具备USB输入的目标必须执行；仅真实不支持该能力的其他平台可凭证据判不适用。",
       "source": "src/web/src/views/gam/taskManager/index.vue；src/web/src/api/gam.js；docs/guide/test-cases.md",
       "suite": "受影响模块回归",
       "review": "",
-      "evidenceRequirements": "步骤观察、实际结果、证据文件与清理核对"
+      "evidenceRequirements": "USB设备标识、当前预览/抓拍、真实目标输出、任务ID与启停时间、拔插条件及恢复清理记录。"
     },
     {
       "id": "CAM-011",
-      "revision": 1,
+      "revision": 2,
       "title": "文件格式异常",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -1990,7 +2009,7 @@
         "NVR-A",
         "FACE-VIDEO"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-011.S01",
@@ -2023,7 +2042,7 @@
     },
     {
       "id": "CAM-012",
-      "revision": 1,
+      "revision": 2,
       "title": "重复提交与同源多通道",
       "module": "视频源基础接入",
       "priority": "P1",
@@ -2037,7 +2056,7 @@
         "CAM-UNV",
         "NVR-A"
       ],
-      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB待补",
+      "resourceNotes": "四台摄像机；NVR-A；FACE-VIDEO；USB-CAMERA（接入用例必测，开测核对）",
       "steps": [
         {
           "id": "CAM-012.S01",
@@ -4892,7 +4911,7 @@
         },
         {
           "id": "FLOW-007.COMP-actions-BA_00004",
-          "text": "actions/BA_00004 事件上报：事件上报；合法链运行；输入缺失/非法参数；保存回读；结果对应业务语义；平台：bm1688,cv186x,x86。"
+          "text": "actions/BA_00004 事件上报：事件上报；合法链运行、非法参数及保存回读；审核关闭基线、本地/接口模式正例放行与反例过滤、目标ROI隔离、提示词修改、触发类边界和接口故障恢复。；平台：bm1688,cv186x,x86。"
         },
         {
           "id": "FLOW-007.COMP-actions-BA_00005",
@@ -20295,6 +20314,332 @@
       "suite": "受影响模块回归",
       "review": "新增独立回归用例；本轮历史证据不自动回填为新编号通过。",
       "evidenceRequirements": "保存筛选前后页面、条件、总数、路由及失败复现证据。"
+    },
+    {
+      "id": "PERF-011",
+      "revision": 1,
+      "title": "受保护 VLM 加载的主机内存接纳与恢复",
+      "module": "容量稳定性与异常恢复",
+      "priority": "P1",
+      "journey": "J12",
+      "preconditions": "专用 Sophon 测试设备、兼容的受保护本地 VLM、已知正负图片和可用视频源；有读取内核/进程及有界故障注入授权；记录原任务，不停止原任务腾出资源。",
+      "requires": [
+        "DUT",
+        "MODEL-PACKAGES",
+        "SCENARIO-TRUTH",
+        "RECOVERY-KIT"
+      ],
+      "resourceNotes": "设备、模型、样本与故障注入范围由本轮私有配置绑定。",
+      "steps": [
+        {
+          "id": "PERF-011.S01",
+          "text": "记录主进程 PID、内核 OOM 计数、MemAvailable、模型大小和原任务输出；确认无同模型共享实例"
+        },
+        {
+          "id": "PERF-011.S02",
+          "text": "在安全下限内启动有内存上限、自动退出的临时占用进程，使可用内存不足以加载该模型；无法安全形成条件时记录具体阻塞"
+        },
+        {
+          "id": "PERF-011.S03",
+          "text": "通过页面创建临时 VLM 视频任务，核对初始化失败、日志和原任务持续输出；禁止以启用开关代替推理成功"
+        },
+        {
+          "id": "PERF-011.S04",
+          "text": "释放本轮占用，确认内存达到加载条件后重试；完成正负图片问答及视频实际推理，不重启主进程掩盖恢复失败"
+        },
+        {
+          "id": "PERF-011.S05",
+          "text": "停止并删除本轮任务，核对原配置、原任务、临时进程和新增 OOM 记录"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "PERF-011.A01",
+          "text": "内存不足时拒绝加载且无主进程 SIGKILL/重启，原任务继续工作；满足加载条件后实际推理成功；任务运行状态不得把初始化失败显示为正常推理。"
+        }
+      ],
+      "expected": "内存不足时拒绝加载且无主进程 SIGKILL/重启，原任务继续工作；满足加载条件后实际推理成功；任务运行状态不得把初始化失败显示为正常推理。",
+      "cleanup": "结束本轮内存占用并验证退出；清理本轮图片/视频任务，恢复原配置；不得删除真实事件或关闭原任务。",
+      "method": "UI主操作＋有界压力脚本＋内核与接口交叉验证",
+      "executor": "codex-ui-and-evidence",
+      "applicability": "Sophon 受保护本地 VLM；不以 x86 或小模型通过代替该设备大模型验收。",
+      "source": "src/nn/guard/CemV2SophonLoader.cc；src/nn/device/sophon/qwen3vl/qwen3vl_runner.cc；实测 OOM 缺陷回归",
+      "suite": "受影响模块回归",
+      "review": "新增回归编号；历史实测不自动转为此新用例通过。",
+      "evidenceRequirements": "首次失败与重试分别保留；记录内存、模型大小、进程 PID、内核 OOM、初始化日志、UI 状态、实际正负结果及恢复核对。"
+    },
+    {
+      "id": "EVENT-012",
+      "revision": 1,
+      "title": "事件上报大模型审核：本地模型放行与过滤",
+      "module": "事件中心与统计",
+      "priority": "P1",
+      "journey": "J08",
+      "preconditions": "使用私有 FACE-VIDEO 绑定的视频。逐帧确认匹配与不匹配的人物目标，记录时间段、帧号/时间戳、目标框及人工判断。提示词如“穿红色衣服的人”；没有红衣正例时改用画面实际可辨认的衣着特征，不虚构正例。 复制基础行人检测/区域入侵场景到本轮隔离对象，上游使用普通检测节点，事件上报使用 BA_00004 的触发类事件；不得用独立 VLM 节点提前完成审核。固定ROI、告警间隔、去重、播放次数和时间窗。 本地VLM可选且可加载，HTTP测试接收端已就绪。",
+      "requires": [
+        "DUT",
+        "FACE-VIDEO",
+        "MODEL-INVENTORY",
+        "VLM-MODEL",
+        "HTTP-RECEIVER",
+        "PUSH-AUTHORIZATION"
+      ],
+      "resourceNotes": "视频、审核模型与接口认证按资源ID绑定本轮私有配置。",
+      "steps": [
+        {
+          "id": "EVENT-012.S01",
+          "text": "核对视频哈希和人工标注；至少选择一个提示词匹配目标ROI和一个不匹配目标ROI。同帧多人时分别标记，避免用画面中其他人的特征判当前目标。"
+        },
+        {
+          "id": "EVENT-012.S02",
+          "text": "关闭事件上报组件的大模型审核，重播固定片段，确认正负目标都实际到达上报节点并产生基线事件；保存目标ID、时间、抓拍和接收记录。"
+        },
+        {
+          "id": "EVENT-012.S03",
+          "text": "在事件上报组件开启审核，选择本地审核模型并填写已标注的衣着提示词，保存后刷新回读开关、模式、模型和提示词。"
+        },
+        {
+          "id": "EVENT-012.S04",
+          "text": "从相同起点重播正例片段，核对当前目标裁剪图的审核结果为“是”，相应事件落库并由HTTP接收；事件/目标/帧归属一致。"
+        },
+        {
+          "id": "EVENT-012.S05",
+          "text": "重播负例片段，核对同一候选目标确实触发审核且回答“否”，有审核过滤证据，普通告警列表与HTTP接收均无该候选事件；排除去重、时间计划和无检测导致的假过滤。"
+        },
+        {
+          "id": "EVENT-012.S06",
+          "text": "关闭审核再重播负例，确认事件恢复上报；核对原业务并清理本轮对象。"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "EVENT-012.A01",
+          "text": "开关和本地模型保存回读一致；同一目标“是”放行、“否”过滤，关闭审核恢复基线上报。多人与多帧不得串用结果；每种结果均有候选输入、审核结果和事件/HTTP证据。"
+        },
+        {
+          "id": "EVENT-012.PAR-0381",
+          "text": "参数 事件上报 / enableLlmReview（大模型审核）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：0；约束：min=; max=; regex=/^[0-1]$/；依赖：；语义：启用后，告警事件在上报前将由Qwen3VL大模型进行二次审核验证，过滤误报。仅对触发类事件生效。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-012.PAR-0389",
+          "text": "参数 事件上报 / llmAtomicCode（审核模型）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"local_model\"}；语义：选择用于告警审核的Qwen3VL语言视觉大模型；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-012.PAR-0390",
+          "text": "参数 事件上报 / llmReviewContent（审核内容）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"enableLlmReview\",\"value\":\"1\"}；语义：用于审核的内容描述，比如：火焰、未带安全帽的人、烟雾等。留空则自动使用算法名称。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-012.COMP-actions-BA_00004",
+          "text": "actions/BA_00004 事件上报：事件上报；合法链运行、非法参数及保存回读；审核关闭基线、本地/接口模式正例放行与反例过滤、目标ROI隔离、提示词修改、触发类边界和接口故障恢复。；平台：bm1688,cv186x,x86。"
+        }
+      ],
+      "expected": "开关和本地模型保存回读一致；同一目标“是”放行、“否”过滤，关闭审核恢复基线上报。多人与多帧不得串用结果；每种结果均有候选输入、审核结果和事件/HTTP证据。",
+      "cleanup": "停止并删除本轮视频任务、临时通道与复制场景；恢复原推送、审核参数和视频播放配置。保留原有业务及历史事件，不修改共享模型服务。",
+      "method": "UI主操作＋日志/接口只读交叉验证",
+      "executor": "codex-ui-and-evidence",
+      "applicability": "本地Qwen类审核；仅触发类候选事件。使用实际目标裁剪图人工判断，不宣称整体识别精度。",
+      "source": "src/flow/alarm/TaskAlarmLlmReview.cc；src/flow/alarm/TaskAlarmEventBuilder.cc；data/resource/aiboxresource_bm1688/layout/actions.json",
+      "suite": "受影响模块回归",
+      "review": "按逐目标可见事实核对功能；不以一次问答或总告警数减少替代审核链路验收。",
+      "evidenceRequirements": "视频哈希、标注片段与目标ROI、场景/任务/组件ID、审核模式、提示词与模型版本、审核调用及是/否结果、过滤记录、事件ID/抓拍/HTTP接收对账、修改前后配置与清理核对；认证信息脱敏。"
+    },
+    {
+      "id": "EVENT-013",
+      "revision": 1,
+      "title": "事件上报大模型审核：OpenAI接口放行与过滤",
+      "module": "事件中心与统计",
+      "priority": "P1",
+      "journey": "J08",
+      "preconditions": "使用私有 FACE-VIDEO 绑定的视频。逐帧确认匹配与不匹配的人物目标，记录时间段、帧号/时间戳、目标框及人工判断。提示词如“穿红色衣服的人”；没有红衣正例时改用画面实际可辨认的衣着特征，不虚构正例。 复制基础行人检测/区域入侵场景到本轮隔离对象，上游使用普通检测节点，事件上报使用 BA_00004 的触发类事件；不得用独立 VLM 节点提前完成审核。固定ROI、告警间隔、去重、播放次数和时间窗。 OPENAI-VLM已由用户配置，测试按服务并发限制串行执行。",
+      "requires": [
+        "DUT",
+        "FACE-VIDEO",
+        "MODEL-INVENTORY",
+        "OPENAI-VLM",
+        "HTTP-RECEIVER",
+        "PUSH-AUTHORIZATION"
+      ],
+      "resourceNotes": "视频、审核模型与接口认证按资源ID绑定本轮私有配置。",
+      "steps": [
+        {
+          "id": "EVENT-013.S01",
+          "text": "按私有配置核对OpenAI兼容服务的基地址、模型名、认证和chat/completions图像输入；模型使用实际served-model-name，保存脱敏响应证据。"
+        },
+        {
+          "id": "EVENT-013.S02",
+          "text": "关闭审核并重播固定正负片段，确认每个候选目标的基线上报，记录候选ID、片段、ROI及接收端时间窗。"
+        },
+        {
+          "id": "EVENT-013.S03",
+          "text": "在事件上报组件启用审核，选择OpenAI兼容接口，填写基地址、模型名、认证及人物特征提示词；保存刷新，认证回显和证据不得泄露密钥。"
+        },
+        {
+          "id": "EVENT-013.S04",
+          "text": "串行重播正例，核对设备向配置接口发送当前候选目标图，服务返回“是”，对应事件落库并成功HTTP上报。"
+        },
+        {
+          "id": "EVENT-013.S05",
+          "text": "串行重播负例，核对接口确实被调用且返回“否”，设备按审核过滤，事件中心及HTTP均无该候选普通告警；不能用请求失败冒充审核否定。"
+        },
+        {
+          "id": "EVENT-013.S06",
+          "text": "停启本轮任务后核对接口模式、模型与提示词仍有效，再关闭审核复测基线上报，最后清理本轮配置。"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "EVENT-013.A01",
+          "text": "接口模式使用配置的服务与模型，真实图像请求有对应响应；“是”放行、“否”过滤，目标/帧/事件关联正确；配置停启后保持，关闭审核后恢复基线；认证仅以脱敏证据保存。"
+        },
+        {
+          "id": "EVENT-013.PAR-0381",
+          "text": "参数 事件上报 / enableLlmReview（大模型审核）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：0；约束：min=; max=; regex=/^[0-1]$/；依赖：；语义：启用后，告警事件在上报前将由Qwen3VL大模型进行二次审核验证，过滤误报。仅对触发类事件生效。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0382",
+          "text": "参数 事件上报 / llmProvider（Review Inference Mode）：依次选每个枚举；非法值；保存刷新；触发依赖字段。默认值：local_model；约束：枚举：local_model,openai_vlm；依赖：{\"key\":\"enableLlmReview\",\"value\":\"1\"}；语义：Choose local review model or OpenAI-compatible API；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0383",
+          "text": "参数 事件上报 / llmOpenaiBaseUrl（base_url）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：http://127.0.0.1:8000/v1；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI-compatible API base URL, for example http://127.0.0.1:8000/v1；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0384",
+          "text": "参数 事件上报 / llmOpenaiApiKey（api_key）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI API key; leave empty when local vLLM authentication is disabled；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0385",
+          "text": "参数 事件上报 / llmOpenaiModel（model）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：Qwen/Qwen3-VL-2B-Instruct；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI API model name；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0386",
+          "text": "参数 事件上报 / llmOpenaiEndpoint（endpoint）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：/chat/completions；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI-compatible API path, default /chat/completions；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0387",
+          "text": "参数 事件上报 / llmOpenaiTimeoutMs（timeout_ms）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：60000；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：Request timeout in milliseconds；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0388",
+          "text": "参数 事件上报 / llmOpenaiMaxTokens（max_tokens）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：256；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：Maximum output token count；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.PAR-0390",
+          "text": "参数 事件上报 / llmReviewContent（审核内容）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"enableLlmReview\",\"value\":\"1\"}；语义：用于审核的内容描述，比如：火焰、未带安全帽的人、烟雾等。留空则自动使用算法名称。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-013.COMP-actions-BA_00004",
+          "text": "actions/BA_00004 事件上报：事件上报；合法链运行、非法参数及保存回读；审核关闭基线、本地/接口模式正例放行与反例过滤、目标ROI隔离、提示词修改、触发类边界和接口故障恢复。；平台：bm1688,cv186x,x86。"
+        }
+      ],
+      "expected": "接口模式使用配置的服务与模型，真实图像请求有对应响应；“是”放行、“否”过滤，目标/帧/事件关联正确；配置停启后保持，关闭审核后恢复基线；认证仅以脱敏证据保存。",
+      "cleanup": "停止并删除本轮视频任务、临时通道与复制场景；恢复原推送、审核参数和视频播放配置。保留原有业务及历史事件，不修改共享模型服务。",
+      "method": "UI主操作＋日志/接口只读交叉验证",
+      "executor": "codex-ui-and-evidence",
+      "applicability": "OpenAI兼容多模态接口审核；不要求设备本地VLM可加载，不替代本地模式验收。不得重启或修改共享vLLM服务。",
+      "source": "src/flow/alarm/TaskAlarmLlmReview.cc；src/flow/alarm/TaskAlarmEventBuilder.cc；data/resource/aiboxresource_bm1688/layout/actions.json",
+      "suite": "受影响模块回归",
+      "review": "按逐目标可见事实核对功能；不以一次问答或总告警数减少替代审核链路验收。",
+      "evidenceRequirements": "视频哈希、标注片段与目标ROI、场景/任务/组件ID、审核模式、提示词与模型版本、审核调用及是/否结果、过滤记录、事件ID/抓拍/HTTP接收对账、修改前后配置与清理核对；认证信息脱敏。"
+    },
+    {
+      "id": "EVENT-014",
+      "revision": 1,
+      "title": "事件上报审核：提示词生效、事件类型与接口异常恢复",
+      "module": "事件中心与统计",
+      "priority": "P1",
+      "journey": "J08",
+      "preconditions": "使用私有 FACE-VIDEO 绑定的视频。逐帧确认匹配与不匹配的人物目标，记录时间段、帧号/时间戳、目标框及人工判断。提示词如“穿红色衣服的人”；没有红衣正例时改用画面实际可辨认的衣着特征，不虚构正例。 复制基础行人检测/区域入侵场景到本轮隔离对象，上游使用普通检测节点，事件上报使用 BA_00004 的触发类事件；不得用独立 VLM 节点提前完成审核。固定ROI、告警间隔、去重、播放次数和时间窗。 已完成接口模式基础闭环，准备本轮可恢复参数变更。",
+      "requires": [
+        "DUT",
+        "FACE-VIDEO",
+        "MODEL-INVENTORY",
+        "OPENAI-VLM",
+        "HTTP-RECEIVER",
+        "PUSH-AUTHORIZATION"
+      ],
+      "resourceNotes": "视频、审核模型与接口认证按资源ID绑定本轮私有配置。",
+      "steps": [
+        {
+          "id": "EVENT-014.S01",
+          "text": "冻结同一目标ROI，先使用匹配的衣着提示词，再改成该目标明显不具备的特征；逐次保存刷新、重播，核对实际请求使用新词且判断随语义变化。"
+        },
+        {
+          "id": "EVENT-014.S02",
+          "text": "在隔离场景分别验证触发类与定时类上报：保持审核开启，核对触发类走审核，定时类按原规则上报且不被该触发审核误过滤。"
+        },
+        {
+          "id": "EVENT-014.S03",
+          "text": "仅在本轮任务中暂填无效API Key，触发图像审核并记录401/认证失败；再暂改为确认未监听的本机回环端口以形成连接失败或配置超时，不停止共享服务。"
+        },
+        {
+          "id": "EVENT-014.S04",
+          "text": "按当前普通OpenAI审核分支核对故障降级：初始化/请求失败记录明确错误并允许原告警，不能标记为模型“是/否”；已有其他任务继续工作。"
+        },
+        {
+          "id": "EVENT-014.S05",
+          "text": "恢复正确认证、地址及提示词，保存回读并重播同一正负片段，确认真实审核调用和放行/过滤恢复，无需重启设备。"
+        },
+        {
+          "id": "EVENT-014.S06",
+          "text": "恢复原参数和事件类型，清理临时场景及任务，保留故障、降级、恢复三段证据。"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "EVENT-014.A01",
+          "text": "提示词修改后实际使用新配置；仅触发类受审核控制。接口故障与模型否定分开记录，按当前普通OpenAI路径降级放行并有错误证据；恢复配置后重新审核成功。若产品降级策略变更，先按评审后的契约更新本预期。"
+        },
+        {
+          "id": "EVENT-014.PAR-0381",
+          "text": "参数 事件上报 / enableLlmReview（大模型审核）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：0；约束：min=; max=; regex=/^[0-1]$/；依赖：；语义：启用后，告警事件在上报前将由Qwen3VL大模型进行二次审核验证，过滤误报。仅对触发类事件生效。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0382",
+          "text": "参数 事件上报 / llmProvider（Review Inference Mode）：依次选每个枚举；非法值；保存刷新；触发依赖字段。默认值：local_model；约束：枚举：local_model,openai_vlm；依赖：{\"key\":\"enableLlmReview\",\"value\":\"1\"}；语义：Choose local review model or OpenAI-compatible API；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0383",
+          "text": "参数 事件上报 / llmOpenaiBaseUrl（base_url）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：http://127.0.0.1:8000/v1；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI-compatible API base URL, for example http://127.0.0.1:8000/v1；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0384",
+          "text": "参数 事件上报 / llmOpenaiApiKey（api_key）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI API key; leave empty when local vLLM authentication is disabled；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0385",
+          "text": "参数 事件上报 / llmOpenaiModel（model）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：Qwen/Qwen3-VL-2B-Instruct；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI API model name；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0386",
+          "text": "参数 事件上报 / llmOpenaiEndpoint（endpoint）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：/chat/completions；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：OpenAI-compatible API path, default /chat/completions；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0387",
+          "text": "参数 事件上报 / llmOpenaiTimeoutMs（timeout_ms）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：60000；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：Request timeout in milliseconds；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0388",
+          "text": "参数 事件上报 / llmOpenaiMaxTokens（max_tokens）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：256；约束：min=; max=; regex=；依赖：{\"key\":\"llmProvider\",\"value\":\"openai_vlm\"}；语义：Maximum output token count；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.PAR-0390",
+          "text": "参数 事件上报 / llmReviewContent（审核内容）：默认/合法替代/空/非法类型；按已确认范围测min、max及相邻越界；保存回读并验证行为。默认值：；约束：min=; max=; regex=；依赖：{\"key\":\"enableLlmReview\",\"value\":\"1\"}；语义：用于审核的内容描述，比如：火焰、未带安全帽的人、烟雾等。留空则自动使用算法名称。；平台：bm1688,cv186x,x86。"
+        },
+        {
+          "id": "EVENT-014.COMP-actions-BA_00004",
+          "text": "actions/BA_00004 事件上报：事件上报；合法链运行、非法参数及保存回读；审核关闭基线、本地/接口模式正例放行与反例过滤、目标ROI隔离、提示词修改、触发类边界和接口故障恢复。；平台：bm1688,cv186x,x86。"
+        }
+      ],
+      "expected": "提示词修改后实际使用新配置；仅触发类受审核控制。接口故障与模型否定分开记录，按当前普通OpenAI路径降级放行并有错误证据；恢复配置后重新审核成功。若产品降级策略变更，先按评审后的契约更新本预期。",
+      "cleanup": "停止并删除本轮视频任务、临时通道与复制场景；恢复原推送、审核参数和视频播放配置。保留原有业务及历史事件，不修改共享模型服务。",
+      "method": "UI主操作＋日志/接口只读交叉验证",
+      "executor": "codex-ui-and-evidence",
+      "applicability": "普通local_model/openai_vlm链路，不覆盖laya_v独立审核策略。网络故障仅改本轮任务配置，不更改服务或系统网络。",
+      "source": "src/flow/alarm/TaskAlarmLlmReview.cc；src/flow/alarm/TaskAlarmEventBuilder.cc；data/resource/aiboxresource_bm1688/layout/actions.json",
+      "suite": "受影响模块回归",
+      "review": "按逐目标可见事实核对功能；不以一次问答或总告警数减少替代审核链路验收。",
+      "evidenceRequirements": "视频哈希、标注片段与目标ROI、场景/任务/组件ID、审核模式、提示词与模型版本、审核调用及是/否结果、过滤记录、事件ID/抓拍/HTTP接收对账、修改前后配置与清理核对；认证信息脱敏。"
     }
   ]
 }

@@ -39,7 +39,7 @@ npm run docs:verify
 
 1. `gitee:readme:check`：检查 Gitee README 与源文件是否同步。
 2. `docs:build`：构建完整 VitePress 文档站、检查站内链接，并生成基准报告页面。
-3. `benchmarks:v1.1:smoke`：验证基准源码与生成报告的证据、校验和、公开数据边界及报告链接。
+3. `benchmarks:v1.1:validate -- --output-root docs/.vitepress/dist/benchmarks/scenario-bench/v1.1`：直接验证基准源码和本次构建报告的证据、校验和、公开数据边界及包内链接。
 
 本地预览：
 
@@ -55,6 +55,8 @@ npm run docs:preview
   导航、图片 alt 或 frontmatter 渲染形态。
 - 基准完整验证已经覆盖源码，因此不在构建前重复执行 `--source-only`；该参数仍可用于
   单独检查基准源码。
+- 不再专项扫描 README 和其他文档中的官网报告 URL，也不将这些绝对 URL 映射到本地
+  构建目录检查目标是否存在；报告清单和包内相对链接继续验证。
 - 当前依赖审计可能报告 npm dependency vulnerabilities，公开发布前应单独评估并记录处理结论。
 
 ## 前端检查

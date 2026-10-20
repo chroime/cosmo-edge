@@ -52,6 +52,32 @@ assert.equal(collected.items[0].preFlowActionId, 'parent')
 assert.deepEqual(collected.atomicCollected, [{ ...extendedConfig.webConfig.atomic, position: 'extended', atomicName: '' }])
 assert.deepEqual(collectMetaDataParams([extendedNode]), extendedConfig.webConfig.metaDataParams)
 
+// Main's shared save path must retain the image workflow's library ownership.
+const metadataNode = (actionId, params, metadata) => ({
+  type: 'customForm', data: { actionId, configObject: { params, webConfig: { metaDataParams: metadata } } }
+})
+const bodyBinding = { key: 'param.workClothesSet', defaultValue: 'workwear-1', nameI18nKey: 'workwear.group' }
+const scoreLimit = { key: 'param.limitScore', defaultValue: '70' }
+const libraryMetadataNodes = [
+  { type: 'stageGroup', data: { configObject: { webConfig: { metaDataParams: [{ key: 'decoration' }] } } } },
+  metadataNode('PA_00005', [], [
+    { key: 'param.faceSet', defaultValue: 'stale-face' },
+    { key: 'param.workClothesSet', defaultValue: 'stale-workwear' },
+    { key: 'param.limitScore', defaultValue: '80' },
+    { key: 'aiParam.person.confidence', defaultValue: '0.6' }
+  ]),
+  metadataNode('PB_00006', [{ key: 'match.libraryType', value: 'body' }], [
+    { key: 'param.faceSet', defaultValue: 'unused-face' }, bodyBinding, scoreLimit
+  ]),
+  metadataNode('PB_00007', [], [{ key: 'pair.threshold', defaultValue: '' }])
+]
+const beforeCollection = plain(libraryMetadataNodes)
+assert.deepEqual(collectMetaDataParams(libraryMetadataNodes), [
+  { key: 'aiParam.person.confidence', defaultValue: '0.6' }, bodyBinding, scoreLimit,
+  { key: 'pair.threshold', defaultValue: '' }
+], 'saving excludes stale/irrelevant bindings, keeps the match-node values and preserves an explicitly cleared pair threshold')
+assert.deepEqual(libraryMetadataNodes, beforeCollection, 'metadata collection must not mutate editor state')
+
 // Render real node, edge, picker and detail-panel SFCs. Only the Vue Flow
 // renderer/geometry and Element Plus controls are substituted by the harness.
 for (const linkage of [false, true]) {

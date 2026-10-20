@@ -3,11 +3,13 @@
 #pragma once
 
 #include <chrono>
+#include <map>
 #include <unordered_map>
 
 #include "flow/common/AlgDetectTypes.h"
 #include "util/Log.h"
 #include "util/dto/ClientMsgEvent.h"
+#include "util/dto/VlmResult.h"
 
 namespace cosmo {
 
@@ -25,11 +27,17 @@ struct AlgData {
     std::string taskId;
     std::string visualFrameId;
     std::vector<VisualDecisionAudit> visualDecisions;
+    std::vector<VlmResult> vlmResults;
     bool bHaveTrack{false};
     bool bHaveRelated{false};  // Has human-face association process
     bool bHaveClassify{false};
     bool bHaveLandmark{false};  // Used for recognizer to decide whether to use box (area) or landmark
     bool bHaveLogic{false};     // Used for logic judgement flow in image algorithms
+    // Request-local picture rule state. Copied at forks; never shared between requests.
+    std::map<std::string, std::map<std::string, std::string>> pictureRules;
+    std::map<std::string, std::string> pictureDecisions;
+    std::string pictureDecision;
+    bool pictureBranch{true};
     std::chrono::steady_clock::time_point firstTimePoint;
 
     // ---- Channel-level data (shared by all tasks) ----

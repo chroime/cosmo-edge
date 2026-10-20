@@ -22,9 +22,11 @@
         :node-id="detailPanelNodeId"
         :node-data="detailPanelNodeData"
         :atomic-list="atomicList"
+        :scene-params="algorithmMetadata.params || []"
         :position="screenPanelPosition"
         @close="closeDetailPanel"
         @config-change="handlePanelConfigChange"
+        @picture-match-param-change="emit('picture-match-param-change', $event)"
       />
     </main>
 
@@ -84,6 +86,10 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  algorithmMetadata: {
+    type: Object,
+    default: () => ({})
+  },
   algorithmData: {
     type: Object,
     default: () => ({})
@@ -94,6 +100,7 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits(['picture-match-param-change'])
 const customMetadata = computed(() =>
   (props.algorithmMetadata?.params || []).filter(item => !item.level)
 )

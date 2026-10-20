@@ -39,10 +39,9 @@ npm run docs:verify
 
 1. `gitee:readme:check`: checks that the Gitee README matches its sources.
 2. `docs:build`: builds the complete VitePress site, checks internal links, and generates benchmark reports.
-3. `docs:smoke`: inspects the five bilingual core guides and two indexes, twelve rendered pages in total,
-   including titles, locale, navigation, links, image alt text, and frontmatter leakage.
-4. `benchmarks:v1.1:smoke`: validates benchmark sources and generated reports, including evidence,
-   checksums, public-data boundaries, and report links.
+3. `benchmarks:v1.1:validate -- --output-root docs/.vitepress/dist/benchmarks/scenario-bench/v1.1`:
+   directly validates benchmark sources and the reports from this build, including evidence,
+   checksums, public-data boundaries, and links within the benchmark pack.
 
 Local preview:
 
@@ -54,10 +53,15 @@ Notes:
 
 - The `docs` job in `.github/workflows/pr-checks.yml` runs the same `npm run docs:verify` command on pull
   requests.
-- Tutorial structure and links are checked in the built output. A separate source scan no longer
-  enforces fixed section wording or forbidden terms.
+- VitePress compiles tutorials and checks internal links. Dedicated scripts no longer constrain
+  fixed pages' titles, H1 headings, navigation, image alt text, or frontmatter rendering.
 - Full benchmark validation already checks sources, so `--source-only` is not repeated before the build.
   The option remains available for checking benchmark sources independently.
+- Benchmark validation retains report completeness, data projections, evidence scope, checksums, and
+  links within the pack without prescribing CSS classes or counts, titles, or explanatory wording.
+- Dedicated scanning of website report URLs in READMEs and other documentation has been removed,
+  including mapping those absolute URLs to local build targets. Report inventories and relative links
+  within the benchmark pack are still validated.
 - Dependency auditing may currently report npm dependency vulnerabilities; these should be evaluated separately before public release and the resolution recorded.
 
 ## Frontend Checks
@@ -74,9 +78,11 @@ npm run resource-i18n:check
 
 Notes:
 
-- `npm test` explicitly runs API, request, parameter, flow, and component behavior checks; frontend CI runs it before building.
+- `npm test` uses Node's native test runner to run 19 explicitly listed test entrypoints serially,
+  covering API, request, parameter, flow, and component behavior. Frontend CI runs it before building.
+  Run an individual file with `node --experimental-vm-modules --test scripts/<test-file>.mjs`.
 - The `prebuild` hook for `npm run build` runs only `i18n:check`, without implicitly running behavior tests.
-- `i18n:check` calls `i18n:check-locales` to check bilingual key parity, short keys, and translation keys used in source files.
+- `i18n:check` directly checks bilingual key parity, short keys, and translation keys used in source files.
   Glossary documentation is maintained manually; its tables are no longer required to match runtime configuration.
 - Dialog button wording is no longer restricted by a separate regex check. Component behavior and browser
   layout checks remain; the optional workflow no longer generates source or CSS variants to test those checks.

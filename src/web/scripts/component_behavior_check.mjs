@@ -45,6 +45,14 @@ try {
   assert.equal(requests, 1)
 } finally { device.unmount() }
 
+const emptyDevice = await mountComponent('views/box/systemManagement/systemConfig/components/DeviceInfo.vue', {
+  api: { queryDeviceInfo: async () => ({ resData: {} }) }
+})
+try {
+  await emptyDevice.settle()
+  assert.equal(emptyDevice.all((n) => n.type === 'el-form-item').length, 0, 'missing device info renders an empty list')
+} finally { emptyDevice.unmount() }
+
 for (const platform of ['1', '-1', null, '15']) {
   for (const match of [true, false]) {
     const form = await mountComponent('views/gam/taskManager/editTask/dynamicForm.vue', {

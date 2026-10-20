@@ -1,5 +1,6 @@
 #include "nn/pipeline/detection_pipeline.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <nlohmann/json.hpp>
 
@@ -18,15 +19,10 @@ static bool ReadYoloNpuPostParams(const nlohmann::json& json,
     if (anchors.empty() || stride.empty() || anchors.size() != stride.size())
         return false;
 
-    for (const auto& grid : anchors) {
-        if (grid.empty())
-            return false;
-        for (const auto& anchor : grid) {
-            if (anchor.size() < 2)
-                return false;
-        }
-    }
-    return true;
+    return std::all_of(anchors.begin(), anchors.end(), [](const auto& grid) {
+        return !grid.empty() &&
+               std::all_of(grid.begin(), grid.end(), [](const auto& anchor) { return anchor.size() >= 2; });
+    });
 }
 
 static std::vector<std::unique_ptr<Op>> MakeDetPreprocess(const nlohmann::json& p) {
@@ -90,13 +86,12 @@ static Status DetectionParseOutput(std::vector<std::shared_ptr<Blob>> output_blo
 
 Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolov5_det";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
         ModelInfo model;
         model.name           = mc.name;
@@ -106,7 +101,7 @@ Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& 
         model.max_batch      = mc.max_batch;
         max_batch_           = mc.max_batch;
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
@@ -129,7 +124,7 @@ Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& 
         }
 
         for (size_t i = 0; i < mc.outputs.size(); i++) {
-            auto& out_def = mc.outputs[i];
+            const auto& out_def = mc.outputs[i];
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -165,7 +160,7 @@ Status YoloV5DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status YoloV5DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -183,13 +178,12 @@ Status YoloV5DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolov8_det";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
         ModelInfo model;
         model.name           = mc.name;
@@ -199,7 +193,7 @@ Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& 
         model.max_batch      = mc.max_batch;
         max_batch_           = mc.max_batch;
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
@@ -221,7 +215,7 @@ Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& 
         }
 
         for (size_t i = 0; i < mc.outputs.size(); i++) {
-            auto& out_def = mc.outputs[i];
+            const auto& out_def = mc.outputs[i];
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -245,7 +239,7 @@ Status YoloV8DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status YoloV8DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -263,13 +257,12 @@ Status YoloV8DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "yolo26_det";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
         if (p.contains("raw_output") && !p["raw_output"].is_boolean())
             return Status(COSMO_NN_ERR_INVALID_CFG, "YOLO E2E raw_output must be a boolean");
@@ -280,7 +273,7 @@ Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& 
         model.max_batch = mc.max_batch;
         max_batch_      = mc.max_batch;
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
@@ -301,7 +294,7 @@ Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& 
         }
 
         for (size_t i = 0; i < mc.outputs.size(); i++) {
-            auto& out_def = mc.outputs[i];
+            const auto& out_def = mc.outputs[i];
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -327,7 +320,7 @@ Status Yolo26DetPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status Yolo26DetPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -345,8 +338,7 @@ Status Yolo26DetPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status Yolo26ObbPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     if (config.models.size() != 1 || config.models[0].inputs.size() != 1 ||
         config.models[0].outputs.size() != 1)
         return Status(COSMO_NN_ERR_INVALID_CFG,
@@ -414,7 +406,7 @@ Status Yolo26ObbPipeline::Init(const PipelineConfig& config, const std::string& 
     if (!config.labels.empty())
         BuildLabels(config, out_def.name, {-1, -1, 10}, model_info_);
     InitThresholdsAndLabels();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status Yolo26ObbPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -457,13 +449,12 @@ Status Yolo26ObbPipeline::ParseDetectionOutput(std::vector<std::vector<ObjectInf
 
 Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                      DeviceType device_type, int device_id, IProfiler* profiler,
-                                     const std::string& tokenizer_path, const std::string& word_table_path,
-                                     bool use_skip) {
+                                     const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "detector";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
         ModelInfo model;
         model.name      = mc.name;
@@ -472,7 +463,7 @@ Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::st
         model.max_batch = mc.max_batch;
         max_batch_      = mc.max_batch;
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
@@ -487,7 +478,7 @@ Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::st
         int top_k             = pipeline_utils::ReadInt(p, "top_k", 1000);
 
         for (size_t i = 0; i < mc.outputs.size(); i++) {
-            auto& out_def = mc.outputs[i];
+            const auto& out_def = mc.outputs[i];
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -540,7 +531,7 @@ Status GenericDetectorPipeline::Init(const PipelineConfig& config, const std::st
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status GenericDetectorPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {

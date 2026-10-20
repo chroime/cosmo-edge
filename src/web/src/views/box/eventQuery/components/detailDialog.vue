@@ -25,6 +25,8 @@
           <span class="info-item-content">{{ dateFormat(Number(detailData.timestamp)) }}</span>
         </div>
 
+        <VlmResults class="event-vlm-results" :results="vlmResults" show-frame :event-id="detailData.id || detailData.messageId || ''" />
+
         <!-- 检测照 -->
         <div class="info-item" v-if="detailData.detectedPicture">
           <span class="info-item-title">{{ t('event.detectedImage') }}{{ localeColon }}</span>
@@ -152,9 +154,10 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import moment from 'moment'
 import ImageLoader from '@/components/ImageLoader.vue'
+import VlmResults from '@/components/VlmResults.vue'
 import { t, localeColon } from '@/i18n'
 import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
 import { formatSimilarity } from '@/utils/format'
@@ -175,6 +178,13 @@ const emit = defineEmits(['update:visible'])
 const show = ref(false)
 const machineMaterialData = ref({})
 const workClothesRecognitionData = ref({})
+const eventProperty = computed(() => {
+  try {
+    const value = props.detailData?.property
+    return (typeof value === 'string' ? JSON.parse(value || '{}') : value) || {}
+  } catch { return {} }
+})
+const vlmResults = computed(() => Array.isArray(eventProperty.value.vlmResults) ? eventProperty.value.vlmResults : [])
 
 const close = () => {
   emit('update:visible', false)
@@ -196,7 +206,7 @@ watch(() => props.visible, (val) => {
   show.value = val
   console.log('========detailData========', props.detailData)
   if (val && props.detailData?.property) {
-    const result = JSON.parse(props.detailData.property)
+    const result = eventProperty.value
     if (result) {
       machineMaterialData.value = result?.machineMaterial || {}
       workClothesRecognitionData.value = result?.workClothesRecognition || {}
@@ -209,6 +219,7 @@ watch(() => props.visible, (val) => {
 </script>
 
 <style lang="scss" scoped>
+.event-vlm-results { width: 100%; grid-column: 1 / -1; }
 :deep(.el-dialog.event-detail-dialog) {
   padding: 0;
   max-width: calc(100vw - 32px);

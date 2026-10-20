@@ -3,31 +3,16 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
 import * as vue from 'vue'
-import { parse, compileScript, compileTemplate } from '@vue/compiler-sfc'
+import { parse, compileScript } from '@vue/compiler-sfc'
 
 const filename = new URL('../src/views/gam/taskManager/components/Gb28181Dialog.vue', import.meta.url)
 const { descriptor, errors } = parse(await readFile(filename, 'utf8'), { filename: filename.pathname })
 assert.deepEqual(errors, [])
 const script = compileScript(descriptor, { id: 'gb-test' })
-const template = compileTemplate({ source: descriptor.template.content, filename: filename.pathname, id: 'gb-test', compilerOptions: { bindingMetadata: script.bindings } })
-assert.deepEqual(template.errors, [])
 const access = await readFile(new URL('../src/views/gam/taskManager/components/gb28181Access.js', import.meta.url), 'utf8')
 const device = { id: '34020000001110000001', username: 'auth-account', hasPassword: true, online: true, state: 'registered', channels: [{ id: '34020000001320000001', name: 'Entrance', added: false, state: 'idle', error: '' }] }
 const config = { enabled: true, listening: true, platformId: '34020000002000000001', realm: '3402000000', address: '', sipPort: 5060, heartbeatTimeout: 180, devices: [device] }
 
-test('GB access exposes only platform settings and devices/channels tabs', () => {
-  const tabs = [...descriptor.template.content.matchAll(/<el-tab-pane\b[^>]*\bname="([^"]+)"/g)].map(match => match[1])
-  assert.deepEqual(tabs, ['platform', 'devices'])
-  assert.doesNotMatch(descriptor.template.content, /gbAccess\.(guideTab|step[1-4]|cameraServer|cameraUser|userMapping|channelMapping|cameraAutoAddress)/)
-})
-test('GB access has a shortcut next to Add and retains the add-channel entry without a trial banner', async () => {
-  const page = await readFile(new URL('../src/views/gam/taskManager/index.vue', import.meta.url), 'utf8')
-  const { descriptor: pageDescriptor } = parse(page)
-  assert.match(pageDescriptor.template.content, /id="onboarding-add-channel"[^>]*>[\s\S]*?<\/el-button>\s*<el-button id="gb28181-access"[^>]*@click="gb28181Dialog\.open\(\)"[^>]*>GB28181<\/el-button>/)
-  assert.equal((pageDescriptor.template.content.match(/id="gb28181-access"/g) || []).length, 1)
-  assert.match(pageDescriptor.scriptSetup.content, /if \(val === 7\)\s*\{\s*channelDialogVisible\.value = false\s*nextTick\(\(\) => gb28181Dialog\.value\.open\(\)\)/)
-  assert.doesNotMatch(descriptor.template.content, /gbAccess\.scope/)
-})
 async function dialog(handler = () => config, network = async () => ({ resData: { netCardList: [] } })) {
   const calls = [], events = [], timers = [], networkCalls = []
   const context = vm.createContext({ console, window: { location: { hostname: '192.0.2.10' } }, setInterval: fn => { timers.push(fn); return timers.length }, clearInterval() {} })

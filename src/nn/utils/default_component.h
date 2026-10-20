@@ -20,7 +20,6 @@ public:
         std::string tokenizer_path;
         std::string word_table_path;
         int device_id = 0;
-        bool use_skip = false;
     };
 
     DefaultComponent(const Options& options, std::string json_path, std::string model_path,

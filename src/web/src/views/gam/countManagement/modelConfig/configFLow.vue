@@ -25,55 +25,14 @@ const props = defineProps({
     default: () => ({})
   }
 })
-const emit = defineEmits(['update:flowData', 'node-config-change'])
-
 const nodes = ref([])
 
 const edges = ref([])
-const expandedNodeId = ref('')
 
 const { onPaneReady } = useVueFlow()
 onPaneReady((instance) => {
   instance.fitView()
 })
-
-const toValue = (key, value) => {
-  if (key === 'shape') {
-    try {
-      const parsed = JSON.parse(value)
-      if (Array.isArray(parsed)) return parsed
-      return value
-    } catch {
-      return value
-    }
-  }
-  return value
-}
-
-const handleToggleNode = (nodeId) => {
-  if (!nodeId) return
-  expandedNodeId.value = expandedNodeId.value === nodeId ? '' : nodeId
-  buildGraph(props.flowData || {})
-}
-
-const handleInlineFormChange = (kind, index, nodeId, changed) => {
-  if (!kind || index < 0) return
-  const nextData = JSON.parse(JSON.stringify(props.flowData || {}))
-  const listKey = kind === 'input' ? 'inputs' : 'outputs'
-  const list = Array.isArray(nextData[listKey]) ? nextData[listKey] : []
-  if (!list[index]) return
-  Object.keys(changed || {}).forEach((key) => {
-    list[index][key] = toValue(key, changed[key])
-  })
-  emit('update:flowData', nextData)
-  emit('node-config-change', {
-    kind,
-    index,
-    config: list[index]
-  })
-  expandedNodeId.value = nodeId
-  buildGraph(nextData)
-}
 
 const buildGraph = (data = {}) => {
   const inputs = Array.isArray(data.inputs) ? data.inputs : []
@@ -88,9 +47,6 @@ const buildGraph = (data = {}) => {
       label: `${t('glossary.input')}\n(${inputs.length})`,
       kind: 'input',
       list: inputs,
-      expanded: expandedNodeId.value === 'input-root',
-      onToggle: () => handleToggleNode('input-root'),
-      onUpdate: (index, changed) => handleInlineFormChange('input', index, 'input-root', changed),
     },
     style: {
       background: 'transparent',
@@ -108,9 +64,6 @@ const buildGraph = (data = {}) => {
       label: `${t('glossary.output')}\n(${outputs.length})`,
       kind: 'output',
       list: outputs,
-      expanded: expandedNodeId.value === 'output-root',
-      onToggle: () => handleToggleNode('output-root'),
-      onUpdate: (index, changed) => handleInlineFormChange('output', index, 'output-root', changed),
     },
     style: {
       background: 'transparent',

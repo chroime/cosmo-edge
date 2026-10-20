@@ -8,13 +8,12 @@ namespace cosmo::nn {
 
 Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                               DeviceType device_type, int device_id, IProfiler* profiler,
-                              const std::string& tokenizer_path, const std::string& word_table_path,
-                              bool use_skip) {
+                              const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "classify";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
 
         ModelInfo model;
@@ -58,15 +57,15 @@ Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& m
         }
         preprocess.push_back(pipeline_utils::MakeNormalizeOp(mean, scale, is_bgr));
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
-        for (auto& out_def : mc.outputs) {
+        for (const auto& out_def : mc.outputs) {
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -90,7 +89,7 @@ Status ClassifyPipeline::Init(const PipelineConfig& config, const std::string& m
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status ClassifyPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {

@@ -87,13 +87,6 @@ struct PUBLIC Size {
     int height = 0;
 };
 
-struct PUBLIC CropParam {
-    int top_left_x = 0;
-    int top_left_y = 0;
-    int width      = 0;
-    int height     = 0;
-};
-
 struct PUBLIC CropResizeParam {
     // roi
     int top_left_x = 0;
@@ -141,13 +134,8 @@ public:
 
     static ObjectInfoV1 AdjustSize(ObjectInfoV1& info, Size old_, Size new_, int gravity = 0);
 
-    static Status GenerateCropParam(RectCrop* rect_crop, int left, int top, int right, int bottom, Size size,
-                                    CropParam& param);
-
     static Status GenerateCropResizeParam(CropResize* crop_resize, int left, int top, int right, int bottom,
                                           Size size, CropResizeParam& param);
-
-    static Status OptimizePreOps(std::vector<std::unique_ptr<Op>>& ops, bool use_skip = false);
 
     static Status ParseDetectionOutput(std::vector<std::shared_ptr<Blob>>& blobs,
                                        std::vector<Size>& image_sizes, Size net_input_size,

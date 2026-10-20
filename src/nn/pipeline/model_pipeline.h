@@ -81,7 +81,7 @@ public:
     virtual Status Init(const PipelineConfig& config, const std::string& model_path, DeviceType device_type,
                         int device_id, IProfiler* profiler = nullptr,
                         const std::string& tokenizer_path  = std::string(),
-                        const std::string& word_table_path = std::string(), bool use_skip = false) = 0;
+                        const std::string& word_table_path = std::string()) = 0;
 
     virtual Status Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) = 0;
 
@@ -119,7 +119,7 @@ public:
 protected:
     // Subclasses call this after building CombinedModelInfo to initialize the inference graph
     Status InitGraph(const std::string& model_path, DeviceType device_type, int device_id,
-                     IProfiler* profiler, const std::string& tokenizer_path, bool use_skip);
+                     IProfiler* profiler, const std::string& tokenizer_path);
 
     // Run the inference graph
     Status RunGraph(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs);

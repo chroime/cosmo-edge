@@ -46,7 +46,7 @@
           </div>
         </template>
         <div v-show="showOther">
-          <ConfigFLow v-model:flowData="flowData" />
+          <ConfigFLow :flow-data="flowData" />
         </div>
       </el-card>
     </div>

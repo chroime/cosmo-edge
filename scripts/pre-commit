@@ -56,40 +56,16 @@ if command -v cppcheck &> /dev/null; then
     echo ""
     echo "🔍 Pre-commit: running cppcheck on staged file(s)..."
 
-    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR \
-        | grep -E '\.(h|cc)$' \
-        | while read -r f; do echo "$PROJECT_ROOT/$f"; done)
-
-    SUPPRESSION_FILE="$PROJECT_ROOT/.cppcheck-suppressions"
-    SUPPRESSION_ARG=""
-    if [[ -f "$SUPPRESSION_FILE" ]]; then
-        SUPPRESSION_ARG="--suppressions-list=$SUPPRESSION_FILE"
-    fi
-
-    if [[ -n "$STAGED_FILES" ]]; then
-        # Only block on error-level findings, not style/warning
-        if ! echo "$STAGED_FILES" | xargs cppcheck \
-                --std=c++17 \
-                --language=c++ \
-                --error-exitcode=1 \
-                --enable=warning \
-                --inline-suppr \
-                $SUPPRESSION_ARG \
-                --quiet \
-                -I "$PROJECT_ROOT/src" \
-                2>&1; then
-            echo ""
-            echo "╔══════════════════════════════════════════════════════════╗"
-            echo "║  Commit blocked: cppcheck found error-level issues.     ║"
-            echo "║                                                         ║"
-            echo "║  Review and fix the issues above, then retry.           ║"
-            echo "║                                                         ║"
-            echo "║  For full analysis, run:                                ║"
-            echo "║    scripts/static_analysis.sh --cppcheck                ║"
-            echo "╚══════════════════════════════════════════════════════════╝"
-            exit 1
-        fi
-        echo "✅ cppcheck: no error-level issues found."
+    if ! "$PROJECT_ROOT/scripts/static_analysis.sh" --cppcheck --staged --profile commit; then
+        echo ""
+        echo "╔══════════════════════════════════════════════════════════╗"
+        echo "║  Commit blocked: cppcheck diagnostics or tool failure.  ║"
+        echo "║                                                         ║"
+        echo "║  Review and fix the issues above, then retry.           ║"
+        echo "║                                                         ║"
+        echo "║  For full analysis, run:                                ║"
+        echo "║    scripts/static_analysis.sh --cppcheck                ║"
+        echo "╚══════════════════════════════════════════════════════════╝"
+        exit 1
     fi
 fi
-

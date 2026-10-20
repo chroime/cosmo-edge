@@ -17,6 +17,7 @@
         </div>
         <span v-if="!props.detailChannel.algorithms?.length">—</span>
       </dd></div>
+      <div v-if="cameraStatusReason(props.detailChannel)" class="channel-detail-wide"><dt>{{ t('cameraDiagnostics.reason') }}</dt><dd class="channel-error">{{ cameraStatusReason(props.detailChannel) }}</dd></div>
     </dl>
     <template #footer><el-button @click="show = false">{{ t('action.close') }}</el-button></template>
   </el-dialog>
@@ -25,6 +26,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { t } from '@/i18n'
+import { cameraStatusReason } from '@/utils/cameraStatus'
 import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
 
 const props = defineProps({
@@ -61,4 +63,10 @@ watch(() => props.visible, (val) => {
 .channel-detail-task { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; padding: 4px 0; }
 .channel-detail-schedule { color: var(--text-secondary); font-size: 12px; }
 @media (max-width: 600px) { .channel-detail-grid { grid-template-columns: minmax(0, 1fr); } }
+.channel-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 </style>

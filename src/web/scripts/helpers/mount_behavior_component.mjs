@@ -18,6 +18,7 @@ export const i18n = {
 }
 const node = (type, text = '') => ({
   type, text, props: {}, children: [], parent: null, style: {},
+  get childNodes() { return this.children },
   addEventListener() {}, removeEventListener() {},
   getRootNode: () => ({ activeElement: null }),
   setAttribute(key, value) { this.props[key] = value },
@@ -48,6 +49,7 @@ export async function mountComponent(entry, { props = {}, mocks = {}, globals = 
   const root = node('root')
   const app = renderer.createApp(wrap(component), props)
   app.config.globalProperties.$API = api
+  app.config.globalProperties.$t = i18n.t
   app.config.globalProperties.$route = route
   app.config.globalProperties.$router = router
   app.config.globalProperties.$message = { error() {}, success() {}, warning() {}, ...message }

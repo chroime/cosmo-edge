@@ -172,7 +172,7 @@ namespace {
     class ConversionPipeline final : public nn::ModelPipeline {
     public:
         nn::Status Init(const nn::PipelineConfig&, const std::string&, nn::DeviceType, int, nn::IProfiler*,
-                        const std::string&, const std::string&, bool) override {
+                        const std::string&, const std::string&) override {
             return nn::COSMO_NN_OK;
         }
         nn::Status Forward(std::initializer_list<std::vector<std::shared_ptr<nn::Blob>>>) override {

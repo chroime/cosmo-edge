@@ -1,27 +1,72 @@
-// Suppress findings from third-party and generated code
+// Exclude third-party and generated sources.
 *:*3rd/*
 *:*build/*
 *:*test/catch_amalgamated.*
 *:*test/trompeloeil.hpp
 
-// Suppress system include warnings (cross-compilation headers not available on host)
+// Host analysis lacks cross-compilation system headers. Partial scans also
+// intentionally leave rules for files outside the selected scope unmatched.
 missingIncludeSystem
 unmatchedSuppression
 
-// cppcheck cannot track struct member usage across translation units.
-// Our DTOs are populated in one .cc and consumed in another, or serialized
-// via XTOSTRUCT macros, causing ~88% false positive rate for this check.
+// DTO members may be consumed in another translation unit or through XTOSTRUCT.
 unusedStructMember
 
-// Eigen comma-initializer syntax (operator<< with comma-separated values)
-// triggers false positive constStatement warnings in nn code.
-constStatement:*src/nn/utils/net_utils.cc
-constStatement:*src/nn/utils/tracker/eigen_kalman_tracker.cc
+// Preserve supported implicit conversions and public by-value/reference APIs.
+// Changing these signatures or adding explicit would break existing callers.
+noExplicitConstructor:*src/flow/common/AlgAlarmTypes.h:82
+noExplicitConstructor:*src/nn/core/status.h:64
+noExplicitConstructor:*src/nn/utils/net_utils.h:85
+constParameterReference:*src/flow/task/PTaskBaseUpload.cc:219
+passedByValue:*src/nn/utils/default_component.cc:79
+passedByValue:*src/nn/utils/default_component.cc:87
+passedByValue:*src/nn/utils/default_component.cc:95
+constParameterPointer:*src/nn/utils/net_utils.cc:131
+passedByValue:*src/nn/utils/net_utils.cc:198
+passedByValue:*src/nn/utils/net_utils.cc:200
+passedByValue:*src/nn/utils/net_utils.cc:201
+// Exposed after const-correcting private helpers; retain the public overload type.
+constParameterReference:*src/nn/utils/net_utils.cc:291
+constParameterReference:*src/nn/utils/net_utils.cc:328
+constParameterReference:*src/nn/utils/net_utils.cc:422
+constParameterReference:*src/nn/utils/net_utils.cc:423
+constParameterReference:*src/nn/utils/net_utils.cc:424
+constParameterReference:*src/nn/utils/net_utils.cc:425
+constParameterReference:*src/nn/utils/net_utils.cc:426
+constParameterReference:*src/nn/utils/net_utils.cc:438
+constParameterReference:*src/nn/utils/net_utils.cc:440
+constParameterReference:*src/nn/utils/net_utils.cc:514
+constParameterReference:*src/nn/utils/net_utils.cc:597
+constParameterReference:*src/nn/utils/net_utils.cc:598
+passedByValue:*src/nn/utils/net_utils.cc:693
+constParameterReference:*src/nn/utils/net_utils.cc:709
+constParameterReference:*src/nn/utils/net_utils.cc:710
+constParameterReference:*src/nn/utils/net_utils.cc:731
+passedByValue:*src/nn/utils/string_format.h:21
 
-// Pre-existing uninitMemberVar warnings in the nn inference SDK.
-// Members are initialized in LoadParam() after construction, not in constructors.
-uninitMemberVar:*src/nn/*
+// Retired instances must be destroyed after the pool lock is released.
+// The reservation destructor reads active; clearing it prevents a second decrement.
+variableScope:*src/util/InstancePool.h:133
+redundantAssignment:*src/util/InstancePool.h:175
+unreadVariable:*src/util/InstancePool.h:175
 
-// Pre-existing raw pointer ownership in nn Blob and FireFilter (legacy SDK code).
-noCopyConstructor:*src/nn/*
-noOperatorEq:*src/nn/*
+// Each overlay pass rechecks detection state after the preceding drawing calls.
+duplicateCondition:*src/flow/task/PTaskBaseUpload.cc:312
+
+// Construct a device only for a missing key; eager insertion arguments would
+// create and destroy extra device instances and change constructor side effects.
+stlFindInsert:*src/nn/core/abstract_device.h:49
+
+// Existing concrete APIs intentionally hide non-virtual base names. Preserve
+// their by-value return types and concrete state instead of silently routing
+// callers to AlgActionBase's action-node metadata (or changing public types).
+duplInheritedMember:*src/flow/alarm/TaskFaceAlarm.h:46
+duplInheritedMember:*src/flow/detect/AiDetector.h:93
+duplInheritedMember:*src/flow/alarm/AreaAlarm.h:139
+duplInheritedMember:*src/flow/track/AiTracker.h:63
+
+// These concrete managers deliberately specialize placement/construction.
+// AiDetectMng uses FPS-aware placement; AiLandmarkMng constructs landmark
+// instances with its task/action key. Base dispatch would change behavior.
+duplInheritedMember:*src/flow/detect/AiDetectMng.h:17
+duplInheritedMember:*src/flow/landmark/AiLandmarkMng.h:16

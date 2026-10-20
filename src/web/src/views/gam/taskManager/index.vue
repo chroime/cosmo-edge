@@ -52,6 +52,7 @@
                   </template>
                 </div>
               </div>
+              <div v-if="cameraStatusReason(scope.row)" class="channel-error">{{ cameraStatusReason(scope.row) }}</div>
               <div class="channel-id" :title="t('field.channelNo') + localeColon + scope.row.videoChannelId">{{ scope.row.videoChannelId }}</div>
             </div>
           </template>
@@ -215,6 +216,7 @@ import {
   onUnmounted
 } from 'vue'
 import { t, localeColon, currentLocale } from '@/i18n'
+import { cameraStatusReason } from '@/utils/cameraStatus'
 import {
   uploadFileInChunks,
   UploadPurpose
@@ -575,7 +577,8 @@ const handleDetailChannel = (row) => {
           : t('status.abnormal'),
       workday: resolveScheduleName(item.scheduleName)
     })),
-    channelStatus: row.channelStatus
+    channelStatus: row.channelStatus,
+    statusReason: row.statusReason
   }
 }
 
@@ -885,6 +888,12 @@ const setDefaultImage = (e) => {
   white-space: nowrap;
 }
 
+.channel-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .taskButton {
   display: flex;
   justify-content: space-between;

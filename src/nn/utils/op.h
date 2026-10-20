@@ -9,18 +9,17 @@ namespace cosmo::nn {
 
 class PUBLIC Op {
 public:
-    explicit Op(const std::string name_);
+    explicit Op(std::string name_);
     virtual ~Op();
 
     virtual std::string Description() = 0;
 
     std::string name = {};
-    bool skip        = false;
 };
 
 class PUBLIC UnknownOp : public Op {
 public:
-    explicit UnknownOp(const std::string name_ = "Unknown");
+    explicit UnknownOp(std::string name_ = "Unknown");
     virtual ~UnknownOp();
 
     virtual std::string Description() override;
@@ -28,7 +27,7 @@ public:
 
 class PUBLIC Resize : public Op {
 public:
-    explicit Resize(const std::string name_ = "resize");
+    explicit Resize(std::string name_ = "resize");
     virtual ~Resize();
 
     virtual std::string Description() override;
@@ -52,7 +51,7 @@ public:
 
 class PUBLIC Normalize : public Op {
 public:
-    explicit Normalize(const std::string name_ = "normalize");
+    explicit Normalize(std::string name_ = "normalize");
     virtual ~Normalize();
 
     virtual std::string Description() override;
@@ -63,35 +62,9 @@ public:
     bool is_bgr = true;
 };
 
-class PUBLIC RectCrop : public Op {
-public:
-    explicit RectCrop(const std::string name_ = "rect_crop");
-
-    virtual ~RectCrop();
-
-    virtual std::string Description() override;
-
-    std::string type                        = {};
-    std::vector<float> bbox_hw_ratio_levels = {};
-    std::vector<float> h_top_crop           = {};
-    std::vector<float> h_bottom_crop        = {};
-    std::vector<float> w_left_crop          = {};
-    std::vector<float> w_right_crop         = {};
-
-    // square
-    bool square = false;
-
-    /**
-     * 0: max
-     * 1: min
-     * 2: avg
-     */
-    int square_mode = 0;
-};
-
 class PUBLIC CropResize : public Op {
 public:
-    explicit CropResize(const std::string name_ = "crop_resize");
+    explicit CropResize(std::string name_ = "crop_resize");
 
     virtual ~CropResize();
 
@@ -113,7 +86,7 @@ public:
 
 class PUBLIC YoloPost : public Op {
 public:
-    explicit YoloPost(const std::string name_ = "yolo_postprocess");
+    explicit YoloPost(std::string name_ = "yolo_postprocess");
 
     virtual ~YoloPost();
 
@@ -139,7 +112,7 @@ public:
 
 class PUBLIC YoloNpuPost : public Op {
 public:
-    explicit YoloNpuPost(const std::string name_ = "yolo_npu_postprocess");
+    explicit YoloNpuPost(std::string name_ = "yolo_npu_postprocess");
 
     virtual ~YoloNpuPost();
 
@@ -155,21 +128,21 @@ public:
 
 class PUBLIC AffineCrop : public Op {
 public:
-    explicit AffineCrop(const std::string name_ = "affine_crop");
+    explicit AffineCrop(std::string name_ = "affine_crop");
 
     virtual ~AffineCrop();
 
     virtual std::string Description() override;
 
-    float norm_ratio;
-    int norm_mode;
+    float norm_ratio              = 0.4f;
+    int norm_mode                 = 1;
     std::vector<int> output_hw    = {};
     std::vector<int> center_index = {};
 };
 
 class PUBLIC Sum : public Op {
 public:
-    explicit Sum(const std::string name_ = "sum");
+    explicit Sum(std::string name_ = "sum");
 
     virtual ~Sum();
 
@@ -178,21 +151,21 @@ public:
 
 class PUBLIC Sequence : public Op {
 public:
-    explicit Sequence(const std::string name_ = "sequence");
+    explicit Sequence(std::string name_ = "sequence");
 
     virtual ~Sequence();
 
     virtual std::string Description() override;
 
-    int size;
-    float scale;
+    int size               = 0;
+    float scale            = 1.0f;
     std::vector<int> dsize = {};
-    bool is_bgr;
+    bool is_bgr            = true;
 };
 
 class PUBLIC ArgMax : public Op {
 public:
-    explicit ArgMax(const std::string name_ = "arg_max");
+    explicit ArgMax(std::string name_ = "arg_max");
 
     virtual ~ArgMax();
 
@@ -203,7 +176,7 @@ public:
 
 class PUBLIC Split : public Op {
 public:
-    explicit Split(const std::string name_ = "split");
+    explicit Split(std::string name_ = "split");
 
     virtual ~Split();
 
@@ -215,7 +188,7 @@ public:
 
 class PUBLIC SplitArgMax : public Op {
 public:
-    explicit SplitArgMax(const std::string name_ = "split_arg_max");
+    explicit SplitArgMax(std::string name_ = "split_arg_max");
 
     virtual ~SplitArgMax();
 
@@ -226,7 +199,7 @@ public:
 
 class PUBLIC CombineImage : public Op {
 public:
-    explicit CombineImage(const std::string name_ = "combine_image");
+    explicit CombineImage(std::string name_ = "combine_image");
 
     virtual ~CombineImage();
 
@@ -239,69 +212,69 @@ public:
 
 class DinoEncoder : public Op {
 public:
-    explicit DinoEncoder(const std::string name_ = "dino_encode");
+    explicit DinoEncoder(std::string name_ = "dino_encode");
 
     virtual ~DinoEncoder();
 
     virtual std::string Description() override;
 
-    int dst_width;
-    int dst_height;
-    bool is_bgr;
+    int dst_width  = 0;
+    int dst_height = 0;
+    bool is_bgr    = false;
     std::vector<float> mean;
     std::vector<float> std;
 };
 
 class DinoDecode : public Op {
 public:
-    explicit DinoDecode(const std::string name_ = "dino_decode");
+    explicit DinoDecode(std::string name_ = "dino_decode");
 
     virtual ~DinoDecode();
 
     virtual std::string Description() override;
 
-    float text_threshold;
-    float box_threshold;
+    float text_threshold = 0.25f;
+    float box_threshold  = 0.3f;
 };
 
 class SAMEncoder : public Op {
 public:
-    explicit SAMEncoder(const std::string name_ = "sam_encode");
+    explicit SAMEncoder(std::string name_ = "sam_encode");
 
     virtual ~SAMEncoder();
 
     virtual std::string Description() override;
 
-    int dst_width;
-    int dst_height;
-    bool is_bgr;
+    int dst_width  = 0;
+    int dst_height = 0;
+    bool is_bgr    = false;
     std::vector<float> mean;
     std::vector<float> std;
 };
 
 class SAMPromptEncode : public Op {
 public:
-    explicit SAMPromptEncode(const std::string name_ = "sam_prompt_encode");
+    explicit SAMPromptEncode(std::string name_ = "sam_prompt_encode");
 
     virtual ~SAMPromptEncode();
 
     virtual std::string Description() override;
 
     std::string prompt_type;  // "point" or "box"
-    bool normalize;
-    int encoder_size;  // encoder input size (e.g., 1024)
-    int max_points;    // maximum number of points for padding
+    bool normalize   = true;
+    int encoder_size = 1024;  // encoder input size (e.g., 1024)
+    int max_points   = 6;     // maximum number of points for padding
 };
 
 class SAMDecode : public Op {
 public:
-    explicit SAMDecode(const std::string name_ = "sam_decode");
+    explicit SAMDecode(std::string name_ = "sam_decode");
 
     virtual ~SAMDecode();
 
     virtual std::string Description() override;
 
-    float threshold;
+    float threshold = 0.0f;
     std::vector<int> output_size;  // [height, width] for mask resizing
 };
 

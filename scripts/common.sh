@@ -209,6 +209,49 @@ cosmo_log() {
     fi
 }
 
+# The device-tree compatible property is a NUL-separated list. Match one whole
+# token so another Rockchip chip or a board-name substring cannot enable this
+# hardware-specific policy. The optional path is useful for callers inspecting
+# a saved device-tree property; production startup always uses the live path.
+cosmo_is_rk3576() {
+    local compatible_file="${1:-/proc/device-tree/compatible}" compatible
+    [ -r "$compatible_file" ] || return 1
+    while IFS= read -r -d '' compatible; do
+        [ "$compatible" = rockchip,rk3576 ] && return 0
+    done <"$compatible_file"
+    return 1
+}
+
+# Apply defaults only at engine startup, never merely by sourcing common.sh.
+# Explicit core modes (including auto, split, and an empty value) remain intact.
+configure_rk3576_runtime() {
+    local log_file="${1:-}" core_source=environment performance_output
+    local performance_script="${COSMO_INSTALL_DIR}/scripts/rk3576-performance.sh"
+    cosmo_is_rk3576 || return 0
+
+    if [ "${COSMO_RKNN_CORE_MODE+x}" != x ]; then
+        COSMO_RKNN_CORE_MODE=dual
+        core_source=package-default
+    fi
+    export COSMO_RKNN_CORE_MODE
+    cosmo_log RK3576 "Core mode=${COSMO_RKNN_CORE_MODE} (${core_source})" "$log_file"
+
+    if [ "${COSMO_RK3576_PERFORMANCE:-1}" = 0 ]; then
+        cosmo_log RK3576 "Performance profile skipped (COSMO_RK3576_PERFORMANCE=0)" "$log_file"
+        return 0
+    fi
+    if [ ! -x "$performance_script" ]; then
+        cosmo_log RK3576 "WARNING: performance script is unavailable: ${performance_script}; continuing startup" "$log_file"
+        return 0
+    fi
+    if performance_output="$("$performance_script" 2>&1)"; then
+        cosmo_log RK3576 "Performance profile: ${performance_script}${performance_output:+; ${performance_output}}" "$log_file"
+    else
+        cosmo_log RK3576 "WARNING: performance profile was not fully applied: ${performance_script}${performance_output:+; ${performance_output}}; continuing startup" "$log_file"
+    fi
+    return 0
+}
+
 # ── Network contract helpers ──
 is_valid_tcp_port() {
     local port="$1"

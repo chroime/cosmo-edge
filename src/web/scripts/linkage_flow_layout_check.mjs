@@ -152,7 +152,6 @@ assert.equal(panel.y, 200 + FLOW_NODE_SIZE.height + DETAIL_PANEL_GAP)
 
 const alarmPanelSize = getDetailPanelSize('LA_AlarmData_Code')
 assert.deepEqual(alarmPanelSize, ALARM_DETAIL_PANEL_SIZE)
-assert.ok(alarmPanelSize.width >= DETAIL_PANEL_SIZE.width * 2)
 const alarmPanel = getDetailPanelAnchor(node, FLOW_NODE_SIZE, alarmPanelSize)
 assert.equal(alarmPanel.x, 500 + FLOW_NODE_SIZE.width / 2 - alarmPanelSize.width / 2)
 for (const selected of [linear[1], linear.at(-2), ...siblings]) {

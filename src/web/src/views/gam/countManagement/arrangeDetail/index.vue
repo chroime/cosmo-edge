@@ -18,7 +18,7 @@
         <el-tabs v-model="tabActiveName" class="scene-tabs">
           <el-tab-pane :label="t('glossary.businessFlow')" name="flow">
             <div id="arrange-content" class="arrange-content" ref="arrangeContentRef">
-              <arrange-flow v-if="showArrangeFlow" ref="flowRef" :width="width" :height="height" :algorithmData="algorithmData" :algorithmMetadata="algorithmMetadata" :actionList="actionList" :atomicCode="$route.query.algorithmId" @onMetadata="syncMetadata">
+              <arrange-flow v-if="showArrangeFlow" ref="flowRef" :width="width" :height="height" :algorithmData="algorithmData" :algorithmMetadata="algorithmMetadata" :actionList="actionList" :atomicCode="$route.query.algorithmId" @onMetadata="syncMetadata" @picture-match-param-change="handlePictureMatchParamChange">
                 <template #toolbar>
                   <div class="arrange-template">
                     <label class="arrange-template-label" for="flow-template">{{ t('field.selectTemplate') }}</label>
@@ -30,7 +30,7 @@
               </arrange-flow>
             </div>
           </el-tab-pane>
-          <el-tab-pane :label="t('glossary.detectionArea')" name="detection">
+          <el-tab-pane v-if="String(algorithmUsage) !== '2'" :label="t('glossary.detectionArea')" name="detection">
             <detection ref="detectionRef" :algorithmMetadata="algorithmMetadata"></detection>
           </el-tab-pane>
           <el-tab-pane :label="t('glossary.paramConfig')" name="config">
@@ -57,6 +57,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import ArrangeFlow from './flow/ArrangeFlow.vue'
 import Detection from './flow/Detection.vue'
 import ParameterSetting from './flow/ParameterSetting.vue'
+import { updatePictureMatchDefaults, filterPictureLibraryParams } from './flow/nodeState.js'
 import { v4 } from 'uuid'
 import moment from 'moment'
 import EventBus from '@/components/eventBus.js'
@@ -92,6 +93,13 @@ const algorithmVersion = ref('')
 const actionList = ref([])
 const algorithmData = ref({})
 const algorithmMetadata = ref({})
+const handlePictureMatchParamChange = (param) => {
+  if (String(algorithmUsage.value) !== '2') return
+  algorithmMetadata.value = {
+    ...algorithmMetadata.value,
+    params: updatePictureMatchDefaults(algorithmMetadata.value.params, param)
+  }
+}
 const tabActiveName = ref('flow')
 const templateList = ref([])
 const selectedTemplate = ref('')
@@ -208,6 +216,7 @@ const getDetail = (algorithmId, isChooseModel) => {
     algorithmName.value = isChooseModel ? prevName : resolveResourceAlgorithmName(resData)
     algorithmData.value = resData
     algorithmMetadata.value = JSON.parse(algorithmData.value.algorithmMetadata)
+    algorithmMetadata.value.params = filterPictureLibraryParams(algorithmMetadata.value.params || [], resData.algorithmProcessdata)
     if (isChooseModel) {
       algorithmData.value.algorithmCode = route.query.algorithmId
     }
@@ -219,6 +228,10 @@ const getDetail = (algorithmId, isChooseModel) => {
 }
 
 const initMetadata = () => {
+  if (String(algorithmUsage.value) === '2') {
+    algorithmMetadata.value = { params: algorithmMetadata.value?.params || [] }
+    return
+  }
   algorithmMetadata.value = {
     params: [],
     region: {
@@ -362,6 +375,10 @@ const saveClick = (type) => {
 
 // 检测区域保存：从子组件读取并合并到 algorithmMetadata
 const handleDetcetionData = () => {
+  if (String(algorithmUsage.value) === '2') {
+    algorithmMetadata.value = { params: algorithmMetadata.value?.params || [] }
+    return
+  }
   if (
     !detectionRef.value ||
     typeof detectionRef.value.saveDetection !== 'function'
@@ -455,7 +472,7 @@ const handleMetaData = () => {
     }
   })
 
-  algorithmMetadata.value.params = newMetaDataParams
+  algorithmMetadata.value.params = filterPictureLibraryParams(newMetaDataParams, flowRef.value.saveFlowData?.()?.algorithmProcessdata)
   console.log(incomingParams, '===handleMetaData====', newMetaDataParams)
   return true
 }

@@ -191,7 +191,7 @@ jobs:
             exit 1
           fi
 
-  # ── Vue 3 frontend build (includes i18n checks via prebuild hook) ──
+  # ── Vue 3 behavior tests and build (includes i18n via prebuild) ──
   frontend-build:
     needs: policy-audit
     if: needs.policy-audit.outputs.frontend_changed == 'true'
@@ -217,6 +217,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test frontend behavior
+        run: npm test
+
       - name: Build frontend
         run: npm run build
 
@@ -236,21 +239,7 @@ jobs:
       - name: Run cppcheck (changed files only)
         run: |
           BASE=$(git merge-base HEAD origin/main)
-          CHANGED=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- \
-            'src/**/*.cc' 'src/**/*.h' 'test/**/*.cc' 'test/**/*.h')
-          if [ -z "$CHANGED" ]; then
-            echo "No C++ files changed."
-            exit 0
-          fi
-          echo "Checking $(echo "$CHANGED" | wc -l) changed file(s)..."
-          cppcheck \
-            --std=c++17 \
-            --language=c++ \
-            --enable=warning,style,performance,portability \
-            --inline-suppr \
-            --suppressions-list=.cppcheck-suppressions \
-            --quiet \
-            --template='{file}:{line}: [{severity}] {id}: {message}' \
-            -I src \
-            -j"$(nproc)" \
-            $CHANGED
+          bash scripts/static_analysis.sh --cppcheck --profile commit --base-ref "$BASE"
+
+      - name: Test static analysis entrypoint
+        run: python3 -m unittest discover -s test -p 'test_static_analysis.py'

@@ -59,6 +59,37 @@ RK3576 集成增加了面向生产的 CV 后端，不改变 CPU、CUDA 或 Sopho
 打包，通过可执行文件 RPATH 或任务局部 `LD_LIBRARY_PATH` 选择它；不要覆盖
 `/usr/lib/librknnrt.so`。生产推理使用原生 C API，不依赖 `rknn_server`。
 
+### 启动默认配置
+
+产品启动器 `scripts/run_start.sh` 根据实际 device-tree 精确识别 RK3576，其他芯片
+不应用以下默认值：未显式设置 `COSMO_RKNN_CORE_MODE` 时使用 `dual`，作用于普通
+RKNN 上下文，不是模型 JSON 配置；已有的 `auto`、`core0`、`split` 等显式设置保持
+不变。启动时默认将 NPU、DMC（DDR）和 CPU 的 governor 设为 `performance`；设置
+`COSMO_RK3576_PERFORMANCE=0` 可跳过这些频率策略写入。
+
+例如，使用 `sudo systemctl edit cosmo.service` 添加覆盖配置：
+
+```ini
+[Service]
+Environment="COSMO_RKNN_CORE_MODE=auto"
+Environment="COSMO_RK3576_PERFORMANCE=0"
+```
+
+然后重新加载配置并重启服务：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart cosmo.service
+```
+
+禁用开关只停止后续写入，不会自动还原已经生效的 governor；恢复时按板端原有策略
+设置，或在禁用后重启设备。这些默认值随产品启动器交付，无需每次升级手工改脚本；
+切换策略无需替换模型或引擎。直接运行 `cosmo-engine`、绕过启动器时，不会自动
+应用这些启动默认值。
+
+如果此前手动启用了独立的 `cosmo-performance.service`，关闭自动调频时也需停用该服务；
+它不会继承 `cosmo.service` 的环境变量。标准安装使用上述统一启动入口。
+
 ## 模型与预处理约定
 
 首批支持的模型为：

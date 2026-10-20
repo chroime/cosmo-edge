@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref, reactive, watch, getCurrentInstance } from 'vue'
-import Upload from './Upload.vue'
+import Upload from '../../components/Upload.vue'
 import { t, currentLocale } from '@/i18n'
 import { uploadFileInChunks, UploadPurpose } from '@/utils/chunkUpload'
 

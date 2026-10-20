@@ -25,12 +25,14 @@
         <el-table-column type="index" :index="getIndex" :label="t('field.no')" width="80" />
         <el-table-column :label="t('event.fullImage')" width="120">
           <template #default="{ row }">
-            <el-image :src="row.fullPicture" fit="scale-down" style="width: 60px; height: 60px;cursor: pointer;" @click="handleImageView([row.fullPicture])" />
+            <el-image v-if="row.fullPicture" :src="row.fullPicture" fit="scale-down" style="width: 60px; height: 60px;cursor: pointer;" @click="handleImageView([row.fullPicture])" />
+            <span v-else class="image-not-provided">{{ t('event.imageNotProvided') }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('event.captureImage')" width="120">
           <template #default="{ row }">
-            <el-image :src="row.detectedPicture" fit="scale-down" style="width: 60px; height: 60px;cursor: pointer;" @click="handleImageView([row.detectedPicture])" />
+            <el-image v-if="row.detectedPicture" :src="row.detectedPicture" fit="scale-down" style="width: 60px; height: 60px;cursor: pointer;" @click="handleImageView([row.detectedPicture])" />
+            <span v-else class="image-not-provided">{{ t('event.imageNotProvided') }}</span>
           </template>
         </el-table-column>
         <el-table-column :label="t('event.alarmType')">
@@ -70,9 +72,10 @@
         <template v-if="tableData.length">
           <el-card v-for="item in tableData" :key="item.id" class="grid-item" :class="{'grid-item-selected': multipleSelections.includes(item.id)}">
             <div class="grid-content">
-              <button class="event-image-button" type="button" :aria-label="t('event.fullImage')" @click="handleImageView([item.fullPicture])">
+              <button v-if="item.fullPicture" class="event-image-button" type="button" :aria-label="t('event.fullImage')" @click="handleImageView([item.fullPicture])">
                 <el-image :src="item.fullPicture" fit="contain" class="grid-image" />
               </button>
+              <div v-else class="grid-image image-not-provided">{{ t('event.imageNotProvided') }}</div>
               <div class="grid-info">
                 <div class="event-card-heading">
                   <h3 :title="resolveResourceAlgorithmName(item)">{{ resolveResourceAlgorithmName(item) }}</h3>
@@ -453,6 +456,7 @@ const onCheckVideo = (detail, type) => {
 }
 
 const checkRuku = (row) => {
+  if (!row?.detectedPicture) return false
   if (row?.property) {
     const result = JSON.parse(row.property)
     return result?.workClothesRecognition || result?.machineMaterial
@@ -470,8 +474,8 @@ const handleImgError = (e) => {
 }
 
 const handleImageView = (images) => {
-  proxy.$imgView(images)
-  console.log('预览图片:', images)
+  const availableImages = images.filter((image) => typeof image === 'string' && image.trim())
+  if (availableImages.length) proxy.$imgView(availableImages)
 }
 
 // 监听视图类型变化
@@ -702,6 +706,18 @@ onMounted(() => {
   background: var(--bg-white);
   border: 1px solid var(--border-color);
   border-radius: 6px;
+}
+
+.image-not-provided {
+  color: var(--el-text-color-secondary);
+}
+
+.grid-view .grid-item .grid-content .image-not-provided {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--el-fill-color-light);
+  cursor: default;
 }
 
 .operation-btns {

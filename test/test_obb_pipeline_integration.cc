@@ -43,7 +43,7 @@ namespace {
         model.params_json = R"({"input_size":[640,672],"gravity":1})";
         config.models.push_back(std::move(model));
         Yolo26ObbPipeline pipeline;
-        auto status = pipeline.Init(config, "", DEVICE_SOPHON_TPU, 0, nullptr, "", "", false);
+        auto status = pipeline.Init(config, "", DEVICE_SOPHON_TPU, 0, nullptr, "", "");
         REQUIRE(static_cast<int>(status) == COSMO_NN_ERR_INVALID_CFG);
         REQUIRE(status.description().find("multiple of 64") != std::string::npos);
     }

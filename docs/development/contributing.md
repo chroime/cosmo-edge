@@ -136,7 +136,7 @@ bash scripts/install-hooks.sh
 
 1. **clang-format** — 所有暂存的 `.h` 和 `.cc` 文件需符合项目风格（根目录 `.clang-format`）。
    - 格式检查失败：运行 `bash scripts/format_check.sh --staged --fix`，然后 `git add -u`。
-2. **cppcheck**（可选）— 仅当本地安装了 `cppcheck` 时运行。仅在出现 error 级别问题时拦截。
+2. **cppcheck**（可选）— 仅当本地安装了 `cppcheck` 时，通过统一入口的 `--profile commit` 运行（启用 warning 类检查及默认的 error 检查）。所有已启用且未抑制的诊断、工具错误均阻断提交。
 
 **卸载 hook：**
 
@@ -154,8 +154,8 @@ bash scripts/format_check.sh --staged --check
 bash scripts/format_check.sh --staged --fix
 git add -u
 
-# 对暂存区文件运行 cppcheck（需已安装）
-bash scripts/static_analysis.sh --cppcheck --staged
+# 按 hook 的诊断范围检查暂存区文件（需已安装 cppcheck）
+bash scripts/static_analysis.sh --cppcheck --staged --profile commit
 ```
 
 ## PR 前检查清单

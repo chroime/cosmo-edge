@@ -71,6 +71,42 @@ Runtime 2.3.2 beside CosmoEdge and select it with executable RPATH or a
 task-local `LD_LIBRARY_PATH`; do not overwrite `/usr/lib/librknnrt.so`.
 Production inference uses the native C API and does not depend on `rknn_server`.
 
+### Startup Defaults
+
+The product launcher, `scripts/run_start.sh`, identifies RK3576 by an exact
+match in the actual device tree. Other chips do not receive these defaults.
+When `COSMO_RKNN_CORE_MODE` is unset, it defaults to `dual` for ordinary RKNN
+contexts; this is not a model JSON setting. Explicit values such as `auto`,
+`core0`, and `split` are preserved. Startup also sets NPU, DMC (DDR), and CPU
+governors to `performance` by default. Set `COSMO_RK3576_PERFORMANCE=0` to skip
+these frequency-policy writes.
+
+For example, add a drop-in with `sudo systemctl edit cosmo.service`:
+
+```ini
+[Service]
+Environment="COSMO_RKNN_CORE_MODE=auto"
+Environment="COSMO_RK3576_PERFORMANCE=0"
+```
+
+Then reload the configuration and restart the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart cosmo.service
+```
+
+Disabling the policy only prevents subsequent writes; it does not restore
+governors already applied. Restore the board's original policy explicitly, or
+reboot after disabling it. These defaults ship with the product launcher and
+require no manual script changes after each upgrade. Switching policies does
+not require replacing models or the engine. Running `cosmo-engine` directly,
+bypassing the launcher, does not apply these startup defaults.
+
+If you previously enabled the standalone `cosmo-performance.service`, also disable
+that service when opting out: it does not inherit the environment of `cosmo.service`.
+Standard installations use the shared startup entry described above.
+
 ## Model and Preprocessing Contract
 
 The first supported models are:

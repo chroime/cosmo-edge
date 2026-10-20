@@ -67,7 +67,7 @@ namespace {
 
 TaskAlarm::~TaskAlarm() {
     LOG_INFO("{}Task:{} Stop", kTag, task_id);
-    Stop();
+    TaskAlarm::Stop();
     LOG_INFO("{}Task:{} Delete", kTag, task_id);
 }
 

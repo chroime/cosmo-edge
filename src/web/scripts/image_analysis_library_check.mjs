@@ -53,6 +53,8 @@ const page = await mountComponent('views/gam/imageAnalysis/index.vue', {
   }
 })
 try {
+  const analyze = () => page.all(n => n.type === 'el-button' &&
+    page.all(child => child.text.includes('imageAnalysis.startAnalysis'), n).length)[0].props.onClick()
   page.all(n => n.type === 'el-upload')[0].props['on-change']({ name: 'test.png', raw: { type: 'image/png', size: 1 } })
   await page.settle()
   for (const [id, key, , label] of cases) {
@@ -67,7 +69,6 @@ try {
     assert.equal(page.all(n => n.type === 'el-input')[0].props.modelValue, '0', 'numeric zero defaults must survive')
     selector().props.activate(['12', '34'])
     await page.settle()
-    const analyze = () => page.all(n => n.type === 'el-button' && n.props.type === 'success')[0].props.onClick()
     await analyze()
     await page.settle()
     assert.equal(requests.at(-1).algorithmCode, id)
@@ -85,7 +86,7 @@ try {
     assert.equal(requests.at(-1).taskConfig.params.find(p => p.key === key)?.value, '', 'clearing must override the stored scene binding instead of omitting it')
   }
   unknown = true
-  await page.all(n => n.type === 'el-button' && n.props.type === 'success')[0].props.onClick()
+  await analyze()
   await page.settle()
   assert.ok(page.all(n => n.text.includes('imageAnalysis.noComparableSamples')).length)
   assert.equal(page.all(n => n.text.includes('imageAnalysis.noTargetsDetected')).length, 0, 'unknown with no selected targets is not an empty detector result')

@@ -43,7 +43,11 @@ try {
   select().props.activate('pair')
   await page.settle(); await page.settle()
   assert.equal(page.all(n => n.type === 'el-upload').length, 2)
-  const analyze = () => page.all(n => n.type === 'el-button' && n.props.type === 'success')[0]
+  const analyze = () => page.all(n => n.type === 'el-button' &&
+    page.all(child => child.text.includes('imageAnalysis.startAnalysis'), n).length)[0]
+  const currentStep = () => page.all(n => n.type === 'li' && n.props['aria-current'] === 'step')[0]
+  const assertStep = key => assert.ok(page.all(n => n.text.includes(key), currentStep()).length, `current step: ${key}`)
+  assertStep('imageAnalysis.uploadImage')
   assert.equal(analyze().props.disabled, true)
   const file = name => ({ name, raw: { type: 'image/png', size: 20 } })
   page.all(n => n.type === 'el-upload')[0].props['on-change'](file('A.png'))
@@ -52,7 +56,9 @@ try {
   page.all(n => n.type === 'el-upload')[1].props['on-change'](file('B.png'))
   await page.settle()
   assert.equal(analyze().props.disabled, false)
+  assertStep('imageAnalysis.startAnalysis')
   await analyze().props.onClick(); await page.settle()
+  assertStep('imageAnalysis.viewResults')
   assert.equal(requests.length, 1, 'both images must use one request')
   assert.equal(requests[0].uploadId, 'upload-1')
   assert.equal(requests[0].referenceImage.uploadId, 'upload-2')

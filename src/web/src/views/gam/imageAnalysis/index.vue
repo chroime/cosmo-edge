@@ -1,8 +1,19 @@
 <template>
-  <div class="image-analysis-page">
+  <div class="image-analysis-page ui-admin-page">
+    <div class="analysis-page-heading">
+      <h1>{{ $t('nav.imageAnalysis') }}</h1>
+      <p>{{ $t('glossary.imageAnalysisSubtitle') }}</p>
+    </div>
+    <ol class="analysis-steps" :aria-label="$t('imageAnalysis.workflow')">
+      <li v-for="(step, index) in analysisSteps" :key="step" :class="{ 'is-current': analysisStage === index, 'is-past': analysisStage > index }" :aria-current="analysisStage === index ? 'step' : undefined">
+        <span class="analysis-step-number">{{ index + 1 }}</span>
+        <span>{{ $t(step) }}</span>
+      </li>
+    </ol>
     <!-- 顶部工具栏 -->
     <div class="toolbar-section">
       <div class="toolbar-left">
+        <span class="task-select-label" id="analysis-task-label">{{ $t('event.sceneTask') }}</span>
         <el-select
           v-model="selectedAlgorithm"
           :disabled="analyzing"
@@ -10,6 +21,7 @@
           filterable
           size="default"
           class="algorithm-select"
+          aria-labelledby="analysis-task-label"
           @change="handleAlgorithmChange"
         >
           <el-option
@@ -30,10 +42,10 @@
           accept="image/*"
           multiple
         >
-          <el-button type="primary" :icon="Upload">{{ $t('imageAnalysis.uploadImage') }}</el-button>
+          <el-button :icon="Upload">{{ $t('imageAnalysis.uploadImage') }}</el-button>
         </el-upload>
         <el-button
-          type="success"
+          type="primary"
           :icon="VideoPlay"
           :loading="analyzing"
           :disabled="!selectedAlgorithm || loadingParameters || (pairMode ? !pairFiles.every(Boolean) : uploadedFiles.length === 0)"
@@ -43,8 +55,7 @@
         </el-button>
         <el-button
           v-if="pairMode ? pairFiles.some(Boolean) : uploadedFiles.length > 0"
-          type="danger"
-          plain
+          class="clear-images"
           :icon="Delete"
           :disabled="analyzing"
           @click="clearAll"
@@ -58,6 +69,7 @@
           {{ $t('imageAnalysis.selectedImages', { n: pairMode ? pairFiles.filter(Boolean).length : uploadedFiles.length }) }}
         </span>
       </div>
+      <p class="analysis-toolbar-hint">{{ $t('imageAnalysis.workflowHint') }}</p>
     </div>
 
     <el-collapse v-if="parameterFields.length" class="parameter-panel">
@@ -82,6 +94,7 @@
       :busy="analyzing" :debug="debugResults" @file-change="handlePairFileChange" />
     <!-- 内容区域 -->
     <div class="content-section" v-else-if="uploadedFiles.length > 0 || results.length > 0">
+      <h2 class="analysis-results-heading">{{ $t('imageAnalysis.results') }}</h2>
       <!-- 图片预览 / 结果网格 -->
       <div class="image-grid">
         <div
@@ -89,7 +102,12 @@
           :key="index"
           class="image-card"
           :class="{ 'has-result': item.result }"
+          role="button"
+          tabindex="0"
+          :aria-label="`${$t('imageAnalysis.imagePreview')}: ${item.name}`"
           @click="openPreview(index)"
+          @keydown.enter="openPreview(index)"
+          @keydown.space.prevent="openPreview(index)"
         >
           <div class="image-wrapper">
             <!-- 原始图 -->
@@ -109,10 +127,10 @@
           <div class="image-footer">
             <div class="image-name" :title="item.name">{{ item.name }}</div>
             <div class="image-status">
-              <el-tag v-if="item.analyzing" type="warning" size="small" effect="dark">{{ $t('imageAnalysis.analyzingStatus') }}</el-tag>
-              <el-tag v-else-if="item.result?.error" type="danger" size="small">{{ $t('imageAnalysis.failed') }}</el-tag>
-              <el-tag v-else-if="item.result" type="success" size="small" effect="dark">{{ $t('imageAnalysis.completed') }}</el-tag>
-              <el-tag v-else type="info" size="small" effect="plain">{{ $t('imageAnalysis.pending') }}</el-tag>
+              <span v-if="item.analyzing" class="analysis-status is-analyzing">{{ $t('imageAnalysis.analyzingStatus') }}</span>
+              <span v-else-if="item.result?.error" class="analysis-status is-failed">{{ $t('imageAnalysis.failed') }}</span>
+              <span v-else-if="item.result" class="analysis-status is-completed">{{ $t('imageAnalysis.completed') }}</span>
+              <span v-else class="analysis-status is-pending">{{ $t('imageAnalysis.pending') }}</span>
             </div>
           </div>
           <!-- 结果信息面板 -->
@@ -153,12 +171,10 @@
       <el-empty :description="$t('imageAnalysis.emptyDescription')">
         <template #image>
           <div class="empty-icon">
-            <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-              <rect x="10" y="25" width="100" height="70" rx="8" fill="none" stroke="var(--primary-color)" stroke-width="2" opacity="0.4"/>
-              <circle cx="40" cy="52" r="10" fill="none" stroke="var(--primary-color)" stroke-width="2" opacity="0.5"/>
-              <polygon points="25,85 55,55 75,75 95,50 105,65 105,85" fill="var(--primary-color)" opacity="0.15"/>
-              <rect x="42" y="4" width="36" height="18" rx="4" fill="var(--primary-color)" opacity="0.2"/>
-              <text x="60" y="16" text-anchor="middle" fill="var(--primary-color)" font-size="9" opacity="0.6">AI</text>
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="7" y="11" width="50" height="42" rx="4" />
+              <circle cx="22" cy="25" r="5" />
+              <path d="m8 46 15-14 11 10 11-15 11 12" />
             </svg>
           </div>
         </template>
@@ -171,7 +187,7 @@
       :title="previewItem?.name || $t('imageAnalysis.imagePreview')"
       width="80%"
       top="5vh"
-      class="preview-dialog"
+      class="preview-dialog ui-admin-dialog"
       destroy-on-close
     >
       <div class="preview-body" v-if="previewItem">
@@ -190,7 +206,8 @@
             />
           </div>
         </div>
-        <div v-if="previewItem.result" class="preview-details">
+        <el-alert v-if="previewItem.result?.error" :title="$t('imageAnalysis.failed')" type="error" :closable="false" show-icon />
+        <div v-else-if="previewItem.result" class="preview-details">
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item :label="$t('field.algorithmName')">{{ previewItem.result.algorithmCode || resolveResourceAlgorithmName(selectedAlgorithmInfo) }}</el-descriptions-item>
             <el-descriptions-item :label="$t('imageAnalysis.detectionCount')">{{ getTargetCount(previewItem.result) }}</el-descriptions-item>
@@ -315,6 +332,20 @@ const uploadRef = ref(null)
 const overlayCanvasRefs = ref([])
 
 // Computed
+const analysisSteps = ['imageAnalysis.selectTask', 'imageAnalysis.uploadImage', 'imageAnalysis.startAnalysis', 'imageAnalysis.viewResults']
+const analysisStage = computed(() => {
+  if (analyzing.value) return 2
+  if (!selectedAlgorithm.value) return 0
+  if (pairMode.value) {
+    if (!pairFiles.value.every(Boolean)) return 1
+    return pairResult.value || pairError.value ? 3 : 2
+  }
+  if (uploadedFiles.value.length === 0) return 1
+  const allImagesHaveResults = results.value.length === uploadedFiles.value.length &&
+    uploadedFiles.value.every((_, index) => Boolean(results.value[index]))
+  return allImagesHaveResults ? 3 : 2
+})
+
 const displayItems = computed(() => {
   return uploadedFiles.value.map((file, idx) => {
     const res = results.value[idx];
@@ -810,9 +841,46 @@ const onPreviewImageLoad = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 16px;
-  gap: 16px;
+  padding: 0;
+  min-height: 0;
+  gap: 12px;
   overflow: hidden;
+}
+
+.analysis-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 26px;
+  flex: none;
+  margin: 0;
+  padding: 12px 18px;
+  list-style: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-white);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.analysis-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+  &:not(:last-child)::after { content: ''; display: block; width: 54px; height: 1px; margin-left: 16px; background: var(--border-color); }
+  &.is-current { color: var(--primary-color); font-weight: 600; }
+  &.is-current .analysis-step-number { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-button-text, #fff); }
+  &.is-past .analysis-step-number { border-color: var(--primary-color); color: var(--primary-color); }
+}
+
+.analysis-step-number { display: grid; place-items: center; width: 27px; height: 27px; flex: none; border: 1px solid var(--border-color); border-radius: 50%; font-variant-numeric: tabular-nums; font-size: 12px; }
+
+.analysis-page-heading {
+  flex-shrink: 0;
+  h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 650; letter-spacing: -0.4px; }
+  p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
 }
 
 /* ─ Toolbar ─ */
@@ -820,23 +888,32 @@ const onPreviewImageLoad = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   background: var(--bg-white);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md, 8px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  .el-button + .el-button { margin-left: 0; }
 }
 
 .algorithm-select {
-  width: 280px;
+  width: 240px;
+  max-width: 100%;
 }
+
+.task-select-label { color: var(--text-secondary); font-size: 13px; }
+.analysis-toolbar-hint { flex-basis: 100%; margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 
 .toolbar-right {
   display: flex;
@@ -846,50 +923,61 @@ const onPreviewImageLoad = () => {
 .file-count {
   font-size: 13px;
   color: var(--text-secondary);
-  padding: 4px 12px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─ Content ─ */
 .content-section {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding-bottom: 16px;
+  padding: 14px;
+  background: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
 }
+
+.analysis-results-heading { display: flex; align-items: center; gap: 9px; margin: 0 0 12px; font-size: 15px; line-height: 20px; font-weight: 600; }
+.analysis-results-heading::before { content: ''; width: 3px; height: 16px; border-radius: 2px; background: var(--primary-color); }
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 .image-card {
+  display: flex;
+  flex-direction: column;
   background: var(--bg-white);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md, 8px);
+  border-radius: 6px;
+  padding: 7px 7px 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: all 0.25s ease;
+  box-shadow: none;
+  transition: border-color 0.15s;
   cursor: pointer;
 
   &:hover {
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 16px rgba(49, 130, 206, 0.15);
-    transform: translateY(-2px);
+    border-color: var(--border-hover);
   }
+  &:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
   &.has-result {
-    border-color: rgba(16, 185, 129, 0.3);
+    border-color: var(--border-color);
   }
 }
 
 .image-wrapper {
   position: relative;
   width: 100%;
-  height: 240px;
-  background: #f8f9fb;
+  aspect-ratio: 16 / 9;
+  border-radius: 3px;
+  background: var(--theme-surface-soft, #f8f9fb);
   overflow: hidden;
+  flex: none;
 }
 
 .analysis-image {
@@ -904,6 +992,7 @@ const onPreviewImageLoad = () => {
   left: 0;
   width: 100%;
   height: 100%;
+  object-fit: contain;
   pointer-events: none;
 }
 
@@ -911,8 +1000,8 @@ const onPreviewImageLoad = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-color);
+  gap: 8px;
+  padding: 9px 3px;
 }
 
 .image-name {
@@ -921,32 +1010,43 @@ const onPreviewImageLoad = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  min-width: 0;
+  flex: 1;
 }
 
 .image-status {
   flex-shrink: 0;
 }
 
+.analysis-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.analysis-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.analysis-status.is-completed { color: var(--success-color); }
+.analysis-status.is-analyzing { color: var(--warning-color); }
+.analysis-status.is-failed { color: var(--danger-color); }
+
 /* ─ Result Panel ─ */
 .result-panel {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(49, 130, 206, 0.03) 0%, rgba(16, 185, 129, 0.03) 100%);
+  padding: 7px 3px 10px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-white);
 }
 
 .result-section {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   .result-label {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 0;
+    flex: none;
 
     &.empty-result {
-      color: var(--text-tertiary, #c0c4cc);
+      color: var(--text-tertiary, var(--text-muted));
       font-weight: 400;
-      text-align: center;
-      padding: 4px 0;
+      padding: 2px 0;
+      margin-bottom: 0;
     }
   }
 }
@@ -968,13 +1068,24 @@ const onPreviewImageLoad = () => {
   align-items: center;
   justify-content: center;
   background: var(--bg-white);
-  border: 1px dashed var(--border-color);
+  min-height: 220px;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md, 8px);
 }
 
 .empty-icon {
-  width: 120px;
-  height: 120px;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  color: var(--text-muted);
+}
+
+.image-analysis-page .empty-icon svg {
+  color: var(--text-muted);
+  fill: none;
+  stroke: var(--text-muted);
+
+  * { fill: none; }
 }
 
 /* ─ Preview Dialog ─ */
@@ -994,7 +1105,7 @@ const onPreviewImageLoad = () => {
 
 .preview-image-wrap {
   text-align: center;
-  background: #f8f9fb;
+  background: var(--theme-surface-soft, #f8f9fb);
   border-radius: var(--radius-sm, 4px);
   padding: 8px;
   display: flex;
@@ -1045,6 +1156,19 @@ const onPreviewImageLoad = () => {
 }
 
 .feature-preview-empty {
-  color: var(--text-tertiary, #c0c4cc);
+  color: var(--text-tertiary, var(--text-muted));
+}
+
+@media (max-width: 1100px) {
+  .image-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-steps { gap: 8px 18px; justify-content: flex-start; }
+  .analysis-steps li:not(:last-child)::after { width: 24px; margin-left: 4px; }
+}
+@media (max-width: 760px) {
+  .image-grid { grid-template-columns: minmax(0, 1fr); }
+  .analysis-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-steps li:not(:last-child)::after { display: none; }
+  .algorithm-select { width: min(240px, 100%); }
+  .toolbar-left { width: 100%; }
 }
 </style>

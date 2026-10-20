@@ -57,6 +57,8 @@ Notes:
   fixed pages' titles, H1 headings, navigation, image alt text, or frontmatter rendering.
 - Full benchmark validation already checks sources, so `--source-only` is not repeated before the build.
   The option remains available for checking benchmark sources independently.
+- Benchmark validation retains report completeness, data projections, evidence scope, checksums, and
+  links within the pack without prescribing CSS classes or counts, titles, or explanatory wording.
 - Dedicated scanning of website report URLs in READMEs and other documentation has been removed,
   including mapping those absolute URLs to local build targets. Report inventories and relative links
   within the benchmark pack are still validated.

@@ -236,7 +236,10 @@ for (const scenario of [
         { key: 'inactive', value: 'kept' },
         { key: 'unrelated', value: '1' },
         { key: 'isEnabled', value: scenario.enabled },
-        ...(scenario.enabled === '1' ? [{ key: 'LeadsRadio', value: scenario.leads }] : [])
+        ...(scenario.enabled === '1' ? [{ key: 'LeadsRadio', value: scenario.leads }] : []),
+        { key: 'param.privacyEnabled', value: '0' },
+        { key: 'param.privacyLabels', value: '*' },
+        { key: 'param.privacyStrength', value: '2' }
       ])
     }
   } finally { service.unmount() }
@@ -245,6 +248,7 @@ for (const scenario of [
 console.log('Component behavior checks passed')
 
 await import('./edge_behavior_check.mjs')
+await import('./linkage_strategy_behavior_check.mjs')
 await import('./picture_library_selection_check.mjs')
 await import('./picture_match_node_check.mjs')
 

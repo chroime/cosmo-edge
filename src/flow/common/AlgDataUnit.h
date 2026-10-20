@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 
+#include "flow/common/AlarmPrivacySnapshot.h"
 #include "flow/common/AlgDetectTypes.h"
 #include "util/Log.h"
 #include "util/dto/ClientMsgEvent.h"
@@ -45,6 +46,9 @@ struct AlgData {
     AlgChannelDataDec chanDataDec;        // Decoded data
     AlgChannelDataDetect legacyDetect;    // Last detection result (detector + orchestrator adapter)
     AlgChannelDataDetect chanDataDetect;  // Detection result
+
+    std::shared_ptr<const AlarmPrivacySnapshot> alarmPrivacySnapshot;
+    bool alarmPrivacyUnavailable{false};
 
     // ---- Unified task data storage (replaces 10+ independent taskDataXxx fields) ----
     // key: AlgDataType (TaskDataTrack, TaskDataClassify, ...), value: Algorithm processing result

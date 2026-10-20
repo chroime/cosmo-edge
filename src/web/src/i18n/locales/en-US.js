@@ -1174,6 +1174,23 @@ export default {
     itemEmmcUtilization: 'eMMC Usage',
     itemPacketDiscard: 'Packet Loss'
   },
+  alarmPrivacy: {
+    title: 'Alarm Image Privacy',
+    enabled: 'Mosaic alarm images',
+    targets: 'Protected targets',
+    allDetectedTargets: 'All detected targets',
+    selectedTargets: 'Selected detection classes',
+    selectTargets: 'Select detection classes to obscure',
+    strength: 'Mosaic strength',
+    strengthStandard: 'Standard',
+    strengthStrong: 'Strong',
+    strengthMaximum: 'Maximum',
+    scope: 'Protects only new alarm images saved or sent by this service. Existing images, live video, recordings and images sent to external models are outside this setting.',
+    targetsTip: 'Obscures all detected targets in the selected classes, including those outside alarm areas and those that did not trigger the alarm. Uses existing detections; undetected targets cannot be obscured.',
+    outputPolicy: 'Only processed alarm images are saved and provided. If matching detections are unavailable or processing fails, the alarm is kept without the affected image.',
+    unavailableTargets: 'Detection information is unavailable for these classes: {labels}. Select available classes or all detected targets.',
+    invalidConfig: 'Check privacy settings and select available targets and a mosaic strength.'
+  },
   event: {
     aiVideoAnalysis: 'AI Video Analysis',
     algorithmOverlay: 'Algorithm Overlay',
@@ -1210,6 +1227,7 @@ export default {
     fourScreens: '4 Views',
     fullscreen: 'Fullscreen',
     fullImage: 'Full Image',
+    imageNotProvided: 'Image not provided',
     machineMaterialLibrary: 'Machine/Material Library',
     noVideoSignal: 'No video signal',
     notUploaded: 'Not uploaded',
@@ -2086,7 +2104,8 @@ export default {
       '分割视觉大模型': 'Visual Segmentation (VLM)',
       '语言视觉大模型': 'Visual Language (VLM)',
       '算法告警数据': 'Algorithm Alarm Data',
-      '网络音柱联动': 'Network Speaker Linkage'
+      '网络音柱联动': 'Network Speaker Linkage',
+      '告警输出联动': 'Alarm Output Linkage'
     },
     algorithmNames: {
       '吸烟检测': 'Smoking Detection',

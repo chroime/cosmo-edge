@@ -192,6 +192,7 @@ util::ErrorEnum PDinoDetector::HandPic(AlgDataPtr algData) {
     if (!algData || !algData->chanDataDec.frame) {
         return util::ErrorEnum::InvalidParam;
     }
+    InvalidateAlarmPrivacySnapshot(*algData);
 
     std::vector<VideoFramePtr> images;
     images.push_back(algData->chanDataDec.frame);

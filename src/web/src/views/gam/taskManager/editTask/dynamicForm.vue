@@ -6,6 +6,10 @@
         <div v-for="(item, index) in paramz" :key="index">
           <span>{{ item.group ? item.group.name : '' }}</span>
 
+          <el-form-item v-if="item.type === 'visualQuestions' && item.isColumn && showForm(item.senior)" :label="resolveParamText(item, 'name')">
+            <VisualQuestionEditor v-model="paramz[index].value" />
+          </el-form-item>
+
           <!-- select选择框 -->
           <el-form-item v-if="item.type == 'select' && item.isColumn == true && showForm(item.senior)">
             <template #label>
@@ -294,6 +298,9 @@
                       :value="select.value"></el-option>
                   </el-select>
                 </el-form-item>
+                <el-form-item v-if="el.type === 'visualQuestions' && showForm(el.senior)" :label="resolveParamText(el, 'name')">
+                  <VisualQuestionEditor v-model="el.value" />
+                </el-form-item>
                 <!-- switch -->
                 <el-form-item v-if="el.type == 'switch' && showForm(el.senior)">
                   <template #label>
@@ -532,6 +539,8 @@
 </template>
 
 <script setup>
+import VisualQuestionEditor from '@/components/VisualQuestionEditor.vue'
+import { validCatalog } from '@/utils/visualQuestions'
 import { ref, watch, computed, toRaw, onBeforeUnmount, getCurrentInstance } from 'vue'
 import { t, currentLocale } from '@/i18n'
 import {
@@ -623,7 +632,7 @@ const loadLibraryOptions = (version) => {
   currentParams.forEach((item) => {
     if (item.type === 'commoditySet' || item.type === 'workClothesSet') {
       const isThings = item.type === 'commoditySet'
-      const query = isThings ? proxy.$API.boxQueryThingsLibInfo : proxy.$API.boxQueryPersonLibInfo
+      const query = isThings ? proxy.$API.queryThingsLibInfo : proxy.$API.queryPersonLibInfo
       query({ pageNum: 1, pageSize: 1000 }).then(({ resData }) => {
         if (version !== hydrationVersion) return
         const libraries = isThings ? resData?.thingsLibList : resData?.personLibList
@@ -631,7 +640,7 @@ const loadLibraryOptions = (version) => {
         if (!item.value) item.value = networkOptions.value[0]?.value
       })
     } else if (item.type === 'faceSet') {
-      proxy.$API.boxQueryFaceLibInfo({ pageNum: 1, pageSize: 1000 }).then(({ resData }) => {
+      proxy.$API.queryFaceLibInfo({ pageNum: 1, pageSize: 1000 }).then(({ resData }) => {
         if (version !== hydrationVersion) return
         FaceSets.value = resData?.faceLibList || []
         transferData.value = FaceSets.value.map((obj) => ({ key: String(obj.id), label: obj.name }))
@@ -765,6 +774,10 @@ const validInput = (obj) => {
 
     for (let i = 0; i < arr.length; i++) {
       const param = arr[i]
+      if (param.type === 'visualQuestions' && !validCatalog(param.value)) {
+        proxy.$message.error(t('visualQuestions.invalid'))
+        return false
+      }
       console.log(`验证字段 ${param.name}:`, param.value, '类型:', param.type)
 
       // 检查必填字段

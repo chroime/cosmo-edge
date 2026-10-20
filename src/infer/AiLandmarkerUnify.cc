@@ -25,7 +25,6 @@ util::ErrorEnum AiLandmarkerUnify::Init() {
     }
 
     cosmo::nn::DefaultComponent::Options options;
-    options.profiler = &profiler_;
     landmarker_ =
         std::make_unique<cosmo::nn::DefaultComponent>(options, cfg_path_, model_path_, GetDeviceType());
     LOG_DEBUG("Landmarker {} Init", model_path_);
@@ -49,6 +48,7 @@ util::ErrorEnum AiLandmarkerUnify::Marker(VideoFramePtr image, std::vector<AiDet
         auto ret = Marker(images, ioPuts);
         if (util::ErrorEnum::Success != ret) {
             LOG_INFO("{}", "Marker Fail");
+            return ret;
         }
         ioEl = ioPuts[0];
     }
@@ -192,6 +192,7 @@ util::ErrorEnum AiLandmarkerUnify::Marker(const std::vector<VideoFramePtr>& imag
                 auto ret = Forward(inputImages, inputRects, outputs);
                 if (util::ErrorEnum::Success != ret) {
                     LOG_ERRO("Forward Failed. Ret:{}", ret);
+                    return ret;
                 }
                 DispatchLandmarkResults(outputs, indexes, ioRst);
                 inputImages.clear();

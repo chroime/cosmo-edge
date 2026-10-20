@@ -24,7 +24,6 @@ util::ErrorEnum AiRecognizerUnify::Init() {
 
     try {
         cosmo::nn::DefaultComponent::Options options;
-        options.profiler = &profiler_;
         recognizer_ =
             std::make_unique<cosmo::nn::DefaultComponent>(options, cfg_path_, model_path_, GetDeviceType());
     } catch (const std::exception& e) {
@@ -47,7 +46,10 @@ util::ErrorEnum AiRecognizerUnify::Init() {
 
 util::ErrorEnum AiRecognizerUnify::Extract(VideoFramePtr image, std::vector<AiDetectRstEl>& io_rst,
                                            bool use_box) {
-    if (!image->GetData() || io_rst.empty()) {
+    if (!VideoFrameValid(image) || !image->GetData()) {
+        return util::ErrorEnum::FrameDataInvalid;
+    }
+    if (io_rst.empty()) {
         return util::ErrorEnum::Success;
     }
 
@@ -58,7 +60,8 @@ util::ErrorEnum AiRecognizerUnify::Extract(VideoFramePtr image, std::vector<AiDe
         io_puts.push_back(io_el);
         auto ret = Extract(images, io_puts, use_box);
         if (util::ErrorEnum::Success != ret) {
-            LOG_INFO("{}", "Classify Fail");
+            LOG_WARN("Extract feature failed. Ret:{}", ret);
+            return ret;
         }
         io_el = io_puts[0];
     }
@@ -222,6 +225,7 @@ util::ErrorEnum AiRecognizerUnify::Extract(const std::vector<VideoFramePtr>& ima
                 auto ret = Forward(input_images, input_datas, outputs, use_box);
                 if (util::ErrorEnum::Success != ret) {
                     LOG_ERRO("Forward Failed. Ret:{}", ret);
+                    return ret;
                 }
                 size_t out = 0;
                 for (auto output : outputs) {

@@ -100,11 +100,11 @@ namespace {
                profile.value("height", 0) > 0;
     }
     bool UsableProfile(const nlohmann::json& profile) {
-        const auto codec     = profile.value("codec", "");
-        const int64_t pixels = int64_t(profile.value("width", 0)) * profile.value("height", 0);
+        const auto codec = profile.value("codec", "");
+        const int width  = profile.value("width", 0);
+        const int height = profile.value("height", 0);
         return HasMetadata(profile) && (codec == "H264" || codec == "H265" || codec == "MJPEG") &&
-               pixels >= media::kVideoMinWidth * media::kVideoMinHeight &&
-               pixels <= media::kVideoMaxWidth * media::kVideoMaxHeight;
+               media::IsValidVideoResolution(width, height);
     }
 }  // namespace
 

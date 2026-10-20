@@ -159,7 +159,7 @@ ThingsLib::MsgQueryThingsPicturesSend MessageThingsLibHandler::Handle(
         MsgQueryThingsPicturesS::ArticlesReid item{};
         item.id              = r.id;
         item.pictureName     = r.picture_name;
-        item.pictureUrl      = r.picture_url;
+        item.pictureUrl      = r.picture_url.empty() ? r.id + ".jpg" : r.picture_url;
         item.createTimestamp = r.create_timestamp;
         item.updateTimestamp = r.update_timestamp;
         item.feature         = std::move(r.feature);

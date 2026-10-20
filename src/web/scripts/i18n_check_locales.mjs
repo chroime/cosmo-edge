@@ -1,9 +1,10 @@
-import { pathToFileURL } from 'node:url'
+import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const localeDir = path.resolve(__dirname, '..', 'src', 'i18n', 'locales')
+const srcDir = path.resolve(__dirname, '..', 'src')
+const localeDir = path.join(srcDir, 'i18n', 'locales')
 
 const flattenKeys = (value, prefix = '') => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix]
@@ -46,4 +47,52 @@ if (missingInZh.length || missingInEn.length || orphanShortKeys.length) {
   process.exit(1)
 }
 
+const EXTENSIONS = new Set(['.vue', '.js', '.mjs', '.ts'])
+const collectFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const full = path.join(dir, entry.name)
+  if (entry.isDirectory()) {
+    if (entry.name === 'node_modules' || entry.name === 'dist') return []
+    return collectFiles(full)
+  }
+  return EXTENSIONS.has(path.extname(entry.name)) ? [full] : []
+})
+
+// Statically referenced translation calls and resource metadata keys.
+const keyPatterns = [
+  /(?:^|[^\w$])(?:t|\$t|proxy\.\$t)\(\s*['"]([A-Za-z0-9_.-]+)['"]\s*[),]/g,
+  /\b(?:label|title|name|description|failedTip|placeholder)I18nKey\s*:\s*['"]([A-Za-z0-9_.-]+)['"]/g
+]
+const checkedKeys = new Set()
+const missingUsedKeys = new Map()
+
+for (const file of collectFiles(srcDir)) {
+  const lines = fs.readFileSync(file, 'utf8').split('\n')
+  const relPath = path.relative(process.cwd(), file)
+  for (let i = 0; i < lines.length; i++) {
+    for (const pattern of keyPatterns) {
+      pattern.lastIndex = 0
+      let match
+      while ((match = pattern.exec(lines[i])) !== null) {
+        const key = match[1]
+        checkedKeys.add(key)
+        for (const [locale, keys] of [['zh-CN', zhKeys], ['en-US', enKeys]]) {
+          const id = `${key}|${locale}`
+          if (!keys.has(key) && !missingUsedKeys.has(id)) {
+            missingUsedKeys.set(id, { key, locale, file: relPath, line: i + 1 })
+          }
+        }
+      }
+    }
+  }
+}
+
+if (missingUsedKeys.size) {
+  console.error(`Missing i18n keys (${missingUsedKeys.size} issue(s)):`)
+  for (const error of missingUsedKeys.values()) {
+    console.error(`  [${error.locale}] ${error.key}  (${error.file}:${error.line})`)
+  }
+  process.exit(1)
+}
+
 console.log(`I18N locale keys OK (${enKeys.size} keys).`)
+console.log(`I18N used keys OK (${checkedKeys.size} keys checked).`)

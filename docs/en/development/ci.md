@@ -18,7 +18,7 @@ This page collects the quality-check entry points that already exist in the repo
 | Layer | Check | Suggested Trigger |
 | --- | --- | --- |
 | Documentation site | `npm ci`, `npm run docs:verify` | Pull request |
-| Frontend | `npm ci`, `npm run i18n:check`, `npm run build`, `npm run resource-i18n:check` | Pull request / push |
+| Frontend | `npm ci`, `npm test`, `npm run build`, `npm run resource-i18n:check` | Pull request / push |
 | C++ formatting | `scripts/format_check.sh --check` | Pull request / push |
 | C++ static analysis | `scripts/static_analysis.sh --cppcheck`, `scripts/static_analysis.sh --clang-tidy` | Periodic / manual / self-hosted |
 | CPU test build | `scripts/build_cpu_test.sh`, `build_cpu/cosmo-tests` | Pull request / manual |
@@ -37,11 +37,11 @@ npm run docs:verify
 
 `docs:verify` runs:
 
-1. `docs:check`: validates frontmatter, one H1, placeholders, image alt text, internal links, bilingual
-   pairs, and navigation groups for the five bilingual core guides and two indexes.
-2. `docs:build`: builds the complete VitePress site and checks VitePress parsing and internal links.
-3. `docs:smoke`: inspects rendered HTML for the ten core pages, including titles, locale, navigation,
-   groups, and frontmatter leakage.
+1. `gitee:readme:check`: checks that the Gitee README matches its sources.
+2. `docs:build`: builds the complete VitePress site, checks internal links, and generates benchmark reports.
+3. `benchmarks:v1.1:validate -- --output-root docs/.vitepress/dist/benchmarks/scenario-bench/v1.1`:
+   directly validates benchmark sources and the reports from this build, including evidence,
+   checksums, public-data boundaries, and links within the benchmark pack.
 
 Local preview:
 
@@ -53,10 +53,15 @@ Notes:
 
 - The `docs` job in `.github/workflows/pr-checks.yml` runs the same `npm run docs:verify` command on pull
   requests.
-- Placeholder checks use an explicit core-guide manifest, so intentional editing prompts in community
-  case templates are not rejected.
-- The VitePress build checks the full site, navigation, and internal links. The ten-page semantic smoke
-  adds detection for frontmatter leaking into content even when the build succeeds.
+- VitePress compiles tutorials and checks internal links. Dedicated scripts no longer constrain
+  fixed pages' titles, H1 headings, navigation, image alt text, or frontmatter rendering.
+- Full benchmark validation already checks sources, so `--source-only` is not repeated before the build.
+  The option remains available for checking benchmark sources independently.
+- Benchmark validation retains report completeness, data projections, evidence scope, checksums, and
+  links within the pack without prescribing CSS classes or counts, titles, or explanatory wording.
+- Dedicated scanning of website report URLs in READMEs and other documentation has been removed,
+  including mapping those absolute URLs to local build targets. Report inventories and relative links
+  within the benchmark pack are still validated.
 - Dependency auditing may currently report npm dependency vulnerabilities; these should be evaluated separately before public release and the resolution recorded.
 
 ## Frontend Checks
@@ -66,14 +71,21 @@ The frontend project is located under `src/web` and ships with its own independe
 ```bash
 cd src/web
 npm ci
-npm run i18n:check
+npm test
 npm run build
 npm run resource-i18n:check
 ```
 
 Notes:
 
-- `npm run build` runs `npm run i18n:check` automatically via `prebuild`.
+- `npm test` uses Node's native test runner to run 19 explicitly listed test entrypoints serially,
+  covering API, request, parameter, flow, and component behavior. Frontend CI runs it before building.
+  Run an individual file with `node --experimental-vm-modules --test scripts/<test-file>.mjs`.
+- The `prebuild` hook for `npm run build` runs only `i18n:check`, without implicitly running behavior tests.
+- `i18n:check` directly checks bilingual key parity, short keys, and translation keys used in source files.
+  Glossary documentation is maintained manually; its tables are no longer required to match runtime configuration.
+- Dialog button wording is no longer restricted by a separate regex check. Component behavior and browser
+  layout checks remain; the optional workflow no longer generates source or CSS variants to test those checks.
 - `resource-i18n:check` verifies that resource-side internationalization content is in sync.
 - If you modify resource text, run `npm run resource-i18n:sync` first, then review the diff.
 
@@ -115,7 +127,9 @@ bash scripts/static_analysis.sh --all
 
 Notes:
 
-- `cppcheck` is a good candidate to wire into CI first; it covers warning, style, performance, and portability categories.
+- The hook, CI, and manual cppcheck checks all use this script. `--profile full` (the default) enables warning, style, performance, and portability; `--profile commit` retains the commit check's warning category. Both include the default error checks. All enabled, unsuppressed diagnostics and tool errors return failure.
+- `--staged` checks staged `.h` / `.cc` files; `--base-ref REF` checks changed files under `src` / `test` between REF and HEAD. These options are mutually exclusive. CI passes the computed merge-base to `--base-ref`; deleted files are excluded.
+- Direct `--cppcheck` invocation fails if the tool is missing. The hook and `--all` skip unavailable tools; `--all` aggregates failures from the checks it runs.
 - `clang-tidy` depends on `build/compile_commands.json` and requires the corresponding build configuration to be completed first.
 - `--summary` aggregates common compile warnings from `build.log`.
 

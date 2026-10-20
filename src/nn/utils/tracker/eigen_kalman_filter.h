@@ -11,7 +11,7 @@ public:
 
     ~EigenKalmanFilter();
 
-    void init(const int DP, const int MP, int CP = 0);
+    void init(const int dynam_params, const int measure_params, int control_params = 0);
 
     const Eigen::MatrixXf& predict(const Eigen::MatrixXf& control = Eigen::MatrixXf());
 
@@ -38,9 +38,9 @@ public:
     Eigen::MatrixXf temp5;
 
 private:
-    int MP;
-    int CP;
-    int DP;
+    int MP = 0;
+    int CP = 0;
+    int DP = 0;
 };
 
 }  // namespace cosmo::nn

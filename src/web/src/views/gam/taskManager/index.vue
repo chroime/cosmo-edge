@@ -90,7 +90,7 @@
             <span>{{ scope.row.fps ? Math.ceil(scope.row.fps) : '' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.channelStatus')" :width="currentLocale === 'en-US' ? '150px' : '110px'" fixed="right" show-overflow-tooltip>
+        <el-table-column :label="t('field.channelStatus')" :width="currentLocale === 'en-US' ? '240px' : '190px'" fixed="right" show-overflow-tooltip>
           <template #default="scope">
             <template v-if="scope.row.channelStatus == 3">
               <span v-if="scope.row.channelType !== 3" style="color:green;">{{ t('status.online') }}</span>
@@ -108,6 +108,7 @@
             <template v-else>
               <span v-if="scope.row.channelType !== 3">{{ t('status.offline') }}</span>
             </template>
+            <div v-if="cameraStatusReason(scope.row)" class="channel-error">{{ cameraStatusReason(scope.row) }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="handle" :label="t('field.actions')" :width="currentLocale === 'en-US' ? '280' : '200'" fixed="right" class-name="ops-wrap-cell">
@@ -218,6 +219,7 @@ import {
   onUnmounted
 } from 'vue'
 import { t, localeColon, currentLocale } from '@/i18n'
+import { cameraStatusReason } from '@/utils/cameraStatus'
 import {
   uploadFileInChunks,
   UploadPurpose
@@ -570,7 +572,8 @@ const handleDetailChannel = (row) => {
           : t('status.abnormal'),
       workday: resolveScheduleName(item.scheduleName)
     })),
-    channelStatus: row.channelStatus
+    channelStatus: row.channelStatus,
+    statusReason: row.statusReason
   }
 }
 
@@ -684,7 +687,7 @@ const init = () => {
     pageNum: pageData.pageNum,
     pageSize: pageData.pageSize
   }
-  proxy.$API.boxCameraPage(params).then((res) => {
+  proxy.$API.getChannelList(params).then((res) => {
     if (!res) return
     const { resData } = res
     tableData.value = resData.rows
@@ -848,6 +851,12 @@ const setDefaultImage = (e) => {
 </script>
 
 <style scoped lang="scss">
+.channel-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .taskButton {
   display: flex;
   justify-content: space-between;

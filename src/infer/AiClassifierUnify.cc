@@ -24,7 +24,6 @@ util::ErrorEnum AiClassifierUnify::Init() {
     }
 
     cosmo::nn::DefaultComponent::Options options;
-    options.profiler = &profiler_;
     classifier_ =
         std::make_unique<cosmo::nn::DefaultComponent>(options, cfg_path_, model_path_, GetDeviceType());
     LOG_DEBUG("DEBUG: Classifier {} Init", model_path_);
@@ -49,6 +48,7 @@ util::ErrorEnum AiClassifierUnify::Classify(const VideoFramePtr& image, std::vec
         auto ret = Classify(images, io_puts, use_box);
         if (util::ErrorEnum::Success != ret) {
             LOG_INFO("{}", "Classify Fail");
+            return ret;
         }
         io_el = io_puts[0];
     }
@@ -258,6 +258,7 @@ util::ErrorEnum AiClassifierUnify::Classify(const std::vector<VideoFramePtr>& im
                 auto ret = Forward(input_images, input_datas, outputs, use_box, input_native_buffers);
                 if (util::ErrorEnum::Success != ret) {
                     LOG_ERRO("Forward Failed. Ret:{}", ret);
+                    return ret;
                 }
                 DispatchBatchResults(outputs, indexes, io_rst);
                 input_images.clear();

@@ -2,6 +2,7 @@
 
 // Qwen3VLWorker — Qwen3VL vision-language model worker for video stream inference.
 
+#include <atomic>
 #include <list>
 #include <map>
 #include <memory>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "flow/action/AlgActionBase.h"
+#include "flow/common/VisualJudgment.h"
 #include "flow/qwen3vl/OpenAiVlmClient.h"
 #include "flow/task/TaskBaseParam.h"
 #include "infer/Qwen3VLUnify.h"
@@ -39,6 +41,8 @@ struct Qwen3VLWorkerParamEl {
     Qwen3VLGenerationStyle generation_style{Qwen3VLGenerationStyle::STANDARD};
     Qwen3VLGenerationParam gen_param;  // Generation parameters for AISDK layer
     OpenAiVlmConfig open_ai_config;
+    VisualParameters visual_parameters;
+    std::shared_ptr<VisualJudgment> visual_judgment;
 };
 
 struct Qwen3VLWorkerParam {
@@ -58,6 +62,7 @@ public:
     ~Qwen3VLWorker();
 
     bool Qwen3VLSdkInit();
+    void Stop() override;
 
     // Modify parameters - modify based on existing parameters
     bool ModifyParam(const std::string &channel_id, const std::string &task_id,
@@ -99,6 +104,7 @@ public:
 protected:
     // Thread subclass override run
     void run() override;
+    void ResetStateOnRestart() override;
 
 private:
     // Forward declaration for extracted HandFrameBatch helpers
@@ -110,6 +116,8 @@ private:
     void ProcessInferResults(std::vector<InferEntry> &entries, std::vector<Qwen3VLResult> &results);
     bool ValidKey(MsgDynamicKeyValue &param);
     bool AnalysisKey(const std::string &channel_id, const std::string &task_id, MsgDynamicKeyValue &param);
+    bool ApplyParamsLocked(const std::string &channel_id, const std::string &task_id,
+                           std::vector<MsgDynamicKeyValue> &params);
     Qwen3VLWorkerParamEl FoundLocalParamByTask(const AlgTaskUnit &task);
 
     Qwen3VLWorkerParamEl GetTaskParams(const std::string &task_id);
@@ -118,12 +126,15 @@ private:
 
     // Set parameters based on generation style
     void ApplyGenerationStyle(Qwen3VLWorkerParamEl &param);
+    void RebuildVisualLocked(const std::string &task_id);
 
     std::string alg_code_;
     size_t max_reuse_count_{1};                       // Max number of channels that can reuse it
     size_t batch_count_{1};                           // Batch count
     std::vector<Qwen3VLWorkerChannel> channel_list_;  // Channels/tasks using it
     bool detector_inst_init_{false};
+    std::atomic<util::ErrorEnum> initialization_status_{util::ErrorEnum::ActionReady};
+    bool local_worker_registered_{false};  // Owned by the processing thread.
     int sign_register_{0};
     Qwen3VLWorkerParam params_;
     std::map<std::string, Qwen3VLTaskContext> task_contexts_;

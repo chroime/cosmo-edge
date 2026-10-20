@@ -21,6 +21,9 @@ Claude Code 或 Copilot。推荐在一台用于开发、并与生产环境隔离
 
 ## 你可以直接这样说
 
+从数据开始训练，或让 AI 助手查询已有设备的告警、按需取图和确认后启停检测，请先看
+[配套工程：训练 Skill 与 Connect](../guide/companion-projects.md)，选择任务入口并核对独立版本。
+
 需要从数据开始定制目标检测模型时，可以安装独立的
 [CosmoEdge 辅助训练 Skill](https://github.com/cosmo-wander-ai/cosmoedge-training-skill)。
 提供业务目标、整批数据源和可用机器后，AI 会检查条件、提出方案，再根据实际材料选择标注、
@@ -84,15 +87,17 @@ BM1688、F16、某个 Docker 镜像或某个脚本。如果已知这些信息，
 
 智能体会把指令整理为当前运行私有目录中的任务记录。开始执行前，它应先用一两句话复述任务和
 预期交付物；你确认的是这句自然语言理解，不是 JSON 文件。随后智能体运行统一入口
-`scripts/agent/start.sh`（Windows 为 `start.ps1`），安全复制你指出的物料、生成任务记录并自动完成
+`python3 tools/agent_workflow.py start`，安全复制你指出的物料、生成任务记录并自动完成
 第一次只读路径评估。只有无法自行解决的 `needsInput` 才会被翻译成普通语言提问。
 如果用户已经要求连接并给出了凭据，智能体会同时记录脱敏后的远程授权；地址、账户和密码不会被
 复制到任务 JSON。描述中意外带入的连接信息会自动替换为脱敏标记，而不是阻断任务。
 
+以下 Python CLI 均从仓库根目录运行；Windows 使用 `python` 或 `py -3` 替代 `python3`，参数不变。
+
 下面是智能体内部会执行的示意命令，不要求用户照抄；目标芯片未知时不传该参数，由评估继续询问：
 
 ```bash
-./scripts/agent/start.sh \
+python3 tools/agent_workflow.py start \
   --objective "让这个检测模型在隔离测试设备上运行，并交付可复核证据" \
   --material /secure-input/person-detector.onnx \
   --target-chip bm1688 \
@@ -106,7 +111,7 @@ BM1688、F16、某个 Docker 镜像或某个脚本。如果已知这些信息，
 ## 智能体如何选择路径和检查环境
 
 统一入口会先调用 `assess` 只读盘点物料、当前宿主、仓库事实和授权，比较可信候选路径；任务或授权
-变化后，智能体再用 `scripts/agent/assess.sh`（Windows 为 `assess.ps1`）刷新评估。上游官方教程
+变化后，智能体再用 `python3 tools/agent_workflow.py assess` 刷新评估。上游官方教程
 覆盖某条路径，只表示“可以纳入候选”，
 不等于当前机器已经可用。选定路径后，再用 `doctor` 核对本任务真正需要的架构、资源、运行时和
 可调用工具。整个只读阶段不安装软件、不拉取镜像、不启动系统服务、不修改用户组或提权。
@@ -119,7 +124,7 @@ BM1688、F16、某个 Docker 镜像或某个脚本。如果已知这些信息，
 要求连接且评估没有判定路径不支持，智能体就可以先运行：
 
 ```bash
-./scripts/agent/connect.sh \
+python3 tools/remote_access.py \
   --contract output/agent-runs/<run-id>/task-contract.json \
   --host <开发机地址> \
   --user <开发机账户>
@@ -168,17 +173,17 @@ Linux 要求来自算能开发生态，不代表 CosmoEdge 整体“不支持 Wi
 用户用自然语言确认后，由智能体记录本次粗粒度授权，例如：
 
 ```bash
-./scripts/agent/authorize.sh \
+python3 tools/agent_workflow.py authorize \
   --contract output/agent-runs/<run-id>/task-contract.json \
   --grant remote-execution \
   --grant model-transfer \
   --confirmed-by-user \
   --target-reference "隔离的 Linux 开发环境"
-./scripts/agent/assess.sh --contract output/agent-runs/<run-id>/task-contract.json
+python3 tools/agent_workflow.py assess --contract output/agent-runs/<run-id>/task-contract.json
 ```
 
 `--confirmed-by-user` 只记录已经发生的用户确认，不能让智能体自行授权。任务记录和授权建立后，
-可通过 `connect.sh` 连接；安装依赖、拉取镜像、`sudo`、系统配置修改和设备部署仍需在实际需要时
+可通过 `python3 tools/remote_access.py` 连接；安装依赖、拉取镜像、`sudo`、系统配置修改和设备部署仍需在实际需要时
 说明影响并取得相应新增授权。
 
 用户可以在当前私有任务会话中提供隔离开发机的账号和密码。智能体只能把密码输入 OpenSSH 的隐藏
@@ -222,18 +227,18 @@ CosmoEdge 仓库在这种形态下提供接口契约、Mock 服务和验收事�
 
 1. 盘点用户提供的模型、训练/导出说明、测试样本和设备信息；从可检查事实推导格式、目标映射、
    输入输出和预处理，只对无法发现且影响交付的问题提问。
-2. 运行 `scripts/agent/start.sh`，把所指物料复制到 Git 忽略的私有目录、生成任务记录并评估本机
+2. 运行 `python3 tools/agent_workflow.py start`，把所指物料复制到 Git 忽略的私有目录、生成任务记录并评估本机
    Linux、远程 Linux 等可信路径。Windows 宿主在此阶段不报错退出为“产品不支持”。
 3. 选择模型教程、模板和最接近的实例，记录为什么可复用及候选差异；实例参数不自动成为用户参数。
 4. 合并询问缺少的业务、环境和授权信息。用户确认粗粒度授权后由智能体记录，并重新运行 `assess`；
    用户不需要手写 Schema、授权 JSON 或指定工具链版本。
-5. 在实际执行的 Linux 环境运行 `scripts/agent/doctor.sh`。它按能力发现兼容工具链，并用
+5. 在实际执行的 Linux 环境运行 `python3 tools/agent_workflow.py doctor`。它按能力发现兼容工具链，并用
    `compatibility-matrix` 对照目标芯片、工件和仓库事实：明确冲突时报错，事实不足时标记未验证；
    脚本不会自行拉镜像或安装依赖，准入后冻结实际版本、路径和哈希。
-6. 运行 `scripts/agent/convert_model.sh`。它先执行 `tools/check_onnx_model.py`，再用准入时冻结的
+6. 运行 `python3 tools/conversion_workflow_dispatch.py convert`。它先执行 `tools/check_onnx_model.py`，再用准入时冻结的
    TPU-MLIR 包、Python 和命令身份调用 `model_transform` 与 `model_deploy`；Docker 仅在任务
    选择完整工具链镜像时参与，产物不写入现有模型资源目录。
-7. 运行 `scripts/agent/verify.sh`，重新核对候选模型和产物哈希，并生成机器可读的
+7. 运行 `python3 tools/conversion_workflow_dispatch.py verify`，重新核对候选模型和产物哈希，并生成机器可读的
    `evidence.json` 与一眼可读的 `evidence.md`。满足完整证据链时还会生成 `seal.json` 和短码；
    摘要会固定说明它覆盖转换与张量对照，但不覆盖设备运行和业务精度。重跑会保留先前失败；
    只有新的实测通过或明确的用户豁免可以解释其后续状态。
@@ -257,12 +262,39 @@ ONNX 是独立阶段：智能体应请求可用 ONNX，或单独评估用户的�
 | ONNX 预检 | 模型结构可检查，ONNX Runtime 能完成零输入冒烟，输入输出已记录 | 检测精度 |
 | 转换产物 | 固定工具链生成目标产物，哈希和模型信息与当前候选一致 | 设备能导入和持续运行 |
 | 张量比对 | 当前工具链按用户覆盖值或该工具的默认容差策略完成转换前后输出比较，并记录所用策略 | 业务数据集精度 |
-| 完整包检查 | 仅在任务要求时，包名、配置和文件契约自洽 | 生产兼容性 |
+| 完整包检查（S4） | 仅在任务要求时，检查 CENN 结构、内部产物身份及已有证据支持的配置一致性 | 设备运行与生产兼容性 |
 | 设备与业务验收 | 需要单独授权的测试设备、图片/视频和精度流程 | 不由本地通过自动升级 |
 
 普通任务是否完成和是否够资格晋级为官方实例是两个结论。官方晋级缺少固定摘要或第二次录制，
 不能反过来把已经满足用户要求的普通任务判失败；同样，本地任务完成也不能被表述为设备或生产
 验收完成。
+
+### 完整包 S4 的检查边界
+
+S4 按当前 `model_header_info.h` 的 CENN v1 定义检查 80 字节头、版本、分段数量、
+各段大小、保留字段和实际文件大小，再流式计算每个内部 bmodel 的 SHA-256。
+内部摘要必须对应本次执行清单中已重新校验的 bmodel；整个 `model.nn` 的摘要不能代替内部身份。
+原始 bmodel 改名、非模型文本、损坏容器和同尺寸的错误模型都返回 `FAIL`。
+
+对于当前执行器的一份 bmodel、一份配置，S4 比较 `chip_type` 和有效输入输出形状与冻结任务契约，
+并重新核验 `modelInfo` 报告摘要及其中按 `input:`、`output:` 标记的形状。
+`max_batch` 缺省为 1，必须至少为 1，并按引擎实际规则覆盖输入的第 0 轴；
+配置中的 batch 占位符可以解析，其他轴仍必须与冻结形状一致。
+预处理尺寸按已明确的管线检查：`yolov8_det`、`classify` 使用 `input_size`，
+`feature` 的仿射分支使用 `output_hw`，其他 feature 分支使用 `input_size`；缺省值沿用各管线的产品默认值。
+尚未实现检查的管线尺寸契约保留 `UNVERIFIED`，不强制所有模型填写 `input_size`。
+配置或可映射的报告形状明确冲突时返回 `FAIL`。选用 `yolov8_det` 解析器且输出证据明确时，
+检查标签 ID 是否重复或超出解析器的类别范围；允许有意保留标签子集，不固定输入尺寸或类别数。
+
+报告缺失、没有可识别的方向标记、多个网络或阶段无法明确对应、多段模型缺少逐段配置证据、
+当前检查器不支持的 CENN 版本，以及需要授权运行时验证的 CEMC 格式，返回 `UNVERIFIED`。
+旧加密 magic `01 00 01 ec` 已被当前生产加载策略拒绝，返回 `FAIL`。
+受保护内容不会在本地检查中解密。S4 的 `checks` 列出字段、观察值和期望值；
+`unverifiedFields` 明确保留张量名称和类型、预处理值、标签业务含义及设备运行等未验证项。
+本地 `PASS` 只覆盖这些确定性检查，接入后仍需回读配置并做实际加载和图片结果对照。
+
+要求完整包时，S4 `FAIL` 会使任务结论为 `FAILED`；`UNVERIFIED` 不能得到 `COMPLETE`。
+只要求 bmodel 的任务仍跳过 S4，不增加完整包要求。
 
 ## 使用测试设备的风险
 

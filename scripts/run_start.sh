@@ -144,6 +144,10 @@ export COSMO_STREAM_HTTP_PORT="${COSMO_STREAM_HTTP_PORT:-18088}"
 cosmo_log "$logTag" "Starting nginx..." "$logFile"
 nginx -p "${NGINX_PREFIX}" -c "${NGINX_CONF}"
 
+# This shared launch path runs after boot and package upgrades. Configure the
+# hardware-specific defaults only after startup validation, before the engine.
+configure_rk3576_runtime "$logFile"
+
 # The supervisor owns foreground SRS and the engine, preserves shutdown order,
 # and restarts only the media dependency after exit or sustained health failure.
 if [ "$SUPERVISE_MEDIA" = true ]; then

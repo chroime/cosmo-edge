@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <iterator>
+#include <numeric>
 #include <unordered_set>
 
 #include "nn/core/graph.h"
@@ -93,15 +95,14 @@ Status ModelPipeline::GetCategoryInfo(int class_id, CategoryInfo& info) {
     if (categories.empty())
         return Status(COSMO_NN_ERR_INVALID_INPUT, "No category info");
 
-    int total_splits = 0;
-    for (auto& c : categories)
-        total_splits += c.split;
+    const int total_splits = std::accumulate(categories.begin(), categories.end(), 0,
+                                             [](int total, const auto& c) { return total + c.split; });
 
     if (class_id < 0 || class_id >= total_splits)
         return Status(COSMO_NN_ERR_INVALID_INPUT, "Invalid class id");
 
     int id = class_id;
-    for (auto& c : categories) {
+    for (const auto& c : categories) {
         if (id - c.split < 0) {
             info = c;
             break;
@@ -112,12 +113,12 @@ Status ModelPipeline::GetCategoryInfo(int class_id, CategoryInfo& info) {
 }
 
 Status ModelPipeline::GetCategoryInfo(const std::string& label, CategoryInfo& info) {
-    auto& instructions = model_info_.config.instructions;
+    const auto& instructions = model_info_.config.instructions;
     if (instructions.empty())
         return Status(COSMO_NN_ERR_INVALID_INPUT, "No instruction");
 
-    auto& infos = instructions.at(0).infos;
-    int index   = -1;
+    const auto& infos = instructions.at(0).infos;
+    int index         = -1;
     for (int i = 0; i < static_cast<int>(infos.size()); i++) {
         if (infos[i].class_name == label) {
             index = i;
@@ -140,7 +141,7 @@ std::vector<std::string> ModelPipeline::GetSelectedClassnames() const {
 // ─── Graph Lifecycle ───────────────────────────────────
 
 Status ModelPipeline::InitGraph(const std::string& model_path, DeviceType device_type, int device_id,
-                                IProfiler* profiler, const std::string& tokenizer_path, bool use_skip) {
+                                IProfiler* profiler, const std::string& tokenizer_path) {
     graph_ = std::make_unique<Graph>();
     if (profiler)
         graph_->SetProfiler(profiler);
@@ -148,7 +149,7 @@ Status ModelPipeline::InitGraph(const std::string& model_path, DeviceType device
     num_models_ = static_cast<int>(model_info_.models.size());
 
     std::string mp = model_path;
-    RETURN_ON_FAIL(graph_->Init(model_info_, mp, device_type, tokenizer_path, device_id, use_skip));
+    RETURN_ON_FAIL(graph_->Init(model_info_, mp, device_type, tokenizer_path, device_id));
     return COSMO_NN_OK;
 }
 
@@ -183,12 +184,9 @@ void ModelPipeline::InitThresholdsAndLabels() {
         return;
     }
 
-    bool has_valid_infos = false;
-    for (auto& inst : model_info_.config.instructions)
-        if (!inst.infos.empty()) {
-            has_valid_infos = true;
-            break;
-        }
+    const auto& instructions   = model_info_.config.instructions;
+    const bool has_valid_infos = std::any_of(instructions.begin(), instructions.end(),
+                                             [](const auto& inst) { return !inst.infos.empty(); });
 
     if (!has_valid_infos) {
         return;
@@ -219,7 +217,7 @@ void ModelPipeline::InitNetInputSize() {
 
     if (inputs_map.find(image_node) == inputs_map.end())
         return;
-    auto& shape = inputs_map.at(image_node);
+    const auto& shape = inputs_map.at(image_node);
     if (shape.size() >= 4)
         net_input_size_ = Size(shape[3], shape[2]);
 }
@@ -248,8 +246,8 @@ bool ModelPipelineRegistry::Has(const std::string& type) const {
 
 std::vector<std::string> ModelPipelineRegistry::GetRegisteredTypes() const {
     std::vector<std::string> types;
-    for (auto& pair : creators_)
-        types.push_back(pair.first);
+    std::transform(creators_.begin(), creators_.end(), std::back_inserter(types),
+                   [](const auto& pair) { return pair.first; });
     return types;
 }
 

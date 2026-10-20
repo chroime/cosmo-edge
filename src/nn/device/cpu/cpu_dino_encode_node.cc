@@ -264,6 +264,8 @@ DeviceType CpuDinoEncodeNode::GetTopBlobDeviceType() {
 }
 
 Status CpuDinoEncodeNode::InferTopShapes() {
+    if (dst_width <= 0 || dst_height <= 0)
+        return Status(COSMO_NN_ERR_PARAM, "DINO input dimensions are not configured");
     const int proposals_count = 100 * 100 + 50 * 50 + 25 * 25 + 13 * 13;
 
     top_blob_shapes = {

@@ -8,13 +8,12 @@ namespace cosmo::nn {
 
 Status KeypointsPipeline::Init(const PipelineConfig& config, const std::string& model_path,
                                DeviceType device_type, int device_id, IProfiler* profiler,
-                               const std::string& tokenizer_path, const std::string& word_table_path,
-                               bool use_skip) {
+                               const std::string& tokenizer_path, const std::string& word_table_path) {
     model_info_.algorithmcode = config.algorithm_code;
     model_info_.reduce        = config.reduce;
     model_info_.type          = "keypoints";
 
-    for (auto& mc : config.models) {
+    for (const auto& mc : config.models) {
         nlohmann::json p = pipeline_utils::ParseJsonObject(mc.params_json);
 
         ModelInfo model;
@@ -51,15 +50,15 @@ Status KeypointsPipeline::Init(const PipelineConfig& config, const std::string& 
         }
         preprocess.push_back(pipeline_utils::MakeNormalizeOp(mean, scale, is_bgr));
 
-        for (auto& in_def : mc.inputs) {
+        for (const auto& in_def : mc.inputs) {
             InputNodeInfo input;
             input.name      = in_def.name;
             input.shape     = in_def.shape;
             input.data_type = in_def.data_type;
-            input.ops       = std::move(preprocess);
+            input.ops.swap(preprocess);
             model.input_node_infos.push_back(std::move(input));
         }
-        for (auto& out_def : mc.outputs) {
+        for (const auto& out_def : mc.outputs) {
             OutputNodeInfo output;
             output.name      = out_def.name;
             output.shape     = out_def.shape;
@@ -72,7 +71,7 @@ Status KeypointsPipeline::Init(const PipelineConfig& config, const std::string& 
 
     InitThresholdsAndLabels();
     InitNetInputSize();
-    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path, use_skip);
+    return InitGraph(model_path, device_type, device_id, profiler, tokenizer_path);
 }
 
 Status KeypointsPipeline::Forward(std::initializer_list<std::vector<std::shared_ptr<Blob>>> inputs) {
@@ -86,10 +85,10 @@ Status KeypointsPipeline::Forward(std::initializer_list<std::vector<std::shared_
 
     rects_.clear();
     for (size_t i = 0; i < iter->size(); i++) {
-        auto blob     = iter->at(i);
-        auto dims     = blob->GetBlobDesc().dims;
-        const int n   = dims.at(0);
-        int32_t* data = (int32_t*)blob->GetHandle().base;
+        auto blob        = iter->at(i);
+        auto dims        = blob->GetBlobDesc().dims;
+        const int n      = dims.at(0);
+        const auto* data = static_cast<const int32_t*>(blob->GetHandle().base);
         for (int j = 0; j < n; j++) {
             Rect2i r;
             r.x      = data[j * 4 + 0];

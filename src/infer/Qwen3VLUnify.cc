@@ -3,6 +3,7 @@
 #include "infer/Qwen3VLUnify.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 
 #include "infer/AiComponment.h"
@@ -44,7 +45,6 @@ util::ErrorEnum Qwen3VLUnify::Init() {
 
     try {
         cosmo::nn::DefaultComponent::Options options;
-        options.profiler       = &profiler_;
         options.tokenizer_path = tokenizer_path_;
         generator_ =
             std::make_unique<cosmo::nn::DefaultComponent>(options, cfg_path_, model_path_, GetDeviceType());
@@ -104,12 +104,20 @@ util::ErrorEnum Qwen3VLUnify::Generate(const std::vector<VideoFramePtr>& images,
         size_t input_size{inputs.size()};
         if (input_size == max_batch_size_ || (i + 1) == image_num) {
             std::vector<Qwen3VLResult> outputs;
-            auto ret = Forward(inputs, input_prompts, gen_param, outputs);
+            const auto batch_start = std::chrono::steady_clock::now();
+            auto ret               = Forward(inputs, input_prompts, gen_param, outputs);
             if (util::ErrorEnum::Success != ret) {
                 LOG_ERRO("Qwen3VL Forward Failed. Ret:{}", ret);
                 return ret;
             }
-            std::copy(outputs.begin(), outputs.end(), std::back_inserter(results));
+            const auto duration_ms =
+                std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - batch_start)
+                    .count();
+            for (auto& output : outputs) {
+                output.duration_ms = duration_ms;
+                output.batch_size  = inputs.size();
+                results.push_back(std::move(output));
+            }
             inputs.clear();
             input_prompts.clear();
         }
@@ -231,6 +239,18 @@ util::ErrorEnum Qwen3VLUnify::Forward(const std::vector<VideoFramePtr>& images,
     LOG_DEBUG("[Qwen3VL] Forward done. images:{} results:{}", images.size(), results.size());
     return util::ErrorEnum::Success;
 #endif
+}
+
+util::ErrorEnum Qwen3VLUnify::PrepareText(const std::string& input, std::string& output) {
+#ifndef COSMO_NN_USE_RKLLM_BACKEND
+    if (generator_) {
+        auto status = generator_->PrepareText(input, output);
+        if (bool(status))
+            return util::ErrorEnum::Success;
+        LOG_WARN("VLM prompt preparation failed: {}", status.description());
+    }
+#endif
+    return util::ErrorEnum::Failed;
 }
 
 util::ErrorEnum Qwen3VLUnify::GetMaxBatchSize(size_t* value) const {

@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include <optional>
+
+#include "util/DetectionGeometry.h"
 #include "util/MsgBaseTypes.h"
 
 namespace cosmo {
@@ -81,13 +84,17 @@ struct MsgAiAttribute {
 };
 
 struct MsgMatchInfo {
-    int64_t setPicCount{-1};  // Number of pictures in comparison library. setPicCount=0: No pictures, no
-                              // comparison (no alarm). setPicCount>0: participated in comparison
-    std::string matchId;      // Highest score target ID (highest similarity even if threshold not met)
-    float matchDegree{-1.0};  // Highest similarity score
-    std::string groupId;      // Highest score match library ID
-    std::string groupName;    // Highest score match library name
-    bool matched{false};      // Matched
+    int64_t setPicCount{-1};   // Number of pictures in comparison library. setPicCount=0: No pictures, no
+                               // comparison (no alarm). setPicCount>0: participated in comparison
+    std::string matchId;       // Highest score target ID (highest similarity even if threshold not met)
+    float matchDegree{-1.0};   // Highest similarity score
+    std::string groupId;       // Highest score match library ID
+    std::string groupName;     // Highest score match library name
+    bool matched{false};       // Matched
+    std::string name;          // Matched person or reference picture name
+    std::string baseImageUrl;  // Reference library picture
+    std::string personId;
+    std::string personCode;
 
     friend void to_json(nlohmann::json& j, const MsgMatchInfo& v);
     friend void from_json(const nlohmann::json& j, MsgMatchInfo& v);
@@ -103,6 +110,8 @@ struct MsgTarget {
     std::string shapeChangeStatus;
     MsgRect box;
     MsgRectReal aiBox;
+    // Source-image pixel coordinates, matching aiBox (not normalized box).
+    std::optional<util::Quad> oriented_corners;
     float hwRatio{0.0};
     float hwRatioVariation{0.0};
     std::vector<MsgAiConfidence> confidence;
@@ -118,10 +127,20 @@ struct MsgTarget {
 void to_json(nlohmann::json& j, const MsgTarget& t);
 void from_json(const nlohmann::json& j, MsgTarget& t);
 
+// Keep the historical normalized rectangle keys; measured corners use source
+// pixels and the containing frame supplies their coordinate-space dimensions.
+struct MsgAlarmVideoOverviewRect : MsgRect {
+    std::optional<util::Quad> oriented_corners;
+};
+void to_json(nlohmann::json& j, const MsgAlarmVideoOverviewRect& v);
+void from_json(const nlohmann::json& j, MsgAlarmVideoOverviewRect& v);
+
 struct MsgAlarmVideoOverviewFrame {
     int64_t index;
     int color;
-    std::vector<MsgRect> rects;
+    int sourceWidth{0};
+    int sourceHeight{0};
+    std::vector<MsgAlarmVideoOverviewRect> rects;
     friend void to_json(nlohmann::json& j, const MsgAlarmVideoOverviewFrame& v);
     friend void from_json(const nlohmann::json& j, MsgAlarmVideoOverviewFrame& v);
 };

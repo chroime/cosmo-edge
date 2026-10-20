@@ -5,11 +5,16 @@
 #include "catch2/trompeloeil.hpp"
 // clang-format on
 
+#include <SQLiteCpp/SQLiteCpp.h>
+
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 
 #include "api/MessageThingsLibHandler.h"
+#include "db/ArticlesReidDao.h"
+#include "media/VideoFrame.h"
 #include "mock/MockArticlesReidDaoService.h"
 #include "mock/MockCameraService.h"
 #include "mock/MockVideoFrameCodec.h"
@@ -133,6 +138,64 @@ TEST_CASE("ThingsLibHandler: QueryThingsLibInfo", "[things-lib-handler]") {
     auto ret = handler.Handle(std::move(data), errc);
     REQUIRE(ret.resData.thingsLibCount == 1);
     REQUIRE(ret.resData.thingsLibList.size() == 1);
+}
+
+TEST_CASE("ThingsLibHandler: saved pictures have queryable image URLs", "[things-lib-handler]") {
+    ThingsHandlerPathEnvironment path_environment;
+    ThingsLibHandlerMocks mocks;
+    auto handler = MakeHandler(mocks);
+    SQLite::Database database(":memory:", SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+    db::ArticlesReidDao dao(database);
+    dao.CreateTable();
+    db::LibInfo library{};
+    library.id = "lib-1";
+    REQUIRE(dao.AddArticlesReidLib(library));
+
+    // Exercise real file storage and SQLite; only image encoding/decoding is mocked.
+    const std::vector<uint8_t> jpeg{0xff, 0xd8, 0xff, 0xd9};
+    // The codec mock needs only a frame handle, without allocating a pixel buffer.
+    auto frame = std::make_shared<media::VideoFrame>(0, 0);
+    REQUIRE_CALL(mocks.videoCodecSvc, DecodeJpeg(jpeg)).RETURN(frame);
+    REQUIRE_CALL(mocks.videoCodecSvc, EncodeJpeg(frame)).RETURN(jpeg);
+    REQUIRE_CALL(mocks.articlesReidDaoSvc, AddArticlesReid(_, "lib-1", _, _))
+        .LR_RETURN(dao.AddArticlesReid(_1, _2, _3, _4));
+    REQUIRE_CALL(mocks.articlesReidDaoSvc, QueryThings(_)).LR_RETURN(dao.QueryThings(_1));
+
+    const std::string picture_name = GENERATE("", "display-name.jpg");
+    ThingsLib::MsgAddLibThingsRecv add_request{};
+    add_request.thingsLibId = "lib-1";
+    ThingsLib::MsgAddLibThingsRecv::ArticlesReid picture{};
+    picture.pictureData = jpeg;
+    picture.pictureName = picture_name;
+    add_request.thingsList.push_back(std::move(picture));
+
+    std::error_condition errc;
+    const auto added = handler.Handle(std::move(add_request), errc);
+    REQUIRE_FALSE(errc);
+    REQUIRE(added.resData.thingsId.size() == 1);
+
+    ThingsLib::MsgQueryThingsPicturesRecv query_request{};
+    query_request.thingsLibIdList.emplace_back(std::string("lib-1"));
+    query_request.pageNum  = 1;
+    query_request.pageSize = 10;
+    const auto result      = handler.Handle(std::move(query_request), errc);
+    REQUIRE_FALSE(errc);
+    REQUIRE(result.resData.totalCount == 1);
+    REQUIRE(result.resData.thingsList.size() == 1);
+    const auto& item = result.resData.thingsList.front();
+    REQUIRE(item.id == added.resData.thingsId.front());
+    REQUIRE(item.pictureName == picture_name);
+    REQUIRE(item.pictureUrl == "/weblibPic/articleslib/" + item.id + ".jpg");
+    const nlohmann::json response = result;
+    REQUIRE(response["resData"]["thingsList"][0]["pictureUrl"] == item.pictureUrl);
+
+    const auto saved_path = std::filesystem::path(path_environment.tmp_dir) /
+                            std::filesystem::path(item.pictureUrl).relative_path();
+    std::ifstream saved_file(saved_path, std::ios::binary);
+    REQUIRE(saved_file.is_open());
+    const std::vector<uint8_t> saved_bytes{std::istreambuf_iterator<char>(saved_file),
+                                           std::istreambuf_iterator<char>()};
+    REQUIRE(saved_bytes == jpeg);
 }
 
 TEST_CASE("ThingsLibHandler: AddLibThings rejects path-traversal pictureUrl", "[things-lib-handler]") {

@@ -18,8 +18,14 @@ export function deviceName(device) {
 export function chooseProfile(profiles, previous = '') {
   // Match media::IsValidVideoResolution in src/util/VideoInfo.h. A larger but
   // invalid Profile must not hide another stream that the pipeline can accept.
-  const supported = profiles.filter(p => p.token && ['H264', 'H265', 'MJPEG'].includes(p.codec?.toUpperCase()) &&
-    Number(p.width) > 0 && Number(p.height) > 0 && p.width * p.height >= 1280 * 720 && p.width * p.height <= 7680 * 4320)
+  const supported = profiles.filter(p => {
+    const width = Number(p.width)
+    const height = Number(p.height)
+    return p.token && ['H264', 'H265', 'MJPEG'].includes(p.codec?.toUpperCase()) &&
+      Number.isInteger(width) && Number.isInteger(height) &&
+      width >= 64 && width <= 7680 && width % 2 === 0 &&
+      height >= 64 && height <= 4320 && height % 2 === 0
+  })
   if (!supported.length) throw new Error(profiles.length ? 'unsupported_stream' : 'no_profiles')
   // Preserve an existing channel's selection. For new channels prefer resolution,
   // then frame rate; prefer H264 only when both are equal. Do not infer from names.

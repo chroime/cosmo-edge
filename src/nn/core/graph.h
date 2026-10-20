@@ -32,7 +32,7 @@ public:
     void SetName(const std::string& name);
 
     Status Init(CombinedModelInfo& info, const std::string& model_path, DeviceType,
-                const std::string& tokenizer_path = std::string(), int device_id = 0, bool use_skip = false);
+                const std::string& tokenizer_path = std::string(), int device_id = 0);
 
     void SetProfiler(IProfiler*);
 
@@ -52,13 +52,13 @@ public:
     std::vector<std::shared_ptr<Blob>> Output();
 
 private:
-    Status MakeUp(CombinedModelInfo&, bool);
+    Status MakeUp(CombinedModelInfo&);
 
     Status LoadWeight(const std::string&);
 
     Status InferTopDesc();
 
-    Status AddCombinedModelNode(CombinedModelInfo&);
+    Status AddCombinedModelNode(const CombinedModelInfo&);
 
     void AddInputNodeIfNecessary(Node*);
 
@@ -84,7 +84,7 @@ private:
                                   std::set<size_t>& used_prev_outputs, std::string& matched_blob);
 
     // Phase 3: build preprocess node chain for one model input
-    Status BuildPreprocessChain(ModelInfo& model, size_t input_idx, bool use_skip,
+    Status BuildPreprocessChain(ModelInfo& model, size_t input_idx,
                                 const std::vector<std::string>& prev_output_blobs,
                                 const std::vector<std::string>& prev_output_names,
                                 const std::vector<DimsVector>& prev_output_shapes,
@@ -101,7 +101,7 @@ private:
 
     // Phase 3: build postprocess node chain for one model
     Status BuildPostprocessChain(const ModelInfo& model,
-                                 std::vector<std::string>& current_model_output_blobs);
+                                 const std::vector<std::string>& current_model_output_blobs);
 
 private:
     int device_id           = 0;

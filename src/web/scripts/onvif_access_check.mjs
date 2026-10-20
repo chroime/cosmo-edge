@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { chooseProfile, deviceAddress, deviceName, requestConfig, probeDevice, saveDevice, runDeviceBatch } from '../src/views/gam/taskManager/components/onvifAccess.js'
 
 const profiles = [
@@ -19,16 +16,11 @@ test('chooses highest resolution rather than name; preserves existing Profile', 
   assert.throws(() => chooseProfile([]), /no_profiles/)
   assert.throws(() => chooseProfile([{ token: 'bad', codec: 'H264', width: 0, height: 0 }]), /unsupported_stream/)
   assert.equal(chooseProfile([...profiles, { ...profiles[1], token: 'too-large', width: 10000, height: 10000 }]).token, 'main')
-  assert.throws(() => chooseProfile([{ ...profiles[0], width: 640, height: 360 }]), /unsupported_stream/)
-})
-test('automatic resolution bounds match the existing media pipeline', async () => {
-  // CMake stages the web sources separately and supplies the original repository root.
-  const repoRoot = process.env.COSMO_REPO_ROOT || fileURLToPath(new URL('../../../', import.meta.url))
-  const source = await readFile(resolve(repoRoot, 'src/util/VideoInfo.h'), 'utf8')
-  for (const [name, value] of Object.entries({ kVideoMinWidth: 1280, kVideoMinHeight: 720, kVideo4KWidth: 7680, kVideo4KHeight: 4320 }))
-    assert.match(source, new RegExp(`${name}\\s*=\\s*${value}\\s*;`))
-  assert.match(source, /width \* height >= kVideoMinWidth \* kVideoMinHeight/)
-  assert.match(source, /width \* height <= kVideoMaxWidth \* kVideoMaxHeight/)
+  assert.equal(chooseProfile([{ ...profiles[0], width: 64, height: 64 }]).width, 64)
+  assert.equal(chooseProfile([{ ...profiles[0], width: 640, height: 360 }]).width, 640)
+  assert.throws(() => chooseProfile([{ ...profiles[0], width: 62, height: 720 }]), /unsupported_stream/)
+  assert.throws(() => chooseProfile([{ ...profiles[0], width: 128, height: 62 }]), /unsupported_stream/)
+  assert.throws(() => chooseProfile([{ ...profiles[0], width: 641, height: 480 }]), /unsupported_stream/)
 })
 test('generates names from discovery with safe address fallback', () => {
   assert.equal(deviceName({ endpoint: 'http://192.0.2.10/onvif/device_service', scopes: 'onvif://www.onvif.org/name/Front%20door' }), 'Front door')

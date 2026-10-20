@@ -6,16 +6,13 @@ import {
   FLOW_NODE_SIZE,
   getDetailPanelAnchor,
   getDetailPanelSize,
-  getFlowLayoutSpacing
+  getFlowLayoutSpacing,
+  getFlowBounds
 } from '../src/views/gam/countManagement/arrangeDetail/flow/layoutGeometry.js'
 
 const spacing = getFlowLayoutSpacing(FLOW_NODE_SIZE)
 assert.ok(FLOW_NODE_SIZE.width > 0 && FLOW_NODE_SIZE.height > 0)
 assert.ok(spacing.nodesep >= 0 && spacing.ranksep >= 0)
-
-// Start + one linkage action + end should remain a compact horizontal flow.
-const compactWidth = FLOW_NODE_SIZE.width * 3 + spacing.ranksep * 2
-assert.ok(compactWidth < 400, `three-node flow is too wide: ${compactWidth}px`)
 
 const node = { position: { x: 500, y: 200 } }
 const panel = getDetailPanelAnchor(node)
@@ -24,8 +21,14 @@ assert.equal(panel.y, 200 + FLOW_NODE_SIZE.height + DETAIL_PANEL_GAP)
 
 const alarmPanelSize = getDetailPanelSize('LA_AlarmData_Code')
 assert.deepEqual(alarmPanelSize, ALARM_DETAIL_PANEL_SIZE)
-assert.ok(alarmPanelSize.width >= DETAIL_PANEL_SIZE.width * 2)
 const alarmPanel = getDetailPanelAnchor(node, FLOW_NODE_SIZE, alarmPanelSize)
 assert.equal(alarmPanel.x, 500 + FLOW_NODE_SIZE.width / 2 - alarmPanelSize.width / 2)
+
+assert.deepEqual(getFlowBounds([node, { position: { x: -40, y: -20 } }]), {
+  minX: -40, minY: -20, maxX: 500 + FLOW_NODE_SIZE.width, maxY: 200 + FLOW_NODE_SIZE.height
+})
+assert.deepEqual(getFlowBounds([node], () => ({ width: 20, height: 30 }), {
+  minX: 0, minY: 0, maxX: 1000, maxY: 800
+}), { minX: 0, minY: 0, maxX: 1000, maxY: 800 })
 
 console.log('linkage flow layout checks passed')

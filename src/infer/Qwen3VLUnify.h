@@ -26,6 +26,8 @@ struct Qwen3VLResult {
     std::string text;
     int64_t frame_index{-1};
     int64_t timestamp{-1};
+    double duration_ms{0};
+    size_t batch_size{1};
 };
 
 class Qwen3VLUnify {
@@ -40,6 +42,8 @@ public:
     util::ErrorEnum Generate(const std::vector<VideoFramePtr>& images,
                              const std::vector<std::string>& prompts, const Qwen3VLGenerationParam& gen_param,
                              std::vector<Qwen3VLResult>& results);
+
+    util::ErrorEnum PrepareText(const std::string& input, std::string& output);
 
     util::ErrorEnum GetMaxBatchSize(size_t* value) const;
 
@@ -57,7 +61,6 @@ private:
 #else
     std::unique_ptr<cosmo::nn::DefaultComponent> generator_;
 #endif
-    AppProfiler profiler_;
 };
 
 using Qwen3VLUnifyPtr = std::shared_ptr<Qwen3VLUnify>;

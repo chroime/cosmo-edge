@@ -16,6 +16,7 @@ namespace cosmo::test {
 namespace {
     class EnrollmentFrameTransform : public service::IVideoFrameTransform {
     public:
+        MAKE_MOCK3(MosaicCopy, VideoFramePtr(VideoFramePtr, const std::vector<util::Box>&, int), override);
         MAKE_MOCK2(Crop, VideoFramePtr(VideoFramePtr, util::Box), override);
         MAKE_MOCK3(Resize, VideoFramePtr(VideoFramePtr, int, int), override);
         MAKE_MOCK6(Padding, VideoFramePtr(VideoFramePtr, size_t, size_t, size_t, size_t, media::Color),

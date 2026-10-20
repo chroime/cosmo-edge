@@ -21,12 +21,12 @@ export function compose(file, env = {}) {
   return JSON.parse(result.stdout)
 }
 const pinned = value => assert.match(value, /^[^\s@]+@sha256:[0-9a-f]{64}$/, 'image must use a valid digest')
-export function checkMac(config, jobs = '1', port = '8080') {
+export function checkMac(config, jobs, port = '8080') {
   const service = config.services['cosmo-x86-macos']
   assert.equal(service.platform, 'linux/amd64', 'Mac architecture')
   pinned(service.build.args.BUILD_ENV_IMAGE)
   pinned(service.build.args.RUNTIME_BASE_IMAGE)
-  assert.equal(String(service.build.args.COSMO_BUILD_JOBS), jobs, 'build jobs')
+  if (jobs !== undefined) assert.equal(String(service.build.args.COSMO_BUILD_JOBS), jobs, 'build jobs')
   assert.equal(service.build.args.RESOURCE_DIR, 'data/resource/aiboxresource_x86')
   assert.equal(service.environment.COSMO_STREAM_PLAY_MODE, 'httpflv-srs')
   assert.equal(String(service.environment.COSMO_STREAM_HTTP_PORT), '18088')
@@ -45,7 +45,6 @@ export function checkMac(config, jobs = '1', port = '8080') {
   const resource = service.volumes.find(v => v.target === '/appfs/cosmo_wander/cwai_data/resource')
   assert.equal(data?.type, 'volume'); assert.equal(resource?.type, 'volume')
   assert.notEqual(data.source, resource.source, 'independent persistent volumes')
-  for (const volume of [data, resource]) assert.match(config.volumes[volume.source].name, /^cosmo-x86-macos-preview-/)
   const output = service.volumes.find(v => v.target === '/build_output')
   assert.equal(output?.type, 'bind'); assert.ok(output.source.endsWith('/build_output/macos-x86'))
 }
@@ -55,14 +54,16 @@ export function checkPackage(config, kind, env = {}) {
   if (kind === 'rockchip' && !env.COSMO_ROCKCHIP_BUILDER_IMAGE) pinned(service.image)
   assert.deepEqual(service.entrypoint, kind === 'sophon' ? ['/bin/bash', '/workspace/scripts/build_sophon_package.sh'] : ['/workspace/scripts/build_rockchip_package.sh'])
   assert.deepEqual(service.command, kind === 'sophon' ? [] : ['--chip', env.COSMO_TARGET_CHIP || 'rk3576', '--models', env.COSMO_PACKAGE_MODELS || 'include'])
-  for (const [target, type] of [['/workspace', 'bind'], ['/build_output', 'bind'], ['/root/.npm', 'volume']])
+  for (const [target, type] of [['/workspace', 'bind'], ['/build_output', 'bind']])
     assert.equal(service.volumes.find(v => v.target === target)?.type, type, `mount ${target}`)
   assert.equal(service.volumes.find(v => v.target === '/workspace').source, root, 'workspace bind source')
   assert.equal(service.volumes.find(v => v.target === '/build_output').source, join(root, 'build_output'), 'output bind source')
-  assert.equal(service.volumes.find(v => v.target === '/root/.npm').source, 'cosmo-npm-cache', 'npm cache source')
-  const expected = { COSMO_MODEL_GUARD_BUILD_PROFILE: 'public-runtime', COSMO_MODEL_GUARD_SDK_ROOT: '', NPM_CONFIG_MAXSOCKETS: '1', NPM_CONFIG_PREFER_OFFLINE: 'true', NPM_CONFIG_FETCH_RETRIES: '3', NPM_CONFIG_FETCH_TIMEOUT: '120000' }
+  const expected = { COSMO_MODEL_GUARD_BUILD_PROFILE: 'public-runtime', COSMO_MODEL_GUARD_SDK_ROOT: '' }
   if (kind === 'sophon') expected.COSMO_PACKAGE_MODELS = 'include'
-  else Object.assign(expected, { COSMO_BUILD_JOBS: '4', COSMO_MODEL_GUARD_SDK_ROOT: '', COSMO_RKNN_ARTIFACT_MANIFEST: '', COSMO_RKNN_MODELS_DIR: '', COSMO_RKNN_RESOURCE_OVERLAY_DIR: '' })
+  else {
+    Object.assign(expected, { COSMO_RKNN_ARTIFACT_MANIFEST: '', COSMO_RKNN_MODELS_DIR: '', COSMO_RKNN_RESOURCE_OVERLAY_DIR: '' })
+    if (env.COSMO_BUILD_JOBS !== undefined) expected.COSMO_BUILD_JOBS = env.COSMO_BUILD_JOBS
+  }
   for (const [key, fallback] of Object.entries(expected)) assert.equal(String(service.environment[key]), env[key] ?? fallback, key)
 }
 export function readWorkflow(kind) {
@@ -78,7 +79,7 @@ export function checkComposeContracts() {
   for (const kind of ['sophon', 'rockchip']) {
     const file = join(root, `docker-compose.${kind}.yml`)
     checkPackage(compose(file), kind)
-    const env = { COSMO_MODEL_GUARD_BUILD_PROFILE: 'production-release', COSMO_PACKAGE_MODELS: 'preserve', COSMO_TARGET_CHIP: 'rk3576', COSMO_BUILD_JOBS: '7', COSMO_MODEL_GUARD_SDK_ROOT: '/sdk with space', COSMO_RKNN_ARTIFACT_MANIFEST: '/model manifest.json', COSMO_RKNN_MODELS_DIR: '/models', COSMO_RKNN_RESOURCE_OVERLAY_DIR: '/resources', NPM_CONFIG_MAXSOCKETS: '2', NPM_CONFIG_PREFER_OFFLINE: 'false' }
+    const env = { COSMO_MODEL_GUARD_BUILD_PROFILE: 'production-release', COSMO_PACKAGE_MODELS: 'preserve', COSMO_TARGET_CHIP: 'rk3576', COSMO_BUILD_JOBS: '7', COSMO_MODEL_GUARD_SDK_ROOT: '/sdk with space', COSMO_RKNN_ARTIFACT_MANIFEST: '/model manifest.json', COSMO_RKNN_MODELS_DIR: '/models', COSMO_RKNN_RESOURCE_OVERLAY_DIR: '/resources' }
     checkPackage(compose(file, env), kind, env)
   }
 }

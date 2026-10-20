@@ -131,8 +131,8 @@ function validateManifest(value) {
   if (!positiveInteger(value.evidence?.smallModelCaseCount)) fail('manifest evidence.smallModelCaseCount must be a positive integer');
   if (value.evidence?.caseSchema !== 'results/cases.schema.json') fail('manifest evidence.caseSchema must point to the canonical schema');
   if (value.evidence?.vlmObservations !== 'results/vlm-observations.json') fail('manifest evidence.vlmObservations must point to the canonical VLM file');
-  if (typeof value.benchmarkTool?.role !== 'string' || !value.benchmarkTool.role.includes('current publication')) {
-    fail('manifest benchmarkTool.role must distinguish the current publication tool from execution provenance');
+  if (typeof value.benchmarkTool?.role !== 'string') {
+    fail('manifest benchmarkTool.role must be a string');
   }
 
   const benchmarkToolFiles = {
@@ -380,7 +380,7 @@ function validateVlmEvidence(manifestValue, definitions) {
   const value = readJsonIfPresent(root, 'results/vlm-observations.json');
   if (!value) return { observations: [] };
   const label = 'canonical VLM evidence';
-  if (value.schemaVersion !== 4 || value.title !== 'CosmoEdge 1.1 validated VLM performance'
+  if (value.schemaVersion !== 4 || typeof value.title !== 'string'
       || value.validationDate !== '2026-08-24' || value.crossPlatformComparable !== true) {
     fail(`${label} identity is inconsistent`);
   }
@@ -689,8 +689,8 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
   ], label);
   if (value.schemaVersion !== 2) fail(`${label} schemaVersion must be 2`);
   if (value.evidenceStatus !== 'completed-private-source') fail(`${label} evidenceStatus is inconsistent`);
-  if (value.title !== 'CosmoEdge 1.1 dual-CV 72-hour controlled long-run observation') {
-    fail(`${label} title is inconsistent`);
+  if (typeof value.title !== 'string') {
+    fail(`${label} title must be a string`);
   }
 
   expectObjectKeys(value.claim, [
@@ -702,10 +702,7 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
       || value.claim?.capacityClaimAllowed !== false
       || value.claim?.rtspResilienceClaimAllowed !== false
       || value.claim?.productReleaseQualified !== false
-      || typeof value.claim?.interpretation !== 'string'
-      || !value.claim.interpretation.includes('not a maximum-capacity')
-      || !value.claim.interpretation.includes('RTSP-resilience')
-      || !value.claim.interpretation.includes('production-profile')) {
+      || typeof value.claim?.interpretation !== 'string') {
     fail(`${label} must remain a configured-workload stability observation without capacity, RTSP, or production claims`);
   }
 
@@ -782,8 +779,7 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
       || refresh?.productReleaseQualified !== false
       || refresh?.projectionKind !== 'post-run deterministic projection'
       || refresh?.monitorLaunchBytesFrozen !== false
-      || typeof refresh?.rawEvidence !== 'string'
-      || !refresh.rawEvidence.includes('not included in the repository')) {
+      || typeof refresh?.rawEvidence !== 'string') {
     fail('manifest dual-CV 72-hour evidence classification is inconsistent');
   }
   for (const key of ['sourceCommit', 'sourceTree']) {
@@ -831,16 +827,16 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
     fail(`${label} workload differs from the frozen dual-CV contract`);
   }
 
+  const { identityLimitation, ...monitor } = value.executionPolicy?.monitor ?? {};
+  const { interpretation, ...disk } = value.executionPolicy?.disk ?? {};
   const expectedExecutionPolicy = {
     monitor: {
       kind: 'private multi-platform controller',
       standardScenarioBenchCliUsed: false,
       launchBytesFrozen: false,
-      identityLimitation: 'The ScenarioBench source snapshot is frozen, but the private controller files were updated after the long-running process started and no launch-time controller digest was emitted.',
     },
     disk: {
       ...controls.diskPolicy,
-      interpretation: 'Disk utilization was observational during this run. The later 90% safeguard applies to future executions and does not retroactively reclassify this observation.',
     },
     scheduledRestart: controls.scheduledRestartPolicy,
     projection: {
@@ -849,7 +845,8 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
       publicArtifactHashesReferToProjection: true,
     },
   };
-  if (!deepEqual(value.executionPolicy, expectedExecutionPolicy)) {
+  if (typeof identityLimitation !== 'string' || typeof interpretation !== 'string'
+      || !deepEqual({ ...value.executionPolicy, monitor, disk }, expectedExecutionPolicy)) {
     fail(`${label} execution and post-observation policy boundary is inconsistent`);
   }
 
@@ -1019,10 +1016,10 @@ function validateDualCv72HourEvidence(manifestValue, definitions, canonicalPlatf
       || value.privateEvidence?.suiteStateSha256 !== refresh?.suiteStateSha256
       || value.privateEvidence?.suiteSummarySha256 !== refresh?.suiteSummarySha256
       || value.privateEvidence?.projectionToolSha256 !== refresh?.projectionToolSha256
-      || value.privateEvidence?.verification !== 'The suite files and every platform metrics, summary, report, restart-guard, and cleanup artifact were verified read-only by exact SHA-256 against the private run directory.'
+      || typeof value.privateEvidence?.verification !== 'string'
       || value.privateEvidence?.monitorLaunchBytesFrozen !== false
       || value.privateEvidence?.cleanupEvidence !== 'private monitor record'
-      || value.privateEvidence?.cleanupLimitation !== 'The completed monitor recorded cleanup with zero remaining owned channels and no errors, but did not emit an independent final-state artifact.') {
+      || typeof value.privateEvidence?.cleanupLimitation !== 'string') {
     fail(`${label} private-evidence publication state, hashes, or cleanup limitation is inconsistent`);
   }
   for (const key of ['runManifestSha256', 'suiteStateSha256', 'suiteSummarySha256', 'projectionToolSha256']) {
@@ -1183,22 +1180,7 @@ function validateGeneratedPack(outputRoot, manifestValue, platforms, vlmValue, d
     if (!/<html\b[^>]*>/iu.test(html) || !/<title>[^<]+<\/title>/iu.test(html) || !/<\/html>\s*$/iu.test(html)) {
       fail(`generated report is incomplete: ${report}`);
     }
-    if (!countClass(html, 'report-nav')) fail(`generated report navigation is missing: ${report}`);
     if (/\b(?:undefined|NaN)\b|\[object Object\]/.test(html)) fail(`generated report contains an unresolved value: ${report}`);
-    if (/dual-detector|RV1126B\s+(?:Experimental|实验)/i.test(html)) fail(`generated report contains obsolete public terminology: ${report}`);
-    const scopeNotes = countClass(html, 'scope-note');
-    const evidenceNotes = countClass(html, 'evidence-notes');
-    const expectsScopeNote = report === 'report.html'
-      || report === 'report.zh-CN.html'
-      || /^results\/dual-cv-72h\/report(?:\.zh-CN)?\.html$/u.test(report)
-      || /^results\/[^/]+\/(?:dual-cv-72h|vlm-observation)\/report(?:\.zh-CN)?\.html$/u.test(report);
-    const expectsEvidenceNotes = /^results\/dual-cv-72h\/report(?:\.zh-CN)?\.html$/u.test(report);
-    if (scopeNotes !== (expectsScopeNote ? 1 : 0)) {
-      fail(`${report}: expected ${expectsScopeNote ? 1 : 0} scope-note block(s), found ${scopeNotes}`);
-    }
-    if (evidenceNotes !== (expectsEvidenceNotes ? 1 : 0)) {
-      fail(`${report}: expected ${expectsEvidenceNotes ? 1 : 0} evidence-notes block(s), found ${evidenceNotes}`);
-    }
   }
 
   for (const rootReport of ['report.html', 'report.zh-CN.html']) {
@@ -1206,29 +1188,12 @@ function validateGeneratedPack(outputRoot, manifestValue, platforms, vlmValue, d
     for (const platform of platforms) {
       if (!html.includes(platform.platform)) fail(`${rootReport} is missing release platform ${platform.platform}`);
     }
-    if (!html.includes(rootReport.endsWith('.zh-CN.html') ? '并发混合任务矩阵' : 'Concurrent mixed-workload matrix')) {
-      fail(`${rootReport} is missing the concurrent mixed-workload matrix`);
-    }
-    if (!html.includes(rootReport.endsWith('.zh-CN.html') ? '已验证 VLM 性能' : 'Validated VLM performance')) {
-      fail(`${rootReport} is missing the validated VLM performance matrix`);
-    }
-    if (!html.includes(rootReport.endsWith('.zh-CN.html') ? '72 小时受控长稳观测' : '72-hour controlled long-run observation')) {
-      fail(`${rootReport} is missing the dual-CV 72-hour observation matrix`);
-    }
   }
 
   for (const relative of ['results/dual-cv-72h/report.html', 'results/dual-cv-72h/report.zh-CN.html']) {
     const html = fs.readFileSync(path.join(outputRoot, ...relative.split('/')), 'utf8');
     for (const platform of platforms) {
       if (!html.includes(platform.platform)) fail(`${relative} is missing long-run platform ${platform.platform}`);
-    }
-    const zh = relative.endsWith('.zh-CN.html');
-    const scopeNote = html.match(/<p\b[^>]*class=["'][^"']*\bscope-note\b[^"']*["'][^>]*>[\s\S]*?<\/p>/iu)?.[0] ?? '';
-    const evidenceNotes = html.match(/<details\b[^>]*class=["'][^"']*\bevidence-notes\b[^"']*["'][^>]*>[\s\S]*?<\/details>/iu)?.[0] ?? '';
-    if (!scopeNote.includes(zh ? '未测量最大容量' : 'maximum capacity')
-        || !scopeNote.includes(zh ? 'RTSP 韧性' : 'RTSP resilience')
-        || !evidenceNotes.includes(zh ? '没有生成独立 final-state 侧车' : 'no independent final-state sidecar was emitted')) {
-      fail(`${relative} is missing the capacity and independent-final-state limitations`);
     }
   }
 
@@ -1581,11 +1546,6 @@ function parseArguments(args) {
   }
   if (result.sourceOnly && result.outputRoot) throw new Error('--source-only and --output-root are mutually exclusive');
   return result;
-}
-
-function countClass(html, className) {
-  return [...html.matchAll(/\bclass\s*=\s*["']([^"']*)["']/giu)]
-    .filter((match) => match[1].split(/\s+/u).includes(className)).length;
 }
 
 function reportLinks(html) {

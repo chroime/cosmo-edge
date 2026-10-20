@@ -57,7 +57,7 @@ namespace {
 Qwen3VLWorker::~Qwen3VLWorker() {
     detector_inst_init_ = false;
     LOG_INFO("{}[{} {}] Stop", kTag, alg_code_, uuid);
-    Stop();
+    Qwen3VLWorker::Stop();
     // Stop() has set running=false and called MvThread::stop() (pthread_join)
 
     while (data_queue && data_queue->RestSize() > 0) {

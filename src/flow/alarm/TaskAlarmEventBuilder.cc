@@ -79,9 +79,9 @@ bool TaskAlarm::ShouldFilterTargetAlarm(const AlgDataPtr& algData, const DataAla
     }
 
     // Position-based suppression
-    auto& suppression = stagedSuppression ? *stagedSuppression : *this;
-    if (!suppression.CheckReportAlarm(alarmUnit.box, m_param.restrainSwitch, m_param.overlapRate,
-                                      m_param.restrainTime * 3600)) {
+    TaskAlarmSuppression* suppression = stagedSuppression ? stagedSuppression : this;
+    if (!suppression->CheckReportAlarm(alarmUnit.box, m_param.restrainSwitch, m_param.overlapRate,
+                                       m_param.restrainTime * 3600)) {
         recAlarmData.filterPosition = true;
         recordFilter();
         return true;

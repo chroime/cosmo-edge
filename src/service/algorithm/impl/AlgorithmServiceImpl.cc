@@ -139,6 +139,9 @@ cosmo::util::ErrorEnum AlgorithmServiceImpl::Add(const std::string& filePath) {
         return cosmo::util::ErrorEnum::UnZipFileFailed;
     }
     auto algs = detail::AlgorithmPacketLoader::LoadFromZipDirectory(unzip_file);
+    if (algs.empty()) {
+        return cosmo::util::ErrorEnum::FileAnalysisFailed;
+    }
     for (auto& alg : algs) {
         auto temp = cosmo::util::FileMove(alg.filePath, cosmo::path::GetAlgorithmPath());
         if (!temp) {
@@ -176,11 +179,13 @@ cosmo::util::ErrorEnum AlgorithmServiceImpl::Delete(const std::string& algorithm
         const std::string algorithm_layout_dir = cosmo::path::GetAlgorithmPath();
         std::string fp = cosmo::util::FindPrefixedJsonFile(algorithm_layout_dir, algorithmId);
         if (!fp.empty()) {
-            if (remove(fp.c_str()) == 0)
-                LOG_INFO("Deleted algorithm file: {}", fp);
+            if (!cosmo::util::RemoveFile(fp))
+                return cosmo::util::ErrorEnum::SysErr;
+            LOG_INFO("Deleted algorithm file: {}", fp);
         }
         // Delete the ZIP package if present
-        cosmo::util::RemovePath(it->second.filePath);
+        if (!it->second.filePath.empty() && !cosmo::util::RemovePath(it->second.filePath))
+            return cosmo::util::ErrorEnum::SysErr;
         algorithm_packets_.erase(it);
         return cosmo::util::ErrorEnum::Success;
     }
@@ -261,19 +266,20 @@ cosmo::util::ErrorEnum AlgorithmServiceImpl::AddFromJson(const std::string& algo
         ms_timestamp = static_cast<int64_t>(cosmo::util::GetCurrentDateTime().ToTimeStamp()) * 1000;
 
         algorithm::AlgorithmPacketInfo newPacket;
-        newPacket.id                   = algorithm_code;
-        newPacket.algorithmCode        = std::stoi(algorithm_code);
-        newPacket.algorithmName        = algorithmName;
-        newPacket.algorithmCategory    = algorithmCategory;
-        newPacket.algorithmUsage       = algorithmUsage;
-        newPacket.remark               = remark;
-        newPacket.eventType            = eventType;
-        newPacket.status               = 1;
-        newPacket.createTime           = ms_timestamp;
-        newPacket.updateTime           = ms_timestamp;
-        newPacket.confVersionId        = "default-" + algorithm_code;
-        newPacket.confVersionName      = "默认";
-        newPacket.algorithmMetadata    = detail::kDefaultAlgorithmMetadata;
+        newPacket.id                = algorithm_code;
+        newPacket.algorithmCode     = std::stoi(algorithm_code);
+        newPacket.algorithmName     = algorithmName;
+        newPacket.algorithmCategory = algorithmCategory;
+        newPacket.algorithmUsage    = algorithmUsage;
+        newPacket.remark            = remark;
+        newPacket.eventType         = eventType;
+        newPacket.status            = 1;
+        newPacket.createTime        = ms_timestamp;
+        newPacket.updateTime        = ms_timestamp;
+        newPacket.confVersionId     = "default-" + algorithm_code;
+        newPacket.confVersionName   = "默认";
+        newPacket.algorithmMetadata =
+            algorithmUsage == 2 ? "{\"params\":[]}" : detail::kDefaultAlgorithmMetadata;
         newPacket.algorithmProcessdata = "[]";
         newPacket.atomicList           = "[]";
         algorithm_packets_.emplace(algorithm_code, std::move(newPacket));

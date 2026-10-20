@@ -1,8 +1,17 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
+
+extern "C" {
+#include "libavutil/intfloat.h"
+#include "libavutil/intreadwrite.h"
+}
 
 #include "catch_amalgamated.hpp"
 #include "flow/stream/RtmpStreamPusher.h"
@@ -38,6 +47,15 @@ TEST_CASE("RtmpStreamPusher rejects empty frames concurrently", "[rtmp][concurre
 }
 
 TEST_CASE("RtmpStreamPusher accepts a valid small startup keyframe", "[rtmp][regression]") {
+    const auto [width, height, fps, expected_width, expected_height, expected_fps] =
+        GENERATE(table<int, int, float, double, double, double>({{640, 480, 25.0F, 640, 480, 25},
+                                                                 {1920, 1088, 30.0F, 1920, 1088, 30},
+                                                                 {1921, 720, 30.0F, 1920, 1080, 30},
+                                                                 {1280, 1089, 30.0F, 1920, 1080, 30},
+                                                                 {16, 16, 1.0F, 1920, 1080, 1},
+                                                                 {640, 480, 0.0F, 1920, 1080, 25},
+                                                                 {640, 480, 0.05F, 1920, 1080, 0.05}}));
+    CAPTURE(width, height, fps);
     const auto output_path =
         std::filesystem::path("/tmp") / ("cosmo-rtmp-small-keyframe-" + cosmo::util::GenerateUUID() + ".flv");
 
@@ -52,17 +70,48 @@ TEST_CASE("RtmpStreamPusher accepts a valid small startup keyframe", "[rtmp][reg
     REQUIRE(small_keyframe.size() < 1024);
 
     {
-        cosmo::RtmpStreamPusher pusher(cosmo::media::VideoCodecType::kH264, output_path.string(), 16, 16,
-                                       1.0F);
+        cosmo::RtmpStreamPusher pusher(cosmo::media::VideoCodecType::kH264, output_path.string(), width,
+                                       height, fps);
+        SECTION("constructor attributes") {}
+        SECTION("attribute updates preserve the established codec configuration") {
+            pusher.SetVideoAttr(1280, 720, 60.0F);
+            pusher.SetVideoAttr(0, 0, 0.0F);
+        }
         pusher.PushFrame(small_keyframe.data(), small_keyframe.size());
 
         REQUIRE(pusher.WaitReady(std::chrono::milliseconds(100)));
+        CHECK(pusher.GetProcInfo().recvFrames == 1);
+        CHECK(pusher.GetProcInfo().sendFrames == 1);
+
+        pusher.Stop();
+        pusher.Stop();
+        pusher.PushFrame(small_keyframe.data(), small_keyframe.size());
+        CHECK_FALSE(pusher.IsReady());
+        CHECK_FALSE(pusher.WaitReady(std::chrono::milliseconds(1)));
         CHECK(pusher.GetProcInfo().recvFrames == 1);
         CHECK(pusher.GetProcInfo().sendFrames == 1);
     }
 
     REQUIRE(std::filesystem::exists(output_path));
     CHECK(std::filesystem::file_size(output_path) > 0);
+    std::ifstream input(output_path, std::ios::binary);
+    const std::string output{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    const auto check_metadata = [&](const std::string& name, double value) {
+        // Check AMF number entries in the emitted FLV header, before a decoder
+        // can replace its dimensions with the tiny frame's SPS dimensions.
+        std::string entry(2, '\0');
+        AV_WB16(entry.data(), name.size());
+        entry += name;
+        entry.push_back('\0');
+        uint8_t number[8];
+        AV_WB64(number, av_double2int(value));
+        entry.append(reinterpret_cast<const char*>(number), sizeof(number));
+        INFO("FLV metadata: " << name << "=" << value);
+        CHECK(output.find(entry) != std::string::npos);
+    };
+    check_metadata("width", expected_width);
+    check_metadata("height", expected_height);
+    check_metadata("framerate", expected_fps);
     std::error_code error;
     std::filesystem::remove(output_path, error);
 }

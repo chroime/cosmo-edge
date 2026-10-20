@@ -2,12 +2,14 @@
 
 #include <cmath>
 #include <memory>
+#include <optional>
 
 #include "nn/core/blob.h"
 #include "nn/core/macros.h"
 #include "nn/core/status.h"
 #include "nn/utils/model_info_utils.h"
 #include "nn/utils/rect.h"
+#include "util/DetectionGeometry.h"
 
 namespace cosmo::nn {
 
@@ -54,6 +56,10 @@ struct PUBLIC ObjectInfoV1 {
 
     float angle                     = 0;
     std::vector<ClassifyInfo> infos = {};
+
+    // x1/y1/x2/y2 always describe the axis-aligned bounds. Oriented geometry
+    // is optional, including for an oriented box with zero rotation.
+    std::optional<util::Quad> oriented_corners;
 };
 
 typedef enum { NONE = 0, SSD = 1, YOLO = 2 } OutputDecodeType;
@@ -79,13 +85,6 @@ struct PUBLIC Size {
     Size(int w = 0, int h = 0);
     int width  = 0;
     int height = 0;
-};
-
-struct PUBLIC CropParam {
-    int top_left_x = 0;
-    int top_left_y = 0;
-    int width      = 0;
-    int height     = 0;
 };
 
 struct PUBLIC CropResizeParam {
@@ -135,13 +134,8 @@ public:
 
     static ObjectInfoV1 AdjustSize(ObjectInfoV1& info, Size old_, Size new_, int gravity = 0);
 
-    static Status GenerateCropParam(RectCrop* rect_crop, int left, int top, int right, int bottom, Size size,
-                                    CropParam& param);
-
     static Status GenerateCropResizeParam(CropResize* crop_resize, int left, int top, int right, int bottom,
                                           Size size, CropResizeParam& param);
-
-    static Status OptimizePreOps(std::vector<std::unique_ptr<Op>>& ops, bool use_skip = false);
 
     static Status ParseDetectionOutput(std::vector<std::shared_ptr<Blob>>& blobs,
                                        std::vector<Size>& image_sizes, Size net_input_size,

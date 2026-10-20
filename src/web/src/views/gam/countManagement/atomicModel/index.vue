@@ -8,7 +8,7 @@
           :placeholder="t('glossary.searchModelPlaceholder')"
           :prefix-icon="SearchIcon"
           clearable
-          @input="debouncedSearch"
+          @input="handleSearch"
         />
       </div>
       <div class="header-actions">
@@ -70,7 +70,7 @@
         :current-page="pageData.pageNum"
         :page-sizes="[12, 24, 48]"
         :page-size="pageData.pageSize"
-        :total="pageData.total"
+        :total="matchingModels.length"
         layout="total, sizes, prev, pager, next, jumper"
       />
     </div>
@@ -295,6 +295,7 @@ import {
   computed,
   reactive,
   onMounted,
+  onUnmounted,
   nextTick,
   getCurrentInstance
 } from 'vue'
@@ -313,20 +314,12 @@ const router = useRouter()
 
 // ── 搜索与筛选 ──
 const searchKeyword = ref('')
-let searchTimer = null
-const debouncedSearch = () => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
-    formData.modelName = searchKeyword.value.trim()
-    formData.modelCode = ''
-    pageData.pageNum = 1
-    init()
-  }, 300)
-}
+const handleSearch = () => { pageData.pageNum = 1 }
 
 const activeTypeTab = ref('')
 const switchTypeTab = (val) => {
   activeTypeTab.value = val
+  pageData.pageNum = 1
 }
 
 // ── 模型类型映射 ──
@@ -340,8 +333,9 @@ const allModelsCount = ref(0)
 const subTypeToMain = {
   yolov5_det: 'detect', yolov8_det: 'detect', yolov9_det: 'detect',
   yolov11_det: 'detect', yolov12_det: 'detect', yolo26_det: 'detect',
+  yolo26_obb_det: 'detect',
   classify: 'classify', keypoints: 'keypoints', feature: 'feature', ocr: 'ocr',
-  dino: 'foundation', sam2: 'foundation', qwen3vl: 'foundation', qwen3_5: 'foundation'
+  dino: 'foundation', sam2: 'foundation', qwen3vl: 'foundation', qwen3_5: 'foundation', laya_v: 'foundation'
 }
 
 const loadModelTypes = () => {
@@ -395,18 +389,26 @@ const getModelMainType = (model) => {
   return 'other'
 }
 
-// 展示数据：选中类型Tab时展示该类型全部模型，"全部"时展示分页数据
+// All views use complete model records; the type endpoint only supplies membership.
+const matchingModels = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  return allModels.value.filter(model => {
+    const matchesKeyword = !keyword || [model.modelName, model.modelCode]
+      .some(value => String(value || '').toLowerCase().includes(keyword))
+    return matchesKeyword && (!activeTypeTab.value || getModelMainType(model) === activeTypeTab.value)
+  })
+})
 const filteredModels = computed(() => {
-  if (!activeTypeTab.value) return tableData.value
-  // 选中特定类型时，展示该类型全部模型（不分页）
-  return allModelsByType.value[activeTypeTab.value] || []
+  if (activeTypeTab.value) return matchingModels.value
+  const start = (pageData.pageNum - 1) * pageData.pageSize
+  return matchingModels.value.slice(start, start + pageData.pageSize)
 })
 
 // 类型 Tab 计数：使用按类型查询的精确结果
 const modelTypeTabs = computed(() => {
   const byType = allModelsByType.value
   return [
-    { label: t('common.all'), value: '', count: allModelsCount.value || pageData.total },
+    { label: t('common.all'), value: '', count: allModelsCount.value || allModels.value.length },
     { label: t('glossary.modelTypeDetect'), value: 'detect', count: (byType.detect || []).length },
     { label: t('glossary.modelTypeClassify'), value: 'classify', count: (byType.classify || []).length },
     { label: t('glossary.modelTypeKeypoints'), value: 'keypoints', count: (byType.keypoints || []).length },
@@ -503,17 +505,11 @@ const deleteFromDetail = () => {
 }
 
 // ── 原有数据 ──
-const tableData = ref([])
-const formData = reactive({
-  gpuCode: '',
-  modelName: '',
-  modelCode: ''
-})
+const allModels = ref([])
 
 const pageData = reactive({
   pageNum: 1,
-  pageSize: 12,
-  total: 0
+  pageSize: 12
 })
 
 const uploadAlgorithmicVisible = ref(false)
@@ -577,7 +573,8 @@ const modelTypeGroups = computed(() => {
       { label: 'yolov9_det', value: 'yolov9_det' },
       { label: 'yolov11_det', value: 'yolov11_det' },
       { label: 'yolov12_det', value: 'yolov12_det' },
-      { label: 'yolo26_det', value: 'yolo26_det' }
+      { label: 'yolo26_det', value: 'yolo26_det' },
+      { label: 'yolo26_obb_det', value: 'yolo26_obb_det' }
     ]
   },
   {
@@ -803,18 +800,29 @@ const importModelFile = ref(null)
 const importModelLoading = ref(false)
 const importModelUploadRef = ref(null)
 
-const init = () => {
-  const params = {
-    pageNum: pageData.pageNum,
-    pageSize: pageData.pageSize,
-    ...formData
+let repositoryRequest = 0
+const init = async () => {
+  const request = ++repositoryRequest
+  const models = []
+  let pageNum = 1
+  let total = 0
+  try {
+    do {
+      const res = await proxy.$API.getAtomicModelPage({ pageNum, pageSize: 100, modelName: '', modelCode: '', gpuCode: '' })
+      if (request !== repositoryRequest) return
+      const rows = res.resData?.rows || []
+      models.push(...rows)
+      total = Number(res.resData?.total) || 0
+      if (!rows.length) break
+      pageNum += 1
+    } while (models.length < total)
+    allModels.value = models
+    pageData.pageNum = Math.min(pageData.pageNum, Math.max(1, Math.ceil(matchingModels.value.length / pageData.pageSize)))
+  } catch {
+    // The request interceptor displays server and network errors.
   }
-  proxy.$API.getAtomicModelPage(params).then((res) => {
-    const { resData } = res
-    tableData.value = resData.rows || []
-    pageData.total = resData.total
-  })
 }
+onUnmounted(() => { repositoryRequest += 1 })
 
 const refreshModelRepository = () => {
   init()
@@ -876,7 +884,7 @@ const sureEditModel = () => {
         if (res.resCode === 1) {
           proxy.$message.success(t('validate.editSucceeded'))
           editModelDialogVisible.value = false
-          init()
+          refreshModelRepository()
         } else {
           const msg =
             res.resMsg && res.resMsg[0] ? res.resMsg[0].msgText : t('validate.editFailed')
@@ -907,11 +915,8 @@ const sureDeleteModel = () => {
       if (res.resCode === 1) {
         proxy.$message.success(t('validate.deleteSucceeded'))
         deleteModelDialogVisible.value = false
-        formData.gpuCode = ''
-        formData.modelName = ''
-        formData.modelCode = ''
         pageData.pageNum = 1
-        init()
+        refreshModelRepository()
       } else {
         const msg =
           res.resMsg && res.resMsg[0] ? res.resMsg[0].msgText : t('validate.deleteFailed')
@@ -926,11 +931,10 @@ const sureDeleteModel = () => {
 
 const handleCurrentChange = (page) => {
   pageData.pageNum = page
-  init()
 }
 const handleSizeChange = (pageSize) => {
   pageData.pageSize = pageSize
-  init()
+  pageData.pageNum = 1
 }
 
 const addClick = () => {

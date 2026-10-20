@@ -3,17 +3,6 @@ name: Build and Test (x86)
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'test/**'
-      - 'cmake/**'
-      - '3rd/**'
-      - 'prebuild/ffmpeg/x86_64/**'
-      - 'toolchains/**'
-      - 'CMakeLists.txt'
-      - 'scripts/build_cpu_test.sh'
-      - 'tools/test_watchdog_driver.py'
-      - '.github/workflows/ci-build-and-test.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +14,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Test x86 workflow routing and required result
+        run: python3 -m unittest discover -s test -p 'test_x86_workflow.py'
+
+      - name: Determine whether x86 compilation is required
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              echo "required=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+            pull_request)
+              : "${BASE_SHA:?Missing PR base SHA}"
+              : "${HEAD_SHA:?Missing PR head SHA}"
+              ;;
+            *)
+              echo "Unsupported event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          changed_files="$(mktemp)"
+          trap 'rm -f "$changed_files"' EXIT
+          # Match the PR diff, including both sides of renames and deletions.
+          # Capture git's exit code before reading its NUL-delimited output.
+          git diff --name-only --no-renames -z "$BASE_SHA...$HEAD_SHA" -- > "$changed_files"
+          required=false
+          while IFS= read -r -d '' file; do
+            case "$file" in
+              src/*|test/*|cmake/*|3rd/*|prebuild/ffmpeg/x86_64/*|toolchains/*|CMakeLists.txt|scripts/build_cpu_test.sh|tools/test_watchdog_driver.py|.github/workflows/ci-build-and-test.yml)
+                required=true
+                break
+                ;;
+            esac
+          done < "$changed_files"
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+
+  x86-tests:
+    needs: scope
+    if: needs.scope.outputs.required == 'true'
     # Use the same builder image as Dockerfile.x86 — keeps CI and production builds consistent.
     runs-on: ubuntu-latest
     container:
@@ -97,8 +143,40 @@ jobs:
       # ── Surface test summary in GitHub UI ────────────────────────────
       - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        uses: dorny/test-reporter@d1b5dff021aa968b288b02285a8bf47471c5928a # v3.2.0
         with:
           name: Cosmo Tests (x86)
           path: test-results.xml
           reporter: java-junit
+
+  # Keep this required check present even when compilation is not applicable.
+  build-and-test:
+    needs: [scope, x86-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Report required x86 result
+        id: result
+        shell: bash
+        env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          BUILD_REQUIRED: ${{ needs.scope.outputs.required }}
+          BUILD_RESULT: ${{ needs.x86-tests.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$SCOPE_RESULT" == success ]]; then
+            case "$BUILD_REQUIRED:$BUILD_RESULT" in
+              true:success)
+                echo "Required x86 build and tests passed."
+                exit 0
+                ;;
+              false:skipped)
+                echo "No x86 build inputs changed; compilation was not required."
+                exit 0
+                ;;
+            esac
+          fi
+          echo "x86 validation failed: scope=$SCOPE_RESULT required=$BUILD_REQUIRED build=$BUILD_RESULT" >&2
+          exit 1

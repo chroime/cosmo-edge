@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <sstream>
 
+#include "flow/alarm/AlarmVisualState.h"
 #include "flow/alarm/TaskAlarm.h"
 #include "flow/alarm/TaskAlarmInternalTypes.h"
 #include "flow/common/AlarmPrivacySnapshot.h"
@@ -25,8 +26,12 @@ static constexpr const char* kTag = "TaskAlarm ";
 namespace cosmo {
 
 // Set areas — clear previous areas and apply full replacement
-bool TaskAlarm::SetArea(const std::string& /*channelId*/, const std::string& taskId,
+bool TaskAlarm::SetArea(const std::string& channelId, const std::string& taskId,
                         std::vector<MsgTaskArea>& areas, std::vector<MsgTaskArea>& shieldedAreas) {
+    if (channelId != GetChannel() || taskId != GetTaskId())
+        return false;
+    InvalidateVisualAlarmPlan();
+    std::lock_guard<std::mutex> work(m_alarmWorkMutex);
     std::lock_guard<std::shared_mutex> lock(mtx);
     m_areaHaveAsso           = false;
     m_areaAssoIsArea         = false;
@@ -48,6 +53,7 @@ bool TaskAlarm::SetArea(const std::string& /*channelId*/, const std::string& tas
             }
         }
     }
+    RebuildVisualAlarmPlan();
     return true;
 }
 
@@ -107,6 +113,7 @@ DataAlarmUnit TaskAlarm::AlarmDataCombineAlarm(DataAlarmUnit alarm, DataAlarmUni
     // Find the alarm with a trackId as the primary alarm
     if (alarm.trackId < 0) {
         unit = assoAlarm;
+        alarm::AppendVisualState(unit, alarm);
         // Use primary alarm's areaId for overlay region lookup
         unit.areaId   = alarm.areaId;
         unit.areaName = alarm.areaName;
@@ -125,6 +132,7 @@ DataAlarmUnit TaskAlarm::AlarmDataCombineAlarm(DataAlarmUnit alarm, DataAlarmUni
 
     } else {
         unit = alarm;
+        alarm::AppendVisualState(unit, assoAlarm);
         if (!assoAlarm.boxs.empty())
             unit.boxs.insert(unit.boxs.end(), assoAlarm.boxs.begin(), assoAlarm.boxs.end());
         if (!assoAlarm.targets.empty())
@@ -209,6 +217,9 @@ void TaskAlarm::AlarmDataCombine(AlgDataPtr algData) {
 }
 
 void TaskAlarm::HandFrame(AlgDataPtr algData) {
+    std::lock_guard<std::mutex> work(m_alarmWorkMutex);
+    if (m_alarmStopped)
+        return;
     if (!algData) {
         m_filterFrames += 1;
         if (0 == m_filterFrames % 100) {
@@ -225,6 +236,7 @@ void TaskAlarm::HandFrame(AlgDataPtr algData) {
     m_width  = algData->chanDataDec.frame ? algData->chanDataDec.frame->GetWidth() : m_width;
     m_height = algData->chanDataDec.frame ? algData->chanDataDec.frame->GetHeight() : m_height;
 
+    CaptureVisualAlarmCandidates(algData);
     AlarmDataCombine(algData);
 
     TrackAdd(algData);

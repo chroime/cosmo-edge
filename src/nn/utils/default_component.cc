@@ -3,37 +3,15 @@
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
-#include <utility>
 
 #include "nn/pipeline/model_pipeline.h"
 #include "nn/pipeline/pipeline_utils.h"
 
 namespace cosmo::nn {
-namespace {
-
-    DefaultComponent::Options MakeOptions(IProfiler* profiler, std::string tokenizer_path,
-                                          std::string word_table_path, int device_id, bool use_skip) {
-        DefaultComponent::Options options;
-        options.profiler        = profiler;
-        options.tokenizer_path  = std::move(tokenizer_path);
-        options.word_table_path = std::move(word_table_path);
-        options.device_id       = device_id;
-        options.use_skip        = use_skip;
-        return options;
-    }
-
-}  // namespace
 
 std::mutex DefaultComponent::mutex;
 
 // ─── Constructor: parse JSON → create Pipeline → Init ────
-
-DefaultComponent::DefaultComponent(std::string json_path, std::string model_path, DeviceType device_type,
-                                   IProfiler* profiler, std::string tokenizer_path,
-                                   std::string word_table_path, int device_id, bool use_skip)
-    : DefaultComponent(
-          MakeOptions(profiler, std::move(tokenizer_path), std::move(word_table_path), device_id, use_skip),
-          std::move(json_path), std::move(model_path), device_type) {}
 
 DefaultComponent::DefaultComponent(const Options& options, std::string json_path, std::string model_path,
                                    DeviceType device_type) {
@@ -52,7 +30,7 @@ DefaultComponent::DefaultComponent(const Options& options, std::string json_path
     auto& registry = ModelPipelineRegistry::Instance();
     if (!registry.Has(config.model_type)) {
         std::string registered;
-        for (auto& t : registry.GetRegisteredTypes()) {
+        for (const auto& t : registry.GetRegisteredTypes()) {
             if (!registered.empty())
                 registered += ", ";
             registered += t;
@@ -66,7 +44,7 @@ DefaultComponent::DefaultComponent(const Options& options, std::string json_path
         throw std::runtime_error("Failed to create pipeline for: " + config.model_type);
 
     status = pipeline_->Init(config, model_path, device_type, options.device_id, options.profiler,
-                             options.tokenizer_path, options.word_table_path, options.use_skip);
+                             options.tokenizer_path, options.word_table_path);
     if (!bool(status))
         throw std::runtime_error("Pipeline init failed: " + std::string(status.description()));
 }
@@ -84,6 +62,10 @@ Status DefaultComponent::Forward(std::initializer_list<std::vector<std::shared_p
 Status DefaultComponent::ParseDinoOutput(std::vector<std::vector<ObjectInfoV1>>& outputs,
                                          float text_threshold, float box_threshold) {
     return pipeline_->ParseDinoDetectionOutput(outputs, text_threshold, box_threshold);
+}
+
+Status DefaultComponent::PrepareText(const std::string& input, std::string& output) {
+    return pipeline_->PrepareText(input, output);
 }
 
 int DefaultComponent::GetMaxBatchSize() const {

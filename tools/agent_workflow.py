@@ -18,6 +18,8 @@ from pathlib import Path
 from secrets import token_hex
 from typing import Any, Iterable
 
+import source_toolchain
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
@@ -197,6 +199,18 @@ class WorkflowError(ValueError):
     """Raised for invalid contracts or unsafe workflow paths."""
 
 
+def _runs_root(project_root: Path) -> Path:
+    configured = os.environ.get("COSMO_AGENT_RUNS_ROOT")
+    if configured is None:
+        return (project_root / "output" / "agent-runs").resolve()
+    if not configured.strip():
+        raise WorkflowError("COSMO_AGENT_RUNS_ROOT must be an absolute directory")
+    runs_root = Path(configured).expanduser()
+    if not runs_root.is_absolute():
+        raise WorkflowError("COSMO_AGENT_RUNS_ROOT must be an absolute directory")
+    return runs_root.resolve()
+
+
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -271,6 +285,12 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
         return False
 
 
+def _display_path(path: Path, project_root: Path = PROJECT_ROOT) -> str:
+    if _is_relative_to(path, project_root):
+        return path.relative_to(project_root).as_posix()
+    return str(path)
+
+
 def resolve_contract_context(
     contract_arg: str | os.PathLike[str], project_root: Path = PROJECT_ROOT
 ) -> tuple[Path, Path, dict[str, Any]]:
@@ -282,13 +302,13 @@ def resolve_contract_context(
         contract_path = candidate.resolve(strict=True)
     except FileNotFoundError as error:
         raise WorkflowError(f"contract does not exist: {candidate}") from error
-    runs_root = (root / "output" / "agent-runs").resolve()
+    runs_root = _runs_root(root)
     if not _is_relative_to(contract_path, runs_root):
-        raise WorkflowError("contract must stay under output/agent-runs/<run-id>/")
+        raise WorkflowError(f"contract must stay under {runs_root}/<run-id>/")
     run_dir = contract_path.parent
     relative = contract_path.relative_to(runs_root)
     if len(relative.parts) != 2 or relative.parts[1] != "task-contract.json":
-        raise WorkflowError("contract path must be output/agent-runs/<run-id>/task-contract.json")
+        raise WorkflowError(f"contract path must be {runs_root}/<run-id>/task-contract.json")
     data = validate_contract(load_json(contract_path))
     if data["runId"] != run_dir.name:
         raise WorkflowError("runId must match the contract directory name")
@@ -885,6 +905,15 @@ def _toolchain_spec(parameters: dict[str, Any]) -> tuple[dict[str, Any] | None, 
     kind = raw.get("kind", "auto")
     if kind not in TOOLCHAIN_KINDS:
         return None, "parameters.toolchain.kind must be auto, python-package, or container-image."
+    layout = raw.get("layout", "python-package")
+    if layout not in {"python-package", "source-tree"}:
+        return None, "parameters.toolchain.layout must be python-package or source-tree."
+    if layout == "source-tree" and (kind != "container-image" or family != "sophon"):
+        return None, "source-tree layout requires a Sophon container-image toolchain."
+    if layout == "source-tree" and "package" in raw:
+        return None, "source-tree layout freezes compiler files, not a Python distribution package."
+    if layout == "source-tree":
+        default_module = "pymlir"
     package = str(raw.get("package", default_package)).strip()
     if not TOOLCHAIN_PACKAGE_PATTERN.fullmatch(package):
         return None, "parameters.toolchain.package contains unsupported characters."
@@ -911,6 +940,13 @@ def _toolchain_spec(parameters: dict[str, Any]) -> tuple[dict[str, Any] | None, 
     ):
         return None, "parameters.toolchain.toolPaths must contain supported non-empty command paths."
     normalized["toolPaths"] = {key: value.strip() for key, value in tool_paths.items()}
+    if layout == "source-tree":
+        try:
+            normalized["sourceTree"] = source_toolchain.normalize(raw)
+        except ValueError as error:
+            return None, str(error)
+        normalized["layout"] = layout
+        normalized.pop("package")
     if kind in {"auto", "python-package"}:
         executable = raw.get("pythonExecutable")
         if executable is not None and (not isinstance(executable, str) or not executable.strip()):
@@ -955,7 +991,7 @@ def _parse_toolchain_probe(
 
 
 def inspect_toolchain(specification: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
-    package = str(specification["package"])
+    package = str(specification.get("package", "tpu_mlir"))
     expected_version = specification.get("version")
     tool_paths = json.dumps(specification.get("toolPaths", {}), sort_keys=True)
     family = str(specification.get("family", "sophon"))
@@ -995,6 +1031,16 @@ def inspect_toolchain(specification: dict[str, Any]) -> tuple[dict[str, Any] | N
             return None, (
                 f"declared toolchain image {specification['image']} is unavailable: {image_error}"
             )
+        source_layout = specification.get("layout") == "source-tree"
+        if source_layout:
+            try:
+                source_toolchain.validate_host_root(specification)
+            except ValueError as error:
+                return None, str(error)
+        probe_arguments = (
+            [source_toolchain.PROBE_SCRIPT, specification["sourceTree"]["sourceMount"], tool_paths, module]
+            if source_layout else [TOOLCHAIN_PROBE_SCRIPT, package, tool_paths, family, module]
+        )
         process = _run(
             [
                 "docker",
@@ -1002,30 +1048,29 @@ def inspect_toolchain(specification: dict[str, Any]) -> tuple[dict[str, Any] | N
                 "--rm",
                 "--network",
                 "none",
+                *source_toolchain.docker_arguments(specification),
                 "--entrypoint",
                 "python3",
                 str(image["id"]),
                 "-c",
-                TOOLCHAIN_PROBE_SCRIPT,
-                package,
-                tool_paths,
-                family,
-                module,
+                *probe_arguments,
             ],
-            timeout=120,
+            timeout=300 if source_layout else 120,
         )
         identity, error = _parse_toolchain_probe(
             process,
             kind="container-image",
             image=image,
         )
+        if identity and source_layout:
+            identity["sourceTree"] = specification["sourceTree"]
     if not identity:
         return None, error
     identity["officialReference"] = specification.get(
         "officialReference",
         RKNN_TOOLKIT2_OFFICIAL_REFERENCE if family == "rknn" else TPU_MLIR_OFFICIAL_REFERENCE,
     )
-    actual_version = str(identity.get("package", {}).get("version", ""))
+    actual_version = str(identity.get("compiler", identity.get("package", {})).get("version", ""))
     if not _version_satisfies(actual_version, expected_version):
         return None, (
             f"{package}={actual_version or 'unknown'} does not satisfy "
@@ -1089,6 +1134,7 @@ def _toolchain_tools_respond(identity: dict[str, Any]) -> tuple[bool, str]:
                 "--rm",
                 "--network",
                 "none",
+                *source_toolchain.docker_arguments(identity),
                 "--entrypoint",
                 path if invocation == "direct" else str(identity["pythonExecutable"]),
                 str(image_id),
@@ -1102,7 +1148,11 @@ def _toolchain_tools_respond(identity: dict[str, Any]) -> tuple[bool, str]:
             env=toolchain_environment(identity),
         )
         output = f"{process.stdout}\n{process.stderr}".strip()
-        if process.returncode not in (0, 1, 2) or not output:
+        required_flags = {"modelTransform": "--model_def", "modelDeploy": "--mlir"}
+        source_help_invalid = identity.get("layout") == "source-tree" and (
+            process.returncode != 0 or required_flags[key] not in output or "Traceback (" in output
+        )
+        if process.returncode not in (0, 1, 2) or not output or source_help_invalid:
             failures.append(
                 f"{key} did not answer --help ({_first_line(process.stderr) or process.returncode})"
             )
@@ -1556,14 +1606,15 @@ def task_environment_report(
                 tools_ready, tools_error = _toolchain_tools_respond(inspected)
                 if tools_ready:
                     toolchain = inspected
+                    compiler_info = inspected.get("compiler", inspected.get("package", {}))
                     checks.append(
                         _check(
                             "C5",
                             "PASS",
                             (
                                 f"Complete {toolchain_label} toolchain is frozen as {inspected['id']} "
-                                f"({inspected['package']['name']} "
-                                f"{inspected['package']['version']})."
+                                f"({compiler_info['name']} "
+                                f"{compiler_info['version']})."
                             ),
                         )
                     )
@@ -1586,6 +1637,7 @@ def task_environment_report(
                     toolchain_family == "sophon"
                     and
                     toolchain_spec["kind"] == "container-image"
+                    and toolchain_spec.get("layout") != "source-tree"
                     and str(toolchain_spec.get("image", "")).startswith("sophgo/tpuc_dev:")
                 )
                 checks.append(
@@ -1852,7 +1904,7 @@ def create_task_run(
         sources.append(source)
 
     root = project_root.resolve()
-    runs_root = root / "output" / "agent-runs"
+    runs_root = _runs_root(root)
     runs_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     run_dir = runs_root / selected_run_id
     try:
@@ -1916,7 +1968,7 @@ def create_task_run(
         "task": task,
         "userObjective": objective,
         "expectedDeliverables": requested_deliverables,
-        "allowedChanges": [f"output/agent-runs/{selected_run_id}/"],
+        "allowedChanges": [_display_path(run_dir, root) + "/"],
         "requiredCapabilities": [],
         "acceptance": {},
         "authority": authority,
@@ -1998,7 +2050,7 @@ def _print_report(report: dict[str, Any], output_format: str) -> None:
 
 def doctor_main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="doctor.sh",
+        prog="python3 tools/agent_workflow.py doctor",
         description="Read-only CosmoEdge development-environment inventory and task admission.",
     )
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -2024,7 +2076,7 @@ def doctor_main(arguments: list[str]) -> int:
 
 def assess_main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="assess.sh",
+        prog="python3 tools/agent_workflow.py assess",
         description="Read-only intent, material, route, and authority assessment.",
     )
     parser.add_argument("--contract", required=True)
@@ -2039,7 +2091,7 @@ def assess_main(arguments: list[str]) -> int:
 
 def start_main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="start.sh",
+        prog="python3 tools/agent_workflow.py start",
         description="Create a private task run from ordinary user intent and assess its route.",
     )
     parser.add_argument("--task", default="model-conversion")
@@ -2063,9 +2115,9 @@ def start_main(arguments: list[str]) -> int:
         run_id=options.run_id,
     )
     result = {
-        "runDirectory": run_dir.relative_to(PROJECT_ROOT).as_posix(),
-        "contract": contract_path.relative_to(PROJECT_ROOT).as_posix(),
-        "routeAssessment": (run_dir / "route-assessment.json").relative_to(PROJECT_ROOT).as_posix(),
+        "runDirectory": _display_path(run_dir),
+        "contract": _display_path(contract_path),
+        "routeAssessment": _display_path(run_dir / "route-assessment.json"),
         "routeVerdict": assessment["routeVerdict"],
         "needsInput": assessment["needsInput"],
         "authorityGrants": sorted(_authority_grants(contract)),
@@ -2087,7 +2139,7 @@ def start_main(arguments: list[str]) -> int:
 
 def authorize_main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="authorize.sh",
+        prog="python3 tools/agent_workflow.py authorize",
         description="Record task-scoped coarse authority after explicit user confirmation.",
     )
     parser.add_argument("--contract", required=True)

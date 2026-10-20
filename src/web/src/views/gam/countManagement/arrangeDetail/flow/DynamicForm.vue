@@ -61,7 +61,14 @@
           </template>
 
           <!-- 下拉选择框 -->
-          <div v-if="item.type.includes('modelSelect')">
+          <library-select
+            v-if="isPictureMatchLibrary(item)"
+            v-model="item.value"
+            @update:model-value="updatePictureMatchParam(item, $event)"
+            :type="item.key === 'param.faceSet' ? 'faceSet' : 'workClothesSet'"
+            class="form-content"
+          />
+          <div v-else-if="item.type.includes('modelSelect')">
             <el-select v-model="item.value" class="form-content" @change="modelSelectChange" :placeholder="t('validate.pleaseSelect', { name: '' })" filterable size="small">
               <el-option v-for="obj in atomicModelList" :key="obj.atomicCode" :label="`${obj.atomicName}（${obj.atomicCode}）`" :value="obj.atomicCode">
               </el-option>
@@ -94,9 +101,11 @@
             <el-switch v-model="item.value" active-value="1" inactive-value="0"></el-switch>
           </div>
 
+          <VisualQuestionEditor v-else-if="item.type === 'visualQuestions'" v-model="item.value" />
+
           <!-- 输入框 -->
           <div v-else-if="item.type=== 'text'">
-            <el-input v-model="item.value" class="form-content" size="small"></el-input>
+            <el-input v-model="item.value" class="form-content" size="small" @update:model-value="updatePictureMatchParam(item, $event)"></el-input>
           </div>
 
           <!-- 树选择器多选 -->
@@ -268,7 +277,7 @@
 
         <!-- 条件判断定制组件  -->
         <div v-else-if="item.type === 'condition'">
-          <condition-view ref="conditionRef" :condition="condition" :flowData="flowData" :atomicList="atomicList" @onClick="onClick"></condition-view>
+          <condition-view ref="conditionRef" :condition="condition" :flowData="conditionFlowData" :atomicList="atomicList" @onClick="onClick"></condition-view>
         </div>
       </div>
     </el-form>
@@ -276,10 +285,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, getCurrentInstance, watch, computed, toRef } from 'vue'
+import VisualQuestionEditor from '@/components/VisualQuestionEditor.vue'
+import { matchesParamDependency } from '@/utils/taskParamOwnership'
+import { ref, onMounted, onBeforeUnmount, getCurrentInstance, watch, computed, toRef, inject } from 'vue'
 import ConditionView from './ConditionView.vue'
+import LibrarySelect from './LibrarySelect.vue'
 import { v4 } from 'uuid'
-import EventBus from '@/components/eventBus.js'
+import { flowEditorKey } from './flowEditorContext.js'
 import TreeSelectMultiple from './TreeSelectMultiple.vue'
 import TreeTransfer from 'tree-transfer-vue3'
 import _ from 'lodash'
@@ -322,12 +334,34 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
+  sceneParams: {
+    type: Array,
+    default: () => []
+  },
   atomicList: {
     type: Array,
     default: () => []
   }
 })
-const emit = defineEmits(['config-change'])
+const emit = defineEmits(['config-change', 'picture-match-param-change'])
+
+const isPictureLibraryMatch = computed(
+  () => (props.actionDetail?.actionId || props.actionDetail?.id) === 'PB_00006'
+)
+const isPicturePairMatch = computed(() => (props.actionDetail?.actionId || props.actionDetail?.id) === 'PB_00007')
+const isPictureComparison = computed(() => isPictureLibraryMatch.value || isPicturePairMatch.value)
+const isPairThreshold = item => isPicturePairMatch.value && item.key === 'pair.threshold'
+const isPictureMatchLibrary = item => isPictureLibraryMatch.value &&
+  (item.key === 'param.faceSet' || item.key === 'param.workClothesSet')
+const updatePictureMatchParam = (item, value) => {
+  if (!isPairThreshold(item) && !isPictureMatchLibrary(item) && !(isPictureLibraryMatch.value && item.key === 'param.limitScore')) return
+  // Only explicit edits update scene defaults; hydration must not overwrite them.
+  emit('picture-match-param-change', { ...item, value: String(value ?? ''), defaultValue: String(value ?? '') })
+}
+const editor = inject(flowEditorKey, null)
+const conditionFlowData = computed(() => (editor?.nodes?.value || [])
+  .filter(node => node.data?.flowData?.actionId)
+  .map(node => ({ ...node.data.flowData, configObject: node.data.configObject })))
 
 const isAreaAlarmAction = computed(
   () =>
@@ -473,13 +507,19 @@ const formReady = ref(false)
 onMounted(() => {
   const params = JSON.parse(props.actionDetail.inputParamConfig)
   params.forEach((item, index) => {
-    const input = _.find(props.configObject?.params, {
-      key: item.key
-    })
+    // Nonempty scene defaults override node params during picture execution.
+    const sceneDefault = (isPairThreshold(item) || (isPictureLibraryMatch.value &&
+      (isPictureMatchLibrary(item) || item.key === 'param.limitScore')))
+      ? props.sceneParams.find(param => param.key === item.key)?.defaultValue
+      : undefined
+    const input = sceneDefault !== undefined && sceneDefault !== null && (isPairThreshold(item) || String(sceneDefault) !== '')
+      ? { value: sceneDefault }
+      : _.find(props.configObject?.params, { key: item.key }) ||
+        _.find(props.configObject?.webConfig?.metaDataParams, { key: item.key })
     if (input) {
       paramConfigs.value.push({
         ...item,
-        value: input.value
+        value: input.value ?? input.defaultValue ?? item.defaultValue ?? ''
       })
     } else {
       paramConfigs.value.push({
@@ -498,8 +538,6 @@ onMounted(() => {
     areaRuleUiType.value = inferAreaRuleUiType(currentAreaParams.value)
     areaRulePurpose.value = getAreaRulePurpose(areaRuleUiType.value)
   }
-
-  console.log(paramConfigs.value, '=============paramConfigs', props.atomicList)
 
   const modelSelect = _.find(paramConfigs.value, function (obj) {
     return obj.type.includes('modelSelect')
@@ -836,11 +874,11 @@ const getModelSelectList = (code, type) => {
     filePath: ''
   }
   if (arr.length > 1) {
-    params.modelType = arr[1]
+    params.modelType = arr.slice(1).join('_')
   }
 
-  // qwen3vl 组件同时查询 qwen3_5 模型
-  const needMergeQwen35 = (params.modelType === 'qwen3vl')
+  // Existing local VLM tasks can bind any supported native VLM model.
+  const needMergeLocalVlm = (params.modelType === 'qwen3vl')
 
   const fetchList = (mt) => {
     return $API.atomicModelList({ ...params, modelType: mt }).then((res) => {
@@ -849,15 +887,12 @@ const getModelSelectList = (code, type) => {
   }
 
   const promises = [fetchList(params.modelType)]
-  if (needMergeQwen35) {
-    promises.push(fetchList('qwen3_5'))
+  if (needMergeLocalVlm) {
+    promises.push(fetchList('qwen3_5'), fetchList('laya_v'))
   }
 
   Promise.all(promises).then((results) => {
-    let merged = results[0]
-    if (results.length > 1) {
-      merged = merged.concat(results[1])
-    }
+    const merged = results.flat()
     atomicModelList.value = merged
     console.log(atomicModelList.value, '-llllllll')
     const atomic = _.find(atomicModelList.value, {
@@ -943,11 +978,15 @@ const isDependsOnSatisfied = (obj, visited = new Set()) => {
   if (visited.has(obj.key)) return false
   visited.add(obj.key)
   const dependsOn = _.find(paramConfigs.value, { key: obj.dependsOn.key })
-  if (!dependsOn || obj.dependsOn.value != dependsOn.value) return false
+  if (!dependsOn || !matchesParamDependency(obj, dependsOn.value)) return false
   return isDependsOnSatisfied(dependsOn, visited)
 }
 
 const showFormItem = (obj) => {
+  if (isPictureMatchLibrary(obj)) {
+    const kind = paramConfigs.value.find(item => item.key === 'match.libraryType')?.value || 'face'
+    return obj.key === (kind === 'body' ? 'param.workClothesSet' : 'param.faceSet') && isDependsOnSatisfied(obj)
+  }
   if (isAreaAlarmAction.value && areaRuleTechnicalKeys.includes(obj.key)) {
     return false
   }
@@ -958,7 +997,7 @@ const showFormItem = (obj) => {
   ) {
     return false
   }
-  if (obj.level === '2') return false
+  if (obj.level === '2' && obj.type !== 'visualQuestions' && !isPairThreshold(obj) && !(isPictureLibraryMatch.value && obj.key === 'param.limitScore')) return false
   if (hiddenParamKeys.includes(obj.key)) return false
   return isDependsOnSatisfied(obj)
 }
@@ -1036,7 +1075,7 @@ const emitAtomicUpdate = () => {
   const atomicName =
     selectedAtomic.value?.atomicName || selectedAtomic.value?.modelName || ''
   if (position && (atomicCode || resultFilter.length)) {
-    EventBus.$emit('flow:atomic:update', {
+    editor?.updateAtomic({
       position,
       atomicCode,
       atomicName,
@@ -1228,7 +1267,6 @@ const onClick = (obj) => {
   }
 
   console.log(condition.value)
-  EventBus.$emit('onCondition')
 }
 
 const removeObject = (obj, targetKey) => {
@@ -1279,7 +1317,7 @@ const submitForm = () => {
         const dependsOn = _.find(configObject.params, {
           key: item.dependsOn.key
         })
-        if (dependsOn && item.dependsOn.value === dependsOn.value) {
+        if (dependsOn && matchesParamDependency(item, dependsOn.value)) {
           configObject.params.push({ key: item.key, value: item.value })
         } else {
           targetLabelArr.value = []
@@ -1483,11 +1521,12 @@ const submitForm = () => {
   }
   paramConfigs.value.forEach((item) => {
     if (item.level === '2') {
+      if (isPictureMatchLibrary(item) && !showFormItem(item)) return
       if (item.dependsOn) {
         const dependsOn = _.find(configObject.params, {
           key: item.dependsOn.key
         })
-        if (dependsOn && item.dependsOn.value === dependsOn.value) {
+        if (dependsOn && matchesParamDependency(item, dependsOn.value)) {
           configObject.webConfig.metaDataParams.push({
             ...item,
             position: props.actionDetail.flowActionId
@@ -1522,6 +1561,22 @@ const submitForm = () => {
         configObject.webConfig.metaDataParams
       )
     }
+  }
+  if (String(props.actionDetail.actionId || props.actionDetail.id || '').startsWith('P')) {
+    configObject.webConfig.metaDataParams = configObject.webConfig.metaDataParams.filter(item => !String(item.key).endsWith('.detPostion'))
+    if (labelFilterListType.value) {
+      targetLabelArr.value.forEach(item => configObject.params.push({
+        key: `filter.${item.labelCode}.side.min`, value: item.sideMinIsEnable == '1' ? '60' : '0'
+      }))
+    }
+    // Picture execution does not have a channel form to materialize defaults.
+    configObject.webConfig.metaDataParams.forEach(item => {
+      const value = isPictureComparison.value ? (item.value ?? item.defaultValue) : (item.value || item.defaultValue)
+      if (isPictureComparison.value) item.defaultValue = value
+      if (value !== undefined && (value !== '' || isPictureMatchLibrary(item) || isPairThreshold(item)) && !configObject.params.some(param => param.key === item.key)) {
+        configObject.params.push({ key: item.key, value: String(value) })
+      }
+    })
   }
   return configObject
 }

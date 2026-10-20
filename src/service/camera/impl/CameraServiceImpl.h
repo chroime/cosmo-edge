@@ -55,8 +55,7 @@ public:
 
     // ---- Per-camera task runtime state (not persisted) ----
     mutable std::shared_mutex task_mtx_;  // Protects tasks_
-    std::vector<CameraTaskPtr> tasks_;    // Max 5 algorithm tasks per channel
-    size_t max_task_count_{5};
+    std::vector<CameraTaskPtr> tasks_;    // Algorithm tasks assigned to this channel
 
     std::string conf_file_path_{};  // ${cameraCfgPath}/${cameraId}
     std::string conf_task_list_{"taskList.json"};
@@ -69,6 +68,7 @@ public:
 
     mutable std::mutex attr_mtx_;
     MsgCameraAttr cached_attr_{};  // Cached resolution/codec/fps
+    std::string probed_error_;     // Protected by attr_mtx_, together with probe status publication.
     // Serializes commands that schedule/join switch_thread_ and destructive
     // per-camera operations. deleting_ is protected by this mutex.
     std::mutex command_mtx_;
@@ -125,6 +125,8 @@ public:
     util::ErrorEnum QuerySwitch(const std::string& cameraId, const std::string& algorithmId,
                                 bool& enable) override;
     util::ErrorEnum DeleteTask(const std::string& cameraId, const std::string& algorithmId) override;
+    util::ErrorEnum PrepareTask(const std::string& cameraId, const std::string& algorithmId,
+                                const MsgTaskConfig& params, const std::string& scheduleId) override;
     std::vector<service::camera::CameraTaskDto> GetTasks(const std::string& cameraId) override;
     void NotifyAlgorithmsChanged(const std::vector<std::string>& algorithmIds, bool restartRunning) override;
     void NotifyAlgorithmsDeleted(const std::vector<std::string>& algorithmIds) override;
@@ -159,14 +161,24 @@ public:
     AlgChannelPtr GetChannelInst(const std::string& channelId) override;
     std::string GetChannelName(const std::string& channelId) const override;
     void InitCameraEntities() override;
+    util::ErrorEnum SwitchManagedTask(const std::string& cameraId, const std::string& algorithmId,
+                                      bool enabled) override;
+    bool FlushConfiguration() override {
+        return SaveConfig();
+    }
 
 private:
     // ---- Config persistence ----
     void LoadConfig();
-    void SaveConfig();
+    bool SaveConfig();
+    util::ErrorEnum SetTaskEnabled(const std::string& cameraId, const std::string& algorithmId, bool enable,
+                                   bool respectSchedule);
 
     // ---- Camera lookup ----
     std::string GetVideoFileName(const std::string& id, const std::string& url);
+    bool ResolveSourceUrl(MsgCameraType sourceType, const std::string& source, std::string& logicalUrl,
+                          std::string& mediaUrl) const;
+
     CameraEntityPtr GetCamera(const std::string& cameraId);
     CameraEntityPtr GetCamera(const std::string& cameraId) const;
     template <typename Func>
@@ -188,7 +200,9 @@ private:
     void InitCameraChannel(CameraEntityPtr camera);
     void DestroyCameraChannel(CameraEntityPtr camera);
     void LoadCameraTaskList(CameraEntityPtr camera);
-    void SaveCameraTaskList(const CameraEntityPtr& camera);
+    bool SaveCameraTaskList(const CameraEntityPtr& camera);
+    util::ErrorEnum SaveTask(const std::string& cameraId, const std::string& algorithmId,
+                             const MsgTaskConfig& params, const std::string& scheduleId, bool enable);
     util::ErrorEnum MakeCameraTask(const CameraEntityPtr& camera, CameraTaskPtr task);
     util::ErrorEnum CheckTaskStartResource() const;
     void PrepareCameraTaskOverview(const CameraEntityPtr& camera, CameraTaskPtr task);

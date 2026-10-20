@@ -2,6 +2,8 @@
 
 #include "service/algorithm/impl/AlgorithmValidator.h"
 
+#include "service/algorithm/impl/AlgorithmJsonCodec.h"
+#include "service/algorithm/impl/AlgorithmPacketLoader.h"
 #include "service/detail/ServiceRegistry.h"
 #include "service/model/IModelQuery.h"
 #include "util/FileUtil.h"
@@ -23,13 +25,22 @@ cosmo::util::ErrorEnum AlgorithmValidator::ValidateAlgorithmName(const std::stri
 
 cosmo::util::ErrorEnum AlgorithmValidator::ParseAndValidatePacket(const std::string& unZipFile,
                                                                   algorithm::AlgorithmPacketInfo& cfgInfo) {
-    auto content = cosmo::util::ReadFile(unZipFile);
-    if (!cosmo::util::DecodeJson(content, cfgInfo)) {
+    auto content        = cosmo::util::ReadFile(unZipFile);
+    const auto document = nlohmann::json::parse(content, nullptr, false);
+    if (document.is_object() && document.contains("algorithmId")) {
+        // The scene editor/exporter writes layout JSON with string-valued codes.
+        // Use the same layout parser as startup so an exported scene can be
+        // imported without losing its question catalog or workflow parameters.
+        std::string code;
+        if (!AlgorithmPacketLoader::ParsePacketFromJson(document, unZipFile, code, cfgInfo))
+            return cosmo::util::ErrorEnum::Failed;
+    } else if (!cosmo::util::DecodeJson(content, cfgInfo)) {
         return cosmo::util::ErrorEnum::Failed;
     }
 
     cfgInfo.processdata = std::make_shared<cosmo::ActionAlg>();
-    if (!cosmo::util::DecodeJson(cfgInfo.algorithmProcessdata, cfgInfo.processdata->workFlow)) {
+    if (!cosmo::util::DecodeJson(NormalizeAlgorithmProcessdataParamValues(cfgInfo.algorithmProcessdata),
+                                 cfgInfo.processdata->workFlow)) {
         return cosmo::util::ErrorEnum::Failed;
     }
 
@@ -42,6 +53,20 @@ cosmo::util::ErrorEnum AlgorithmValidator::ParseAndValidatePacket(const std::str
         return cosmo::util::ErrorEnum::ActionAlgArrangeConfigFail;
     }
 
+    if (cfgInfo.algorithmUsage == 2) {
+        MsgAlgorithmMetaData pictureMetadata;
+        if (DecodeAlgorithmMetadata(cfgInfo.algorithmMetadata, pictureMetadata)) {
+            for (const auto& param : pictureMetadata.params) {
+                // An empty pair threshold explicitly requests scores without a decision.
+                if (param.defaultValue.empty() && param.key != "pair.threshold")
+                    continue;
+                MsgDynamicKeyValue value;
+                value.key   = param.key;
+                value.value = param.defaultValue;
+                cfgInfo.processdata->pictureDefaults.push_back(std::move(value));
+            }
+        }
+    }
     ValidateModels(cfgInfo);
 
     return cosmo::util::ErrorEnum::Success;

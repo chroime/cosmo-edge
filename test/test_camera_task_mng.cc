@@ -57,6 +57,8 @@ struct CameraTaskMngDependencies {
         cosmo::test::AllowTaskMutationSuccess(taskSvc, expectations);
         cosmo::test::AllowAlgorithmLookupDefaults(algSvc, expectations);
         cosmo::test::AllowOverviewDisabled(appInfoSvc, expectations);
+        expectations.push_back(
+            NAMED_ALLOW_CALL(taskSvc, GetTaskStatus(_, _)).RETURN(std::vector<cosmo::TaskStatus>{}));
         expectations.push_back(NAMED_ALLOW_CALL(scheduleSvc, GetDefaultId()).RETURN("default_sched"));
         expectations.push_back(NAMED_ALLOW_CALL(configReadSvc, GetResourceLimit()).RETURN(false));
     }
@@ -149,6 +151,48 @@ struct TestFixture {
 };
 }  // namespace
 
+TEST_CASE("Camera queries expose initialization failure and clear it after recovery",
+          "[CameraServiceImpl][diagnostics]") {
+    const std::string camera_id = "test_camera_init_failure";
+    std::filesystem::remove_all(CameraConfigRoot() / camera_id);
+    TestFixture fx(camera_id, "rtsp://127.0.0.1:1/test");
+    ALLOW_CALL(fx.mocks.scheduleSvc, Exist2("sched1", _)).LR_SIDE_EFFECT(_2 = "Schedule 1").RETURN(true);
+    ALLOW_CALL(fx.mocks.scheduleSvc, InRunTime("sched1")).RETURN(true);
+    MsgTaskConfig config;
+    REQUIRE(fx.svc.SaveOrUpdateTask(camera_id, "test_alg", config, "sched1") == util::ErrorEnum::Success);
+    DrainSwitchThreads(fx.svc);
+
+    TaskStatus runtime;
+    runtime.channelId   = camera_id;
+    runtime.taskId      = camera_id + "_test_alg";
+    runtime.algorithmId = "test_alg";
+    runtime.queStatus.emplace_back();
+    runtime.queStatus.back().actionStatus = util::ErrorEnum::AI_INST_CREATEFAILED;
+    ALLOW_CALL(fx.mocks.taskSvc, GetTaskStatus(_, _)).LR_RETURN(std::vector<TaskStatus>{runtime});
+    fx.mocks.taskSvc.mock_dataStatus = static_cast<int>(service::camera::AlgDemuxStatus::AlgDemuxReading);
+
+    auto tasks = fx.svc.GetTasks(camera_id);
+    REQUIRE(tasks.size() == 1);
+    CHECK(tasks[0].enable);
+    CHECK(tasks[0].runtimeState == "failed");
+    size_t total = 0;
+    auto rows    = fx.svc.Query("", -1, 1, 10, total);
+    REQUIRE(rows.size() == 1);
+    REQUIRE(rows[0].taskList.size() == 1);
+    CHECK(rows[0].taskList[0].status == static_cast<int>(CameraTaskStatus::kAbnormal));
+
+    runtime.queStatus.back().actionStatus = util::ErrorEnum::AI_INST_CREATED;
+    CHECK(fx.svc.GetTasks(camera_id)[0].runtimeState == "running");
+    CHECK(fx.svc.Query("", -1, 1, 10, total)[0].taskList[0].status ==
+          static_cast<int>(CameraTaskStatus::kInService));
+    REQUIRE(fx.svc.SwitchTask(camera_id, "test_alg", false) == util::ErrorEnum::Success);
+    DrainSwitchThreads(fx.svc);
+    runtime.queStatus.back().actionStatus = util::ErrorEnum::AI_INST_CREATEFAILED;
+    CHECK(fx.svc.GetTasks(camera_id)[0].runtimeState == "stopped");
+    CHECK(fx.svc.Query("", -1, 1, 10, total)[0].taskList[0].status ==
+          static_cast<int>(CameraTaskStatus::kStop));
+}
+
 TEST_CASE("CameraServiceImpl basic task operations", "[CameraServiceImpl]") {
     std::filesystem::remove_all(CameraConfigRoot() / "test_camera_01");
     TestFixture fx("test_camera_01", "rtsp://test");
@@ -173,6 +217,53 @@ TEST_CASE("CameraServiceImpl basic task operations", "[CameraServiceImpl]") {
         auto ret = fx.svc.DeleteTask(fx.cameraId, "non_existent");
         REQUIRE(ret == util::ErrorEnum::TaskNotExist);
     }
+}
+
+TEST_CASE("CameraServiceImpl supports more than five tasks per channel", "[CameraServiceImpl]") {
+    CameraTaskMngDependencies mocks;
+    const std::string cameraId = "test_camera_many_tasks";
+    std::filesystem::remove_all(CameraConfigRoot() / cameraId);
+    CameraServiceImpl svc;
+    MsgCameraInfo config;
+    config.videoChannelId = cameraId;
+    config.channelName    = "test";
+    config.url            = "rtsp://127.0.0.1:1/test";
+    config.channelType    = MsgCameraType::MsgCameraTypeLive;
+    std::string outId;
+    REQUIRE(svc.Add(config, outId) == util::ErrorEnum::Success);
+    ALLOW_CALL(mocks.scheduleSvc, Exist2("sched1", _)).LR_SIDE_EFFECT(_2 = "Schedule 1").RETURN(true);
+
+    for (int i = 0; i < 8; ++i) {
+        const auto algorithmId = "test_alg_" + std::to_string(i);
+        CAPTURE(algorithmId);
+        if (i % 3 == 0) {
+            REQUIRE(svc.ModifyTaskStrategy(cameraId, algorithmId, "sched1") == util::ErrorEnum::Success);
+        } else if (i % 3 == 1) {
+            REQUIRE(svc.SwitchTask(cameraId, algorithmId, false) == util::ErrorEnum::Success);
+        } else {
+            MsgTaskConfig params;
+            REQUIRE(svc.PrepareTask(cameraId, algorithmId, params, "sched1") == util::ErrorEnum::Success);
+        }
+    }
+    REQUIRE(svc.GetTasks(cameraId).size() == 8);
+
+    // Reassigning an existing algorithm must not create a duplicate task.
+    REQUIRE(svc.ModifyTaskStrategy(cameraId, "test_alg_0", "sched1") == util::ErrorEnum::Success);
+    REQUIRE(svc.GetTasks(cameraId).size() == 8);
+    svc.Stop();
+
+    // A new service must restore every persisted task and allow further assignments.
+    CameraServiceImpl restored;
+    REQUIRE(restored.Add(config, outId) == util::ErrorEnum::Success);
+    REQUIRE(restored.GetTasks(cameraId).size() == 8);
+    for (int i = 0; i < 8; ++i) {
+        bool enable = true;
+        REQUIRE(restored.QuerySwitch(cameraId, "test_alg_" + std::to_string(i), enable) ==
+                util::ErrorEnum::Success);
+        REQUIRE_FALSE(enable);
+    }
+    REQUIRE(restored.ModifyTaskStrategy(cameraId, "test_alg_8", "sched1") == util::ErrorEnum::Success);
+    REQUIRE(restored.GetTasks(cameraId).size() == 9);
 }
 
 TEST_CASE("CameraServiceImpl reapplies unchanged saved parameters before every restart",
@@ -613,4 +704,66 @@ TEST_CASE("CameraServiceImpl concurrent task operations", "[CameraServiceImpl][c
 
     // Wait for any detached SwitchCameraTaskAsync threads to finish before mocks are destroyed
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+}
+
+TEST_CASE("CameraServiceImpl prepares a durable task without enabling it",
+          "[CameraServiceImpl][management]") {
+    std::filesystem::remove_all(CameraConfigRoot() / "test_camera_managed_prepare");
+    TestFixture fx("test_camera_managed_prepare", "rtsp://127.0.0.1:1/test");
+    ALLOW_CALL(fx.mocks.scheduleSvc, Exist2("sched1", _)).LR_SIDE_EFFECT(_2 = "Schedule 1").RETURN(true);
+    FORBID_CALL(fx.mocks.taskSvc, TaskStart(_, _));
+    MsgTaskConfig params;
+    params.params.push_back(MakeParam("param.threshold", "10"));
+    REQUIRE(fx.svc.PrepareTask(fx.cameraId, "test_alg", params, "sched1") == util::ErrorEnum::Success);
+    REQUIRE(fx.svc.PrepareTask(fx.cameraId, "test_alg", params, "sched1") == util::ErrorEnum::Success);
+    DrainSwitchThreads(fx.svc);
+    auto tasks = fx.svc.GetTasks(fx.cameraId);
+    REQUIRE(tasks.size() == 1);
+    REQUIRE_FALSE(tasks[0].enable);
+    REQUIRE(tasks[0].ready);
+    REQUIRE(tasks[0].runtimeState == "stopped");
+    REQUIRE(tasks[0].scheduleId == "sched1");
+    std::vector<MsgDynamicKeyValue> saved;
+    REQUIRE(fx.svc.QueryTaskParam(fx.cameraId, "test_alg", saved) == util::ErrorEnum::Success);
+    REQUIRE(FindParamValue(saved, "param.threshold") == "10");
+    for (const auto& entry : std::filesystem::directory_iterator(CameraConfigRoot() / fx.cameraId)) {
+        if (entry.path().filename() == "taskList.json") {
+            std::ifstream input(entry.path());
+            auto disk = nlohmann::json::parse(input);
+            REQUIRE_FALSE(disk.empty());
+        }
+    }
+}
+
+TEST_CASE("CameraServiceImpl preparation refuses to mutate an enabled task",
+          "[CameraServiceImpl][management]") {
+    std::filesystem::remove_all(CameraConfigRoot() / "test_camera_managed_active");
+    TestFixture fx("test_camera_managed_active", "rtsp://127.0.0.1:1/test");
+    ALLOW_CALL(fx.mocks.scheduleSvc, Exist2("sched1", _)).LR_SIDE_EFFECT(_2 = "Schedule 1").RETURN(true);
+    MsgTaskConfig params;
+    params.params.push_back(MakeParam("param.threshold", "10"));
+    REQUIRE(fx.svc.SaveOrUpdateTask(fx.cameraId, "test_alg", params, "sched1") == util::ErrorEnum::Success);
+    DrainSwitchThreads(fx.svc);
+    params.params[0].value = "20";
+    REQUIRE(fx.svc.PrepareTask(fx.cameraId, "test_alg", params, "sched1") == util::ErrorEnum::InvalidParam);
+    std::vector<MsgDynamicKeyValue> saved;
+    REQUIRE(fx.svc.QueryTaskParam(fx.cameraId, "test_alg", saved) == util::ErrorEnum::Success);
+    REQUIRE(FindParamValue(saved, "param.threshold") == "10");
+    REQUIRE(fx.svc.GetTasks(fx.cameraId)[0].enable);
+}
+
+TEST_CASE("CameraServiceImpl managed activation waits outside the schedule window",
+          "[CameraServiceImpl][management]") {
+    std::filesystem::remove_all(CameraConfigRoot() / "test_camera_managed_schedule");
+    TestFixture fx("test_camera_managed_schedule", "rtsp://127.0.0.1:1/test");
+    ALLOW_CALL(fx.mocks.scheduleSvc, Exist2("sched1", _)).LR_SIDE_EFFECT(_2 = "Schedule 1").RETURN(true);
+    ALLOW_CALL(fx.mocks.scheduleSvc, InRunTime("sched1")).RETURN(false);
+    FORBID_CALL(fx.mocks.taskSvc, TaskStart(_, _));
+    MsgTaskConfig params;
+    REQUIRE(fx.svc.PrepareTask(fx.cameraId, "test_alg", params, "sched1") == util::ErrorEnum::Success);
+    REQUIRE(fx.svc.SwitchManagedTask(fx.cameraId, "test_alg", true) == util::ErrorEnum::Success);
+    auto tasks = fx.svc.GetTasks(fx.cameraId);
+    REQUIRE(tasks.size() == 1);
+    REQUIRE(tasks[0].enable);
+    REQUIRE(tasks[0].runtimeState == "scheduled");
 }

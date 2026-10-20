@@ -1,12 +1,16 @@
 import { defineConfig } from 'vitepress'
 
 const guideZh = [
+  { text: '配套工程：训练 Skill 与 Connect', link: '/guide/companion-projects' },
   { text: '构建指南', link: '/guide/build' },
   { text: 'CV186X 快速开始', link: '/guide/cv186x-quick-start' },
   { text: 'RK3576 / RKNN 集成', link: '/guide/rk3576-rknn-development' },
   { text: 'macOS Docker Preview', link: '/guide/macos-docker-preview' },
   { text: '部署指南', link: '/guide/deployment' },
   { text: '运行配置', link: '/guide/configuration' },
+  { text: '图片分析与图片比对', link: '/guide/image-analysis' },
+  { text: 'GB28181 设备接入', link: '/guide/gb28181-access' },
+  { text: 'ONVIF 视频接入', link: '/guide/onvif-access' },
   { text: '故障排查', link: '/guide/troubleshooting' },
   { text: '架构概览', link: '/guide/architecture' },
   { text: '测试范围与用例', link: '/guide/test-cases' }
@@ -18,6 +22,7 @@ const referenceZh = [
   { text: '字段级 API 参考', link: '/reference/api-fields' },
   { text: 'MQTT 接入参考', link: '/reference/mqtt' },
   { text: 'HTTP Webhook 参考', link: '/reference/webhook' },
+  { text: '平台管理接口', link: '/reference/management' },
   { text: '模型与资源', link: '/reference/models' }
 ]
 
@@ -71,12 +76,16 @@ const communityZh = [
 ]
 
 const guideEn = [
+  { text: 'Companion Projects: Training and Connect', link: '/en/guide/companion-projects' },
   { text: 'Build Guide', link: '/en/guide/build' },
   { text: 'CV186X Quick Start', link: '/en/guide/cv186x-quick-start' },
   { text: 'RK3576 / RKNN Integration', link: '/en/guide/rk3576-rknn-development' },
   { text: 'macOS Docker Preview', link: '/en/guide/macos-docker-preview' },
   { text: 'Deployment Guide', link: '/en/guide/deployment' },
   { text: 'Runtime Configuration', link: '/en/guide/configuration' },
+  { text: 'Image Analysis and Comparison', link: '/en/guide/image-analysis' },
+  { text: 'GB28181 Device Access', link: '/en/guide/gb28181-access' },
+  { text: 'ONVIF Video Access', link: '/en/guide/onvif-access' },
   { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
   { text: 'Architecture Overview', link: '/en/guide/architecture' },
   { text: 'Test Scope and Cases', link: '/en/guide/test-cases' }
@@ -88,6 +97,7 @@ const referenceEn = [
   { text: 'API Fields', link: '/en/reference/api-fields' },
   { text: 'MQTT Reference', link: '/en/reference/mqtt' },
   { text: 'HTTP Webhook Reference', link: '/en/reference/webhook' },
+  { text: 'Platform Management API', link: '/en/reference/management' },
   { text: 'Models and Resources', link: '/en/reference/models' }
 ]
 

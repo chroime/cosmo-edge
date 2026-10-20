@@ -60,11 +60,11 @@ private:
     std::vector<std::string> special_tokens = {"[CLS]", "[SEP]", ".", "?"};
     std::vector<int64_t> special_token_ids{};
 
-    int dst_width;
-    int dst_height;
+    int dst_width  = 0;
+    int dst_height = 0;
     std::vector<float> mean{};
     std::vector<float> scale{};
-    bool is_bgr;
+    bool is_bgr = false;
 };
 
 }  // namespace cosmo::nn

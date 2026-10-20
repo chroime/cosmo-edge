@@ -142,11 +142,18 @@ void ApiRouter::RegisterScheduleRoutes() {
 void ApiRouter::RegisterEventRoutes() {
     // ── Event ──────────────────────────────────────────────────────────
     ROUTE("/gtw/cwai/Event/", kAuth, event_handler_, Event, Page);
+    ROUTE("/gtw/cwai/Event/", kAuth, event_handler_, Event, LayaReviewPage);
     ROUTE("/gtw/cwai/Event/", kAuth, event_handler_, Event, ExportAlarm);
     ROUTE("/gtw/cwai/Event/", kAuth, event_handler_, Event, QueryPassengerFlowNumber);
 }
 
 void ApiRouter::RegisterCameraRoutes() {
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, Gb28181Manage);
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, OnvifInterfaces);
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, OnvifDiscover);
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, OnvifProbe);
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, OnvifGet);
+    ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, OnvifSave);
     // ── Camera ──────────────────────────────────────────────────────────
     ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, Add);
     ROUTE("/gtw/cwai/Camera/", kAuth, camera_handler_, camera, Update);

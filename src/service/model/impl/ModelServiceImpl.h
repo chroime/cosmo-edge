@@ -9,7 +9,6 @@
 #include "service/model/IModelService.h"
 #include "service/model/impl/ModelImportExporter.h"
 #include "service/model/impl/ModelPathMapper.h"
-#include "service/model/impl/ModelUploadHelper.h"
 
 namespace cosmo::service {
 
@@ -34,12 +33,6 @@ public:
                                                  int pageNum, int pageSize, size_t& total) override;
     cosmo::ModelInfo GetModelInfo(const std::string& modelCode) override;
 
-    // ---- Temp file upload (delegates to ModelUploadHelper) ----
-    cosmo::util::ErrorEnum UploadTempFile(const std::string& filePath, const std::string& fileName,
-                                          const std::string& contentLength, const std::string& uploadId,
-                                          const std::string& chunkIndex, const std::string& totalChunks,
-                                          std::string& persistentPath) override;
-
     // ---- Config CRUD ----
     cosmo::util::ErrorEnum GetModelConfig(const std::string& modelCode, std::string& configJson,
                                           bool& isExportable, std::string& defaultConfigJson) override;
@@ -53,6 +46,10 @@ public:
     cosmo::util::ErrorEnum DeleteModel(const std::string& modelCode) override;
     cosmo::util::ErrorEnum UpdateModel(const std::string& modelCode, const std::string& modelName,
                                        int maxBatch, const std::string& description) override;
+
+    // Reconcile a platform-reserved model ID; never allocate a second native model.
+    cosmo::util::ErrorEnum AddManagedModel(const std::string& code,
+                                           const cosmo::Model::MsgAddRecv& request) override;
 
     // ---- Query ----
     void QueryModels(const std::string& modelName, const std::string& modelCode, int pageNum, int pageSize,
@@ -106,7 +103,6 @@ private:
     // ---- Extracted sub-components ----
     ModelPathMapper path_mapper_;
     ModelImportExporter import_exporter_;
-    ModelUploadHelper upload_helper_;
 };
 
 }  // namespace cosmo::service

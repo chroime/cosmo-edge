@@ -22,6 +22,7 @@
 #include "util/ErrorCode.h"
 #include "util/Exception.h"
 #include "util/Exec.h"
+#include "util/FileUtil.h"
 #include "util/JsonFileUtil.h"
 #include "util/JsonStructUtil.h"
 #include "util/PathUtil.h"
@@ -125,6 +126,19 @@ void ModelServiceImpl::ValidateModelOutputFormat(const nlohmann::json& doc) {
                 "当前模型输出格式与 yolov8/yolov9/yolov11/yolov12 "
                 "检测模型不匹配，请确认选择的是检测模型而不是分类模型。添加不成功");
         }
+    } else if (model_type == "yolo26_obb_det") {
+        // End-to-end OBB: single output with shape [1, top_k, 7]
+        bool reject = (outputs.size() != 1);
+        if (!reject) {
+            std::vector<int> shape = get_shape(outputs[0]);
+            reject                 = !(shape.size() == 3 && shape[2] == 7);
+        }
+        if (reject) {
+            throw cosmo::util::ErrorMessage(
+                cosmo::util::make_error_condition(cosmo::util::ErrorEnum::ParameterException),
+                "当前模型输出格式与 yolo26_obb_det 旋转框检测模型不匹配（期望单输出 [1, top_k, "
+                "7]）。添加不成功");
+        }
     }
 }
 
@@ -201,15 +215,9 @@ cosmo::util::ErrorEnum ModelServiceImpl::SaveModelConfig(const std::string& mode
     // Validate model output format (throws cosmo::util::ErrorMessage on failure)
     ValidateModelOutputFormat(doc);
 
-    // Write config.json
-    std::ofstream file(config_path);
-    if (!file.is_open()) {
-        LOG_WARN("Failed to open config.json for writing: {}", config_path);
+    if (!cosmo::util::WriteFileAtomically(config_path, configJson)) {
         return cosmo::util::ErrorEnum::SysErr;
     }
-
-    file << configJson;
-    file.close();
 
     LOG_INFO("Successfully saved config.json for modelCode: {}", modelCode);
     NotifyAlgorithmsChanged(modelCode, true);
@@ -380,6 +388,14 @@ cosmo::util::ErrorEnum ModelServiceImpl::ImportModel(const std::string& archiveP
     return import_exporter_.ImportModel(archivePath);
 }
 
+cosmo::util::ErrorEnum ModelServiceImpl::AddManagedModel(const std::string& code,
+                                                         const cosmo::Model::MsgAddRecv& request) {
+    return import_exporter_.AddAtomicModel(code, "managed" + code, request.modelType, request.description,
+                                           request.bmodelFiles, request.vocabFilePath,
+                                           request.tokenizerFilePath, request.characterTableFilePath,
+                                           request.normalizationMode, request.colorChannel, true);
+}
+
 cosmo::util::ErrorEnum ModelServiceImpl::AddAtomicModel(
     const std::string& modelCode, const std::string& modelName, const std::string& model_type,
     const std::string& description, const std::vector<cosmo::Model::BmodelFileInfo>& bmodel_files,
@@ -389,18 +405,6 @@ cosmo::util::ErrorEnum ModelServiceImpl::AddAtomicModel(
     return import_exporter_.AddAtomicModel(modelCode, modelName, model_type, description, bmodel_files,
                                            vocabFilePath, tokenizerFilePath, characterTableFilePath,
                                            normalizationMode, colorChannel);
-}
-
-// ──────────────────────────────────────────────
-// Upload — delegates to ModelUploadHelper
-// ──────────────────────────────────────────────
-
-cosmo::util::ErrorEnum ModelServiceImpl::UploadTempFile(
-    const std::string& filePath, const std::string& fileName, const std::string& contentLength,
-    const std::string& uploadId, const std::string& chunkIndex, const std::string& totalChunks,
-    std::string& persistentPath) {
-    return upload_helper_.UploadTempFile(filePath, fileName, contentLength, uploadId, chunkIndex, totalChunks,
-                                         persistentPath);
 }
 
 }  // namespace cosmo::service

@@ -26,8 +26,11 @@
 #include "service/algorithm/IAlgorithmQuery.h"
 #include "service/camera/impl/CameraConfigPersistence.h"
 #include "service/detail/ServiceRegistry.h"
+#include "service/gb28181/IGb28181Management.h"
+#include "service/gb28181/IGb28181SourceService.h"
 #include "service/media/IVideoFrameCodec.h"
 #include "service/model/IModelQuery.h"
+#include "service/onvif/IOnvifService.h"
 #include "service/system/IConfigReadService.h"
 #include "service/task/IScheduleService.h"
 #include "service/task/ITaskChannel.h"
@@ -124,10 +127,26 @@ namespace {
     }
 
     // Lightweight URL connectivity check (TCP socket probe).
-    bool CheckUrlConnectivity(const std::string& inputUrl) {
-        const std::string urlStr = util::NormalizeRtspUrl(inputUrl);
-        if (urlStr.empty())
+    bool CheckUrlConnectivity(const std::string& inputUrl, std::string& reason) {
+        reason               = "connection_failed";
+        const auto connected = [&] {
+            reason.clear();
+            return true;
+        };
+        const auto socketFailure = [&](int error) {
+            if (error == ECONNREFUSED)
+                reason = "connection_refused";
+            else if (error == ETIMEDOUT)
+                reason = "connection_timeout";
+            else if (error == ENETUNREACH || error == EHOSTUNREACH)
+                reason = "network_unreachable";
             return false;
+        };
+        const std::string urlStr = util::NormalizeRtspUrl(inputUrl);
+        if (urlStr.empty()) {
+            reason = "invalid_url";
+            return false;
+        }
 
         if (urlStr.find("usb://") == 0) {
             auto startPos        = 6;
@@ -140,8 +159,9 @@ namespace {
             }
             std::string devPath = "/dev/video" + indexStr;
             if (::access(devPath.c_str(), F_OK) == 0) {
-                return true;
+                return connected();
             }
+            reason = "device_unavailable";
             return false;
         }
 
@@ -149,8 +169,9 @@ namespace {
         if (urlStr.find("rtsp://") == std::string::npos && urlStr.find("http://") == std::string::npos &&
             urlStr.find("https://") == std::string::npos) {
             if (::access(urlStr.c_str(), F_OK) == 0) {
-                return true;
+                return connected();
             }
+            reason = "file_not_found";
             return false;
         }
 
@@ -189,8 +210,10 @@ namespace {
             }
         }
 
-        if (ip.empty() || port <= 0)
+        if (ip.empty() || port <= 0 || port > 65535) {
+            reason = "invalid_url";
             return false;
+        }
 
         // RAII wrapper: ensures socket fd is closed on all exit paths
         struct ScopedSocket {
@@ -214,6 +237,7 @@ namespace {
         serv_addr.sin_port   = htons(port);
 
         if (inet_pton(AF_INET, ip.c_str(), &serv_addr.sin_addr) <= 0) {
+            reason = "unsupported_host";
             return false;
         }
 
@@ -223,7 +247,7 @@ namespace {
 
         int res = connect(sock.fd, reinterpret_cast<struct sockaddr*>(&serv_addr), sizeof(serv_addr));
         if (res == 0) {
-            return true;
+            return connected();
         }
         if (res < 0 && errno == EINPROGRESS) {
             struct timeval tv;
@@ -235,18 +259,48 @@ namespace {
 
             res = select(sock.fd + 1, nullptr, &fdset, nullptr, &tv);
             if (res > 0 && FD_ISSET(sock.fd, &fdset)) {
-                int lon;
+                int lon          = 0;
                 socklen_t lonLen = sizeof(int);
-                getsockopt(sock.fd, SOL_SOCKET, SO_ERROR, static_cast<void*>(&lon), &lonLen);
+                if (getsockopt(sock.fd, SOL_SOCKET, SO_ERROR, static_cast<void*>(&lon), &lonLen) != 0)
+                    return false;
                 if (lon == 0) {
-                    return true;
+                    return connected();
                 }
+                return socketFailure(lon);
             }
+            if (res == 0)
+                reason = "connection_timeout";
+            return false;
         }
-        return false;
+        return socketFailure(errno);
     }
 
 }  // namespace
+
+bool CameraServiceImpl::ResolveSourceUrl(MsgCameraType sourceType, const std::string& source,
+                                         std::string& logicalUrl, std::string& mediaUrl) const {
+    if (sourceType == MsgCameraType::MsgCameraTypeOnvif) {
+        auto& registry = ServiceRegistry::Instance();
+        if (!registry.Has<IOnvifService>() || registry.Get<IOnvifService>().Revision(source) == 0)
+            return false;
+        logicalUrl = source;
+        mediaUrl   = source;  // Resolved only on the demux thread, outside CRUD/monitor locks.
+        return true;
+    }
+    if (sourceType == MsgCameraType::MsgCameraTypeGb28181) {
+        Gb28181Source resolved;
+        if (!ServiceRegistry::Instance().Get<IGb28181SourceService>().Resolve(source, resolved)) {
+            return false;
+        }
+        logicalUrl = std::move(resolved.logicalUrl);
+        mediaUrl   = std::move(resolved.mediaUrl);
+        return true;
+    }
+
+    logicalUrl = util::NormalizeRtspUrl(source);
+    mediaUrl   = logicalUrl;
+    return true;
+}
 
 // ============================================================
 //  Construction / Destruction
@@ -320,7 +374,16 @@ void CameraServiceImpl::InitCameraChannel(CameraEntityPtr camera) {
     camera->conf_file_path_ =
         (std::filesystem::path(cosmo::path::GetCfgPath(conf_file_path_)) / camera->videoChannelId).string();
     camera->channel_task_ = camera->videoChannelId + "-ChannelTask";
-    camera->channel_url_  = camera->url;
+    std::string logical_url;
+    std::string media_url;
+    if (ResolveSourceUrl(static_cast<MsgCameraType>(camera->channelType), camera->url, logical_url,
+                         media_url)) {
+        camera->url          = std::move(logical_url);
+        camera->channel_url_ = std::move(media_url);
+    } else {
+        camera->channel_url_.clear();
+        LOG_WARN("[{}] Invalid camera source {}", camera->videoChannelId, camera->url);
+    }
 
     LoadCameraTaskList(camera);
 
@@ -375,11 +438,11 @@ void CameraServiceImpl::DestroyCameraChannel(CameraEntityPtr camera) {
 //  Per-camera task list persistence (inlined from CameraTaskMng)
 // ============================================================
 
-void CameraServiceImpl::SaveCameraTaskList(const CameraEntityPtr& camera) {
+bool CameraServiceImpl::SaveCameraTaskList(const CameraEntityPtr& camera) {
     auto path =
         (std::filesystem::path(cosmo::path::GetCfgPath(camera->conf_file_path_)) / camera->conf_task_list_)
             .string();
-    (void)util::SaveStructToJsonFile(path, camera->tasks_);
+    return util::SaveStructToJsonFile(path, camera->tasks_);
 }
 
 void CameraServiceImpl::LoadCameraTaskList(CameraEntityPtr camera) {
@@ -404,11 +467,6 @@ void CameraServiceImpl::LoadCameraTaskList(CameraEntityPtr camera) {
 // ============================================================
 
 util::ErrorEnum CameraServiceImpl::MakeCameraTask(const CameraEntityPtr& camera, CameraTaskPtr task) {
-    const bool is_existing_task =
-        std::find(camera->tasks_.begin(), camera->tasks_.end(), task) != camera->tasks_.end();
-    if (!is_existing_task && camera->tasks_.size() >= camera->max_task_count_) {
-        return util::ErrorEnum::TaskTooMuch;
-    }
     auto algData = ServiceRegistry::Instance().Get<IAlgorithmQuery>().GetAlgorithm(task->algorithm_code_);
     if (!algData) {
         return util::ErrorEnum::ActionAlgNotExist;
@@ -681,20 +739,52 @@ void CameraServiceImpl::UpdateChannelState(const CameraEntityPtr& camera) {
 }
 
 void CameraServiceImpl::ProbeCameraOnlineStatus(const CameraEntityPtr& camera) {
+    // Active demux/algorithm tasks skip the network probe below, but must still
+    // renew the managed GB demand lease. This notification performs no network I/O.
+    auto& registry = ServiceRegistry::Instance();
+    if (static_cast<MsgCameraType>(camera->channelType) == MsgCameraType::MsgCameraTypeGb28181 &&
+        registry.Has<IGb28181Management>()) {
+        Gb28181Source source;
+        if (registry.Get<IGb28181SourceService>().Resolve(camera->url, source))
+            registry.Get<IGb28181Management>().Ensure(source.deviceId);
+    }
     // Only probe if the channel is actually stopped to save overhead when already active
     if (ServiceRegistry::Instance().Get<ITaskLifecycle>().TaskIsStart(camera->channel_task_)) {
         return;
     }
 
-    bool isConnected = CheckUrlConnectivity(camera->channel_url_);
-    camera->probed_status_.store(isConnected ? ChannelStatus::ChannelStatusOnline
-                                             : ChannelStatus::ChannelStatusOffline);
+    ProbeCameraOnlineStatusNow(camera);
 }
 
 void CameraServiceImpl::ProbeCameraOnlineStatusNow(const CameraEntityPtr& camera) {
-    bool isConnected = CheckUrlConnectivity(camera->channel_url_);
-    camera->probed_status_.store(isConnected ? ChannelStatus::ChannelStatusOnline
-                                             : ChannelStatus::ChannelStatusOffline);
+    std::string source, logical_source, channel_id;
+    MsgCameraType type;
+    {
+        std::shared_lock<std::shared_mutex> lock(mtx_);
+        source         = camera->channel_url_;
+        logical_source = camera->url;
+        channel_id     = camera->videoChannelId;
+        type           = static_cast<MsgCameraType>(camera->channelType);
+    }
+    std::string reason;
+    bool connected = false;
+    if (type == MsgCameraType::MsgCameraTypeOnvif) {
+        MsgCameraAttr attr;
+        connected = ServiceRegistry::Instance().Get<ITaskChannel>().GetChannelAttr(channel_id, attr) &&
+                    attr.channelStatus == ChannelStatus::ChannelStatusOnline;
+    } else if (type == MsgCameraType::MsgCameraTypeGb28181) {
+        connected = ServiceRegistry::Instance().Get<IGb28181SourceService>().IsStreamActive(logical_source);
+    } else {
+        connected = CheckUrlConnectivity(source, reason);
+    }
+    // A slow probe for an old address must not overwrite a newer edit's result.
+    std::shared_lock<std::shared_mutex> lock(mtx_);
+    if (source != camera->channel_url_ || logical_source != camera->url)
+        return;
+    std::lock_guard<std::mutex> attr_lock(camera->attr_mtx_);
+    camera->probed_error_ = std::move(reason);
+    camera->probed_status_.store(connected ? ChannelStatus::ChannelStatusOnline
+                                           : ChannelStatus::ChannelStatusOffline);
 }
 
 // ============================================================
@@ -705,7 +795,6 @@ void CameraServiceImpl::LoadConfig() {
     cameras_       = detail::CameraConfigPersistence::LoadConfig(conf_file_path_, conf_file_name_);
     int max_number = -1;
     for (const auto& camera : cameras_) {
-        camera->url = util::NormalizeRtspUrl(camera->url);
         LOG_INFO("LoadConfig channel Id {}", camera->videoChannelId);
         InitCameraChannel(camera);
         int current_number = -1;
@@ -720,7 +809,7 @@ void CameraServiceImpl::LoadConfig() {
     detail::CameraConfigPersistence::RemoveDiscardedConfigs(conf_file_path_, cameras_);
 }
 
-void CameraServiceImpl::SaveConfig() {
+bool CameraServiceImpl::SaveConfig() {
     LOG_INFO("{}", "Saving configuration...");
 
     std::vector<CameraEntityPtr> snapshot;
@@ -729,7 +818,7 @@ void CameraServiceImpl::SaveConfig() {
         snapshot = cameras_;
     }
 
-    detail::CameraConfigPersistence::SaveConfig(conf_file_path_, conf_file_name_, snapshot);
+    return detail::CameraConfigPersistence::SaveConfig(conf_file_path_, conf_file_name_, snapshot);
 }
 
 void CameraServiceImpl::MemGc() {

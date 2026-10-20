@@ -34,14 +34,14 @@ private:
     Status PrepareRect(std::shared_ptr<Blob> host_rect, Size image_size);
 
 private:
-    float scale;
-    bool is_bgr;
+    float scale = 1.0f;
+    bool is_bgr = true;
 
-    int dst_batch;
-    int dst_depth;
+    int dst_batch    = 0;
+    int dst_depth    = 0;
     int dst_channels = 3;
-    int dst_width;
-    int dst_height;
+    int dst_width    = 0;
+    int dst_height   = 0;
 
     std::vector<int32_t> calculated_rects;
 };

@@ -44,6 +44,9 @@ namespace {
             multipart_file_path_ = context.multipart_file_path;
             multipart_file_name_ = context.multipart_file_name;
             multipart_file_size_ = context.multipart_file_size;
+            upload_id_           = context.upload_id;
+            upload_offset_       = context.upload_offset;
+            http_method_         = context.http_method;
             is_entered_          = true;
             ++entered_count_;
             condition_.notify_all();
@@ -85,6 +88,19 @@ namespace {
             return body_;
         }
 
+        std::string UploadId() const {
+            std::lock_guard<std::mutex> lock(mutex_);
+            return upload_id_;
+        }
+        std::string UploadOffset() const {
+            std::lock_guard<std::mutex> lock(mutex_);
+            return upload_offset_;
+        }
+        std::string HttpMethod() const {
+            std::lock_guard<std::mutex> lock(mutex_);
+            return http_method_;
+        }
+
         std::string MultipartFilePath() const {
             std::lock_guard<std::mutex> lock(mutex_);
             return multipart_file_path_;
@@ -112,6 +128,7 @@ namespace {
         std::string multipart_file_path_;
         std::string multipart_file_name_;
         std::uint64_t multipart_file_size_{0};
+        std::string upload_id_, upload_offset_, http_method_;
     };
 
     class BlockingDispatcher final : public cosmo::IRequestDispatcher {
@@ -780,6 +797,70 @@ TEST_CASE("HttpServer streams single byte ranges without buffering the whole fil
     fs::remove_all(root);
 }
 
+TEST_CASE("HttpServer bounds memory for a stalled large download", "[http-server][download][memory]") {
+#if defined(__linux__)
+    namespace fs              = std::filesystem;
+    const auto resident_bytes = []() {
+        std::uint64_t size = 0, resident = 0;
+        std::ifstream status("/proc/self/statm");
+        status >> size >> resident;
+        return resident * static_cast<std::uint64_t>(sysconf(_SC_PAGESIZE));
+    };
+    ScopedSignalIgnore ignore_sigpipe(SIGPIPE);
+    const auto suffix = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    const auto root   = fs::path("/tmp") / ("cosmo-http-large-download-" + suffix);
+    fs::create_directories(root);
+    constexpr std::uint64_t archive_size = 128 * 1024 * 1024;
+    {
+        std::ofstream file(root / "large.log", std::ios::binary);
+        file.seekp(archive_size - 1);
+        file.put('x');
+    }
+    std::ofstream(root / "small.log", std::ios::binary) << "still responsive";
+    auto state = std::make_shared<BlockingDispatchState>();
+    HttpServerRunner runner(state);
+    const auto port = FindAvailablePort();
+    REQUIRE(port != 0);
+    REQUIRE(runner.Start(port, root.string()));
+    auto client = Connect(port);
+    REQUIRE(client.Get() >= 0);
+    const int receive_buffer = 4096;
+    REQUIRE(setsockopt(client.Get(), SOL_SOCKET, SO_RCVBUF, &receive_buffer, sizeof(receive_buffer)) == 0);
+    timeval timeout{};
+    timeout.tv_sec = 2;
+    REQUIRE(setsockopt(client.Get(), SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) == 0);
+    const auto before = resident_bytes();
+    REQUIRE(before > 0);
+    REQUIRE(SendAll(client.Get(),
+                    "GET /logs/large.log HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                    "mtk: test-token\r\nConnection: close\r\n\r\n"));
+    std::string header;
+    while (header.find("\r\n\r\n") == std::string::npos) {
+        char buffer[1024];
+        const auto received = recv(client.Get(), buffer, sizeof(buffer), 0);
+        REQUIRE(received > 0);
+        header.append(buffer, static_cast<std::size_t>(received));
+        REQUIRE(header.size() < 8192);
+    }
+    CHECK(header.find("200 OK") != std::string::npos);
+    CHECK(header.find("Content-Length: " + std::to_string(archive_size)) != std::string::npos);
+    // Leave the large response unread. Its queued bytes must not become RSS.
+    CHECK(resident_bytes() < before + 32 * 1024 * 1024);
+    auto other = Connect(port);
+    REQUIRE(other.Get() >= 0);
+    REQUIRE(SendAll(other.Get(),
+                    "GET /logs/small.log HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                    "mtk: test-token\r\nConnection: close\r\n\r\n"));
+    CHECK(ReadAll(other.Get()).find("still responsive") != std::string::npos);
+    client.Reset();
+    runner.Server().UnInitialize();
+    runner.Join();
+    fs::remove_all(root);
+#else
+    SKIP("RSS regression requires Linux /proc");
+#endif
+}
+
 TEST_CASE("HttpServer rejects unauthorized multipart before parsing or dispatch", "[http-server][security]") {
     ScopedSignalIgnore ignore_sigpipe(SIGPIPE);
     auto state = std::make_shared<BlockingDispatchState>();
@@ -1015,6 +1096,36 @@ TEST_CASE("HttpServer bounds authenticated multipart spool reservations before w
     }
     runner.Server().UnInitialize();
     runner.Join();
+}
+
+}  // namespace cosmo::network::http
+
+namespace cosmo::network::http {
+TEST_CASE("HttpServer preserves binary PUT bytes and upload headers", "[http-server][management]") {
+    ScopedSignalIgnore ignore_sigpipe(SIGPIPE);
+    auto state = std::make_shared<BlockingDispatchState>();
+    HttpServerRunner runner(state);
+    ReleaseGuard release_guard(state);
+    auto port = FindAvailablePort();
+    REQUIRE(port != 0);
+    REQUIRE(runner.Start(port));
+    auto client = Connect(port);
+    REQUIRE(client.Get() >= 0);
+    const std::string payload("a\0b\xff", 4);
+    const std::string request =
+        "PUT /test/request-lifetime HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+        "Content-Type: application/octet-stream\r\nmtk: test-token\r\n"
+        "X-Upload-Id: opaque-upload\r\nX-Upload-Offset: 1048576\r\n"
+        "Content-Length: 4\r\nConnection: close\r\n\r\n" +
+        payload;
+    REQUIRE(SendAll(client.Get(), request));
+    REQUIRE(state->WaitUntilEntered());
+    CHECK(state->Body() == payload);
+    CHECK(state->UploadId() == "opaque-upload");
+    CHECK(state->UploadOffset() == "1048576");
+    CHECK(state->HttpMethod() == "PUT");
+    state->Release();
+    CHECK(ReadAll(client.Get()).find("200") != std::string::npos);
 }
 
 }  // namespace cosmo::network::http

@@ -28,15 +28,16 @@ constexpr int kVideoDefaultWidth       = 1920;
 constexpr int kVideoDefaultHeight      = 1088;
 constexpr int kVideoDefaultHeightAlign = 1088;
 
-constexpr int kVideoMinWidth  = 1280;
-constexpr int kVideoMinHeight = 720;
+// 64x64 is the smallest resolution verified through BM1688 RTSP live preview.
+constexpr int kVideoMinWidth  = 64;
+constexpr int kVideoMinHeight = 64;
 
 constexpr bool IsValidVideoWidth(int value) {
-    return (value >= kVideoMinWidth) && (value <= kVideoMaxWidth);
+    return (value >= kVideoMinWidth) && (value <= kVideoMaxWidth) && (value % 2 == 0);
 }
 
 constexpr bool IsValidVideoHeight(int value) {
-    return (value >= kVideoMinHeight) && (value <= kVideoMaxHeight);
+    return (value >= kVideoMinHeight) && (value <= kVideoMaxHeight) && (value % 2 == 0);
 }
 
 constexpr int kVideoInfoMaxDuration = 10 * 1000;  // 10 seconds
@@ -44,8 +45,9 @@ constexpr int kVideoInfoMaxDuration = 10 * 1000;  // 10 seconds
 constexpr int kTimestampDiff = 1000;  // Video timestamp diff
 
 constexpr bool IsValidVideoResolution(int width, int height) {
-    return (width * height >= kVideoMinWidth * kVideoMinHeight) &&
-           (width * height <= kVideoMaxWidth * kVideoMaxHeight);
+    // Validate each dimension without multiplying untrusted signed integers.
+    // Decoded YUV420 frames require even width and height.
+    return IsValidVideoWidth(width) && IsValidVideoHeight(height);
 }
 
 constexpr double kFpsCtrlMaxFps = 1000000.0;  // Used when external FPS setting < 0

@@ -16,7 +16,7 @@
     <div v-else class="condition-row" @mouseenter="mouseenterHandle($event, condition)" @mouseleave="mouseleaveHandle($event, condition)">
       <div class="condition-item">
         <!-- 左边树 -->
-        <tree-select v-model="condition.keyL" class="condition-select" :data="leftData"></tree-select>
+        <tree-select :model-value="condition.keyL" class="condition-select" :data="leftData" @update:model-value="handleKeyChange"></tree-select>
         <!-- 条件 -->
         <el-select v-model="condition.type" class="operation-select" :placeholder="t('validate.pleaseSelect', { name: '' })" filterable size="small">
           <el-option v-for="obj in getOperations(condition.rightType)" :key="obj.value" :label="obj.label" :value="obj.value">
@@ -54,10 +54,10 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, getCurrentInstance, toRef } from 'vue'
+import { ref, watch, onMounted, toRef, computed, inject } from 'vue'
 import TreeSelect from '@/components/TreeSelect.vue'
 import { getLogicalOperations, getOperations } from './dataTools.js'
-import EventBus from '@/components/eventBus.js'
+import { flowEditorKey } from './flowEditorContext.js'
 import _ from 'lodash'
 import { CirclePlus, CircleClose } from '@element-plus/icons-vue'
 import { t } from '@/i18n'
@@ -65,6 +65,7 @@ defineOptions({ name: 'RecursiveCondition' })
 
 // Props
 const props = defineProps({
+  flowData: { type: Array, default: () => [] },
   condition: {
     type: Object,
     default: () => null
@@ -77,21 +78,27 @@ const props = defineProps({
 
 // Emits
 const emit = defineEmits(['onClick', 'change'])
+const editor = inject(flowEditorKey, null)
 
 // Data
 const logicalIndex = ref(1)
 const focusedView = ref(null)
 const leftData = ref([])
-const rightData = ref([])
 const rightType = ref('')
-const tasksArr = ref([])
+const tasksArr = computed(() => (editor?.customMetadata?.value || []).map(obj => ({
+  ...obj,
+  id: obj.key,
+  label: obj.name,
+  children: [],
+  type: obj.type
+})))
 const thresholdArr = ref([])
 const categoriesLabelListObj = ref({})
 const categoriesLabelListArr = ref([])
-const flowData = ref([])
 
-// Watch
-watch(() => props.condition?.keyL, (newVal) => {
+const handleKeyChange = (newVal) => {
+  if (!props.condition || props.condition.keyL === newVal) return
+  props.condition.keyL = newVal
   console.log(props.condition, tasksArr.value, 'condition.keyL', newVal)
   if (newVal && props.condition) {
     props.condition.keyR = ''
@@ -110,32 +117,17 @@ watch(() => props.condition?.keyL, (newVal) => {
       props.condition.rightType = 'select2'
     } else {
       const result = _.find(tasksArr.value, { key: newVal })
-      props.condition.rightType = result ? result.type : 'select'
+      props.condition.rightType = result ? result.type : 'text'
     }
-    handleRightData(props.condition.keyL)
   } else if (props.condition) {
     props.condition.rightType = 'select'
   }
-})
-
-const handleCondition = () => {
-  if (props.condition?.rightType === 'check' && props.condition?.keyL) {
-    handleRightData(props.condition.keyL)
-  }
-  getCurrentInstance()?.proxy?.$forceUpdate()
 }
 
 // Lifecycle
 onMounted(() => {
   console.log('condition  mounted', props.condition?.keyL)
   handleTaskData()
-  handleLeftData()
-  handleRightData(props.condition?.keyL)
-  EventBus.$on('onCondition', handleCondition)
-})
-
-onBeforeUnmount(() => {
-  EventBus.$off('onCondition', handleCondition)
 })
 
 // Methods
@@ -143,18 +135,6 @@ const atomicListRef = toRef(props, 'atomicList')
 
 const handleTaskData = () => {
   thresholdArr.value = []
-  tasksArr.value = []
-  const customMetadata = localStorage.getItem('customMetadata')
-  if (!customMetadata) return
-  JSON.parse(customMetadata).forEach((obj) => {
-    tasksArr.value.push({
-      ...obj,
-      id: obj.key,
-      label: obj.name,
-      children: [],
-      type: obj.type
-    })
-  })
   if (!props.flowData) return
   console.log(props.flowData,'=============')
   props.flowData.forEach((item) => {
@@ -181,7 +161,8 @@ const handleLeftData = () => {
   if (!props.atomicList) return
   leftData.value = []
   categoriesLabelListArr.value = []
-  if (props.atomicList.length !== 0 && props.atomicList[0]?.labelList?.length > 0) {
+  categoriesLabelListObj.value = {}
+  if (props.atomicList.some(item => item?.labelList?.length > 0)) {
     leftData.value = [
       {
         label: t('glossary.algConfidence'),
@@ -191,7 +172,7 @@ const handleLeftData = () => {
     ]
     props.atomicList.forEach((item, index) => {
       const children = []
-      if (item?.labelList.length > 0) {
+      if (item?.labelList?.length > 0) {
         item.labelList.forEach((obj) => {
           children.push({
             id: `aiOut.${obj.class_name}.threshold`,
@@ -238,6 +219,18 @@ const handleLeftData = () => {
     })
   }
 
+  if (props.flowData.some(node => String(node.actionId).startsWith('P'))) {
+    leftData.value.push({ label: t('imageAnalysis.workflowResults'), id: -4, children: [
+      { id: 'picture.count', label: t('imageAnalysis.pictureCount'), type: 'text' },
+      { id: 'picture.matchedCount', label: t('imageAnalysis.pictureMatchedCount'), type: 'text' },
+      { id: 'match.score', label: t('imageAnalysis.matchScore'), type: 'text' },
+      { id: 'match.matched', label: t('imageAnalysis.matchResult'), type: 'text' },
+      { id: 'ocr.text', label: t('imageAnalysis.ocrText'), type: 'text' },
+      ...props.flowData.filter(node => ['PB_90001', 'PB_90003', 'PB_90002', 'PB_00006', 'PDA_00003'].includes(node.actionId)).map(node => ({
+        id: `node.${node.flowActionId}`, label: `${node.actionName} (${node.flowActionId})`, type: 'text'
+      }))
+    ] })
+  }
   if (tasksArr.value.length !== 0) {
     leftData.value.push({
       label: t('glossary.taskParams'),
@@ -261,8 +254,9 @@ const handleLeftData = () => {
   }
 }
 
-const handleRightData = (val) => {
-  if (!val) return
+const rightData = computed(() => {
+  const val = props.condition?.keyL
+  if (!val) return []
   let inTask = _.find(tasksArr.value, { key: val })
   let inThreshold = ''
 
@@ -283,28 +277,22 @@ const handleRightData = (val) => {
       inTask.type == 'radio' ||
       inTask.type == 'check')
   ) {
-    rightData.value = Array.isArray(inTask.options) ? inTask.options.map((item) => {
+    return Array.isArray(inTask.options) ? inTask.options.map((item) => {
       return { id: item.value, label: item.name }
     }) : []
   } else if (inThreshold) {
-    rightData.value = thresholdArr.value
+    return thresholdArr.value
   } else if (isString && val.includes('aiOut.attr')) {
     const labelCode = val.split('.')[2]
-    rightData.value = categoriesLabelListObj.value[labelCode] || []
+    return categoriesLabelListObj.value[labelCode] || []
   } else {
-    rightData.value = []
+    return []
   }
-  console.log(rightData.value, '=====rightData====')
-}
+})
 
 watch(
-  atomicListRef,
-  () => {
-    handleLeftData()
-    if (props.condition?.rightType === 'check' && props.condition?.keyL) {
-      handleRightData(props.condition.keyL)
-    }
-  },
+  [atomicListRef, tasksArr, () => props.flowData],
+  () => { handleTaskData(); handleLeftData() },
   { deep: true, immediate: true }
 )
 

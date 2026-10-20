@@ -9,12 +9,12 @@ EigenKalmanFilter::~EigenKalmanFilter() {}
 EigenKalmanFilter::EigenKalmanFilter(const int dynamParams, const int measureParams,
                                      const int controlParams) {
     init(dynamParams, measureParams, controlParams);
-    DP = dynamParams;
-    MP = measureParams;
 }
 
-void EigenKalmanFilter::init(const int DP, const int MP, int CP) {
-    CP = std::max(CP, 0);
+void EigenKalmanFilter::init(const int dynam_params, const int measure_params, int control_params) {
+    DP = dynam_params;
+    MP = measure_params;
+    CP = std::max(control_params, 0);
 
     statePre         = Eigen::MatrixXf::Zero(DP, 1);
     statePost        = Eigen::MatrixXf::Zero(DP, 1);

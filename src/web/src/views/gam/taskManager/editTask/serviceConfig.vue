@@ -147,9 +147,9 @@ import { t, currentLocale } from '@/i18n'
 import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
 import { QuestionFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import areaSetting from './areaSetting2.vue'
+import { regionParams } from '@/utils/visualQuestions'
 import paramSetting from './paramSetting.vue'
 import AlarmPrivacySetting from './alarmPrivacySetting.vue'
-import EventBus from '@/components/eventBus.js'
 import { v4 } from 'uuid'
 import Batch from './BatchApplication.vue'
 import { getLocationQueryParam } from '@/utils/locationQuery'
@@ -561,6 +561,8 @@ const resetConfig = () => {
   resetPrivacyConfig()
   privacyLabels.value = []
   config.value.taskParam = []
+  config.value.visualQuestionParams = []
+  config.value.visualQuestionEditing = false
   videoRepeatCount.value = 0
   videoRepeatCountChannelEditable.value = true
   config.value.taskAreaRows = []
@@ -568,7 +570,6 @@ const resetConfig = () => {
   config.value.shieldAreaRows = []
   config.value.shieldAreaHeader = []
   config.value.areasTitle = []
-  EventBus.$emit('resetSelectPoints', '')
 }
 
 const getSelectConfig = () => {
@@ -677,6 +678,8 @@ const getSelectConfig = () => {
         }
       })
 
+      config.value.visualQuestionParams = normalizedMetaParams.map(p => ({ ...p, value: isChannelEditableParam(p) && taskParamByKey.has(p.key) ? taskParamByKey.get(p.key) : resolveSceneParamValue(p) }))
+      config.value.visualQuestionEditing = normalizedMetaParams.some(p => p.type === 'visualQuestions' || p.key.replace(/^param\./, '').startsWith('visual.'))
       config.value.taskAreaHeader = metaData.region?.heads
       config.value.shieldAreaHeader = metaData.shieldedRegion?.heads
       config.value.areasTitle = metaData.region?.areasTitle
@@ -688,7 +691,8 @@ const getSelectConfig = () => {
           points: area.points,
           retroDirect: area.retroDirect ? area.retroDirect : 0,
           associatedAreas: [],
-          linePoints: area.linePoints
+          linePoints: area.linePoints,
+          params: JSON.parse(JSON.stringify(area.params || []))
         }
         if (config.value.areasTitle) {
           row.associatedAreas =
@@ -892,13 +896,7 @@ const newSave = async (skipRefresh = false) => {
       associatedAreas: associatedAreas,
       linePoints: item.linePoints,
       rgb: colors[index],
-      params: [
-        { key: 'name', value: item.name },
-        {
-          key: 'directionType',
-          value: item.directionType
-        }
-      ]
+      params: regionParams(item)
     }
   })
 
@@ -1045,7 +1043,7 @@ const handleVideoRepeatInput = (val) => {
 }
 
 const getTimetemplate = () => {
-  proxy.$API.boxGetTimeTemplate({}).then((res) => {
+  proxy.$API.queryTimeTemplatePage({}).then((res) => {
     const { resData } = res
     timeTemplateList.value = resData.rows || []
   })

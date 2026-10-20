@@ -111,6 +111,13 @@ TEST_CASE("SystemHandler: QueryHardwareResource exposes accelerator preview tele
     CHECK(ret.resData.accelerator.rknnRgaBoundRequantizeCalls == inference.rknn_rga_bound_requantize_calls);
     CHECK(ret.resData.accelerator.rknnRgaBoundInputNormalizeBypasses ==
           inference.rknn_rga_bound_input_normalize_bypasses);
+    CHECK(ret.resData.accelerator.rknnRgaSmallFrameResizeCalls ==
+          inference.rknn_rga_small_frame_resize_calls);
+    CHECK(ret.resData.accelerator.rknnRgaSmallFrameResizeMs ==
+          inference.rknn_rga_small_frame_resize_nanoseconds / 1000000.0);
+    CHECK(ret.resData.accelerator.rknnRgaSmallFrameCscCalls == inference.rknn_rga_small_frame_csc_calls);
+    CHECK(ret.resData.accelerator.rknnRgaSmallFrameCscMs ==
+          inference.rknn_rga_small_frame_csc_nanoseconds / 1000000.0);
     CHECK(ret.resData.accelerator.rknnMppDmaBufImportCalls == inference.rknn_mpp_dmabuf_import_calls);
     CHECK(ret.resData.accelerator.rknnMppDmaBufFrames == inference.rknn_mpp_dmabuf_frames);
     CHECK(ret.resData.accelerator.rknnMppDmaBufFallbacks == inference.rknn_mpp_dmabuf_fallbacks);
@@ -324,4 +331,24 @@ TEST_CASE("SystemHandler: QueryMqttAdapterParam", "[system-handler]") {
     std::error_condition errc;
     auto ret = handler.Handle(std::move(data), errc);
     REQUIRE(!errc);
+}
+
+TEST_CASE("SystemHandler: SetMqttAdapterParam identifies an out-of-range port", "[system-handler]") {
+    SystemHandlerMocks mocks;
+    auto handler = MakeHandler(mocks);
+    ALLOW_CALL(mocks.configNetSvc, SetMqttParam(_)).RETURN(util::ErrorEnum::InvalidParam);
+
+    System::MsgSetMqttAdapterParamRecv data{};
+    data.enable = true;
+    data.url    = "mqtt.example.com";
+    data.port   = 65536;
+    std::error_condition errc;
+
+    const auto ret = handler.Handle(std::move(data), errc);
+
+    REQUIRE(errc == util::ErrorEnum::InvalidParam);
+    REQUIRE(ret.resMsg.size() == 1);
+    CHECK(ret.resMsg.front().msgCode == "INVALID_MQTT_PORT");
+    CHECK(ret.resMsg.front().messageKey == "api.error.mqttPortOutOfRange");
+    CHECK(ret.resMsg.front().msgText == "MQTT port must be between 1 and 65535");
 }

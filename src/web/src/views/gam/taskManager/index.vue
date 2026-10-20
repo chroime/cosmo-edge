@@ -6,6 +6,7 @@
         <span></span>
         <div v-if="runMode == 0">
           <el-button id="onboarding-add-channel" size="small" type="primary" @click="addChannelClick">{{ t('action.add') }}</el-button>
+          <el-button id="gb28181-access" size="small" type="primary" :title="t('gbAccess.title')" @click="gb28181Dialog.open()">GB28181</el-button>
           <el-dropdown @command="handleBatchCommand" :disabled="multipleSelection.length == 0">
             <el-button size="small" type="primary" style="margin-left: 8px;" :disabled="multipleSelection.length == 0">
               {{ t('action.batchOperation') }}
@@ -89,7 +90,7 @@
             <span>{{ scope.row.fps ? Math.ceil(scope.row.fps) : '' }}</span>
           </template>
         </el-table-column>
-        <el-table-column :label="t('field.channelStatus')" :width="currentLocale === 'en-US' ? '150px' : '110px'" fixed="right" show-overflow-tooltip>
+        <el-table-column :label="t('field.channelStatus')" :width="currentLocale === 'en-US' ? '240px' : '190px'" fixed="right" show-overflow-tooltip>
           <template #default="scope">
             <template v-if="scope.row.channelStatus == 3">
               <span v-if="scope.row.channelType !== 3" style="color:green;">{{ t('status.online') }}</span>
@@ -107,6 +108,7 @@
             <template v-else>
               <span v-if="scope.row.channelType !== 3">{{ t('status.offline') }}</span>
             </template>
+            <div v-if="cameraStatusReason(scope.row)" class="channel-error">{{ cameraStatusReason(scope.row) }}</div>
           </template>
         </el-table-column>
         <el-table-column prop="handle" :label="t('field.actions')" :width="currentLocale === 'en-US' ? '280' : '200'" fixed="right" class-name="ops-wrap-cell">
@@ -114,8 +116,8 @@
             <div class="operation-tools">
               <el-button link class="primary-text" @click="handleDetailChannel(scope.row)">{{ t('action.details') }}</el-button>
               <el-button v-if="runMode != 1" link class="primary-text" @click="handleEditChannel(scope.row)">{{ t('action.edit') }}</el-button>
-              <el-button :disabled="scope.row.channelStatus == 3 || (scope.row.channelStatus == 0 && scope.row.channelType !== 3)" link class="primary-text" @click="handleChannelPic(scope.row)">{{ t('action.snapshot') }}</el-button>
-              <el-button id="onboarding-allocate-btn" v-if="runMode != 1" :disabled="scope.row.channelStatus == 3 || (scope.row.channelStatus == 0 && scope.row.channelType !== 3)" link class="primary-text" @click="handleAllocateClick(scope.row)">{{ t('action.allocateTask') }}</el-button>
+              <el-button :disabled="scope.row.channelStatus == 3 || (scope.row.channelStatus == 0 && ![2, 3].includes(scope.row.channelType))" link class="primary-text" @click="handleChannelPic(scope.row)">{{ t('action.snapshot') }}</el-button>
+              <el-button id="onboarding-allocate-btn" v-if="runMode != 1" :disabled="scope.row.channelStatus == 3 || (scope.row.channelStatus == 0 && ![2, 3].includes(scope.row.channelType))" link class="primary-text" @click="handleAllocateClick(scope.row)">{{ t('action.allocateTask') }}</el-button>
               <el-button v-if="scope.row.channelType == 3 && runMode != 1" link class="primary-text" @click="handleVideoDownload(scope.row)">{{ t('action.videoDownload') }}</el-button>
               <el-button v-if="runMode != 1" link class="danger-text" @click="handleDeleteChannel(scope.row)">{{ t('action.delete') }}</el-button>
             </div>
@@ -137,7 +139,9 @@
         <el-form-item :label="t('glossary.accessType') + localeColon" prop="channelType">
           <el-select id="onboarding-channel-type" popper-class="onboarding-type-popper" class="form-item-content" v-model="channelForm.channelType" :disabled="channelDialogMode === 'edit'" :placeholder="t('placeholder.select', { field: t('glossary.accessType') })" size="small" @change="channelTypeChange">
             <el-option label="RTSP" :value="0"></el-option>
+            <el-option label="ONVIF" :value="2"></el-option>
             <el-option label="HLS" :value="1"></el-option>
+            <el-option label="GB28181" :value="7"></el-option>
             <el-option :label="t('glossary.usbCamera')" :value="6"></el-option>
             <el-option :label="t('glossary.offlineVideo')" :value="3"></el-option>
           </el-select>
@@ -161,7 +165,10 @@
             </el-select>
           </el-form-item>
         </template>
-        <el-form-item :label="t('field.address') + localeColon" prop="url" v-if="channelForm.channelType !== 3 && channelForm.channelType !== 6">
+        <el-form-item :label="t('gbAccess.channelId') + localeColon" prop="gbDeviceId" v-if="channelForm.channelType === 7">
+          <el-input class="form-item-content" v-model.trim="channelForm.gbDeviceId" autocomplete="off" size="small" />
+        </el-form-item>
+        <el-form-item :label="t('field.address') + localeColon" prop="url" v-if="channelForm.channelType !== 3 && channelForm.channelType !== 6 && channelForm.channelType !== 7">
           <el-input class="form-item-content" v-model="channelForm.url" autocomplete="off" size="small" />
         </el-form-item>
         <!-- 离线视频类型 -->
@@ -197,6 +204,8 @@
     </el-dialog>
 
     <chanel-detail-dialog v-model:visible="channelDetailVisible" :detailChannel="channelDetailObj"></chanel-detail-dialog>
+    <OnvifDialog ref="onvifDialog" @saved="init" />
+    <Gb28181Dialog ref="gb28181Dialog" @saved="init" />
   </div>
 </template>
 <script setup>
@@ -210,6 +219,7 @@ import {
   onUnmounted
 } from 'vue'
 import { t, localeColon, currentLocale } from '@/i18n'
+import { cameraStatusReason } from '@/utils/cameraStatus'
 import {
   uploadFileInChunks,
   UploadPurpose
@@ -218,6 +228,10 @@ import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
 import TopBar from './components/algorithmTopBar.vue'
 import chanelDetailDialog from './components/chanelDetailDialog.vue'
 import defaultImage from '@/assets/CatchPhoto.png'
+import OnvifDialog from './components/OnvifDialog.vue'
+import Gb28181Dialog from './components/Gb28181Dialog.vue'
+const gb28181Dialog = ref()
+const onvifDialog = ref()
 
 // Map backend default schedule names → i18n keys
 const SCHEDULE_NAME_MAP = {
@@ -247,6 +261,7 @@ const channelForm = reactive({
   channelType: 0,
   channelName: '',
   url: '',
+  gbDeviceId: '',
   externalChannelNo: '',
   videoFileList: [],
   tempVideoPath: '',
@@ -275,6 +290,10 @@ const channelFormRules = {
   ],
   usbResolutionTier: [
     { required: true, message: () => t('validate.selectResolution'), trigger: 'change' }
+  ],
+  gbDeviceId: [
+    { required: true, message: () => t('validate.enterGbDeviceId'), trigger: 'blur' },
+    { pattern: /^\d{20}$/, message: () => t('validate.gbDeviceIdFormat'), trigger: 'blur' }
   ],
   externalChannelNo: [
     { max: 128, message: () => t('validate.externalChannelNoMax', { n: 128 }), trigger: 'blur' }
@@ -331,8 +350,12 @@ const channelTypeLabel = (value) => {
       return 'RTSP'
     case 1:
       return 'HLS'
+    case 2:
+      return 'ONVIF'
     case 6:
       return t('glossary.usbCamera')
+    case 7:
+      return 'GB28181'
     case 3:
       return t('glossary.offlineVideo')
     default:
@@ -427,6 +450,9 @@ const submitAddChannel = () => {
         background: 'rgba(0, 0, 0, 0.7)'
       })
       try {
+        if (channelForm.channelType === 7) {
+          channelForm.url = 'gb28181://' + channelForm.gbDeviceId
+        }
         if (channelForm.channelType === 6) {
           channelForm.url = composeUsbUrl(
             channelForm.usbDeviceIndex,
@@ -494,8 +520,21 @@ const queryUsbCameraList = () => {
 }
 
 const channelTypeChange = (val) => {
+  if (val === 7) {
+    channelDialogVisible.value = false
+    nextTick(() => gb28181Dialog.value.open())
+    return
+  }
+  if (val === 2) {
+    channelDialogVisible.value = false
+    nextTick(() => onvifDialog.value.open())
+    return
+  }
   if (val === 6) {
     queryUsbCameraList()
+  }
+  if (val !== 7) {
+    channelForm.gbDeviceId = ''
   }
   channelFormRef.value && channelFormRef.value.clearValidate()
 }
@@ -533,16 +572,22 @@ const handleDetailChannel = (row) => {
           : t('status.abnormal'),
       workday: resolveScheduleName(item.scheduleName)
     })),
-    channelStatus: row.channelStatus
+    channelStatus: row.channelStatus,
+    statusReason: row.statusReason
   }
 }
 
 const handleEditChannel = (row) => {
+  if (row.channelType === 2) {
+    onvifDialog.value.open(row)
+    return
+  }
   channelDialogVisible.value = true
   channelFormRef.value && channelFormRef.value.resetFields?.()
   channelDialogMode.value = 'edit'
   let usbDeviceIndex = row.usbDeviceIndex || ''
   let usbResolutionTier = row.usbResolutionTier || ''
+  let gbDeviceId = ''
   if (row.channelType === 6 && row.url) {
     const urlMatch = row.url.match(/usb:\/\/(\d+)\?tier=(\d+)/)
     if (urlMatch) {
@@ -550,11 +595,18 @@ const handleEditChannel = (row) => {
       usbResolutionTier = Number(urlMatch[2])
     }
   }
+  if (row.channelType === 7 && row.url) {
+    const urlMatch = row.url.match(/^gb28181:\/\/(\d{20})$/)
+    if (urlMatch) {
+      gbDeviceId = urlMatch[1]
+    }
+  }
   Object.assign(channelForm, {
     videoChannelId: row.videoChannelId,
     channelType: row.channelType,
     channelName: row.channelName,
     url: row.url,
+    gbDeviceId,
     externalChannelNo: row.externalChannelNo,
     videoFileList: [],
     usbDeviceIndex,
@@ -598,7 +650,7 @@ const handleAllocateClick = (row) => {
       resetUrl: proxy.$route.path,
       channelId: row.videoChannelId,
       channelName: row.channelName,
-      joinType: (row.channelType == 0 || row.channelType == 6) ? 0 : -1
+      joinType: ([0, 2, 6, 7].includes(row.channelType)) ? 0 : -1
     }
   })
 }
@@ -635,7 +687,7 @@ const init = () => {
     pageNum: pageData.pageNum,
     pageSize: pageData.pageSize
   }
-  proxy.$API.boxCameraPage(params).then((res) => {
+  proxy.$API.getChannelList(params).then((res) => {
     if (!res) return
     const { resData } = res
     tableData.value = resData.rows
@@ -738,6 +790,7 @@ const addChannelClick = () => {
     channelType: 0,
     channelName: '',
     url: '',
+    gbDeviceId: '',
     externalChannelNo: '',
     videoFileList: [],
     usbDeviceIndex: '',
@@ -798,6 +851,12 @@ const setDefaultImage = (e) => {
 </script>
 
 <style scoped lang="scss">
+.channel-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .taskButton {
   display: flex;
   justify-content: space-between;

@@ -18,7 +18,7 @@ next:
 | 层级 | 检查项 | 建议触发方式 |
 | --- | --- | --- |
 | 文档站 | `npm ci`、`npm run docs:verify` | Pull request |
-| 前端 | `npm ci`、`npm run i18n:check`、`npm run build`、`npm run resource-i18n:check` | Pull request / push |
+| 前端 | `npm ci`、`npm test`、`npm run build`、`npm run resource-i18n:check` | Pull request / push |
 | C++ 格式 | `scripts/format_check.sh --check` | Pull request / push |
 | C++ 静态分析 | `scripts/static_analysis.sh --cppcheck`、`scripts/static_analysis.sh --clang-tidy` | 定期 / 手动 / self-hosted |
 | CPU 测试构建 | `scripts/build_cpu_test.sh`、`build_cpu/cosmo-tests` | Pull request / 手动 |
@@ -37,11 +37,9 @@ npm run docs:verify
 
 `docs:verify` 依次执行：
 
-1. `docs:check`：检查五篇中英文核心指南和两个索引的 frontmatter、单一 H1、占位内容、
-   图片 alt、内部链接、双语配对和导航分组。
-2. `docs:build`：构建完整 VitePress 文档站并检查 VitePress 可解析性和站内链接。
-3. `docs:smoke`：检查十篇核心页面的渲染 HTML、标题、语言、导航、分组和 frontmatter
-   泄漏。
+1. `gitee:readme:check`：检查 Gitee README 与源文件是否同步。
+2. `docs:build`：构建完整 VitePress 文档站、检查站内链接，并生成基准报告页面。
+3. `benchmarks:v1.1:validate -- --output-root docs/.vitepress/dist/benchmarks/scenario-bench/v1.1`：直接验证基准源码和本次构建报告的证据、校验和、公开数据边界及包内链接。
 
 本地预览：
 
@@ -53,9 +51,14 @@ npm run docs:preview
 
 - `.github/workflows/pr-checks.yml` 中的 `docs` job 会在 pull request 上执行同一条
   `npm run docs:verify` 命令。
-- 占位内容检查使用明确的核心指南清单，不扫描社区案例模板中的合法编辑提示。
-- VitePress 构建检查全站页面、导航和站内链接；十页语义冒烟进一步捕获构建不会报错的
-  frontmatter 正文泄漏。
+- 教程由 VitePress 编译并检查站内链接；不再通过专项脚本约束固定页面的标题、H1、
+  导航、图片 alt 或 frontmatter 渲染形态。
+- 基准完整验证已经覆盖源码，因此不在构建前重复执行 `--source-only`；该参数仍可用于
+  单独检查基准源码。
+- 基准验证保留报告完整性、数据投影、证据限制、校验和与包内链接检查；不再锁定
+  CSS 类名和数量、标题或说明的具体措辞。
+- 不再专项扫描 README 和其他文档中的官网报告 URL，也不将这些绝对 URL 映射到本地
+  构建目录检查目标是否存在；报告清单和包内相对链接继续验证。
 - 当前依赖审计可能报告 npm dependency vulnerabilities，公开发布前应单独评估并记录处理结论。
 
 ## 前端检查
@@ -65,14 +68,21 @@ npm run docs:preview
 ```bash
 cd src/web
 npm ci
-npm run i18n:check
+npm test
 npm run build
 npm run resource-i18n:check
 ```
 
 说明：
 
-- `npm run build` 会先通过 `prebuild` 自动执行 `npm run i18n:check`。
+- `npm test` 使用 Node 原生测试运行器串行执行显式列出的 19 个测试入口，覆盖 API、
+  请求、参数、流程及组件行为；前端 CI 在构建前执行它。单项测试可直接运行
+  `node --experimental-vm-modules --test scripts/<测试文件>.mjs`。
+- `npm run build` 的 `prebuild` 只执行 `i18n:check`，不再隐式运行行为测试。
+- `i18n:check` 直接检查双语键一致性、短译键及源码使用的翻译键。
+  术语文档用于人工维护，不再强制其表格与运行时配置同步。
+- 弹窗按钮措辞不再由独立正则校验强制限制；组件行为和浏览器布局检查继续保留，
+  可选工作流不再生成源码或 CSS 变体来验证这些检查本身。
 - `resource-i18n:check` 用于检查资源类国际化内容是否同步。
 - 如果修改了资源文本，可先运行 `npm run resource-i18n:sync`，再复查 diff。
 
@@ -114,7 +124,9 @@ bash scripts/static_analysis.sh --all
 
 说明：
 
-- `cppcheck` 适合先接入 CI，覆盖 warning、style、performance、portability 等类别。
+- hook、CI 和手动 cppcheck 检查统一通过此脚本执行。`--profile full`（默认）启用 warning、style、performance、portability；`--profile commit` 保留提交检查的 warning 类别，两者均包含默认的 error 检查。所有已启用且未抑制的诊断、工具错误均返回失败。
+- `--staged` 检查暂存的 `.h` / `.cc` 文件；`--base-ref REF` 检查 REF 与 HEAD 之间 `src` / `test` 下的变更文件，两者互斥。CI 计算 merge-base 后传入 `--base-ref`，删除文件不参与检查。
+- 直接运行 `--cppcheck` 时缺少工具会失败；hook 和 `--all` 会跳过未安装的工具，`--all` 汇总已执行检查的失败。
 - `clang-tidy` 依赖 `build/compile_commands.json`，需要先完成对应构建配置。
 - `--summary` 可从 `build.log` 中汇总常见编译告警。
 

@@ -394,6 +394,23 @@ std::unique_ptr<HttpReqTask> HttpServer::BuildHttpReqTask(struct evhttp_request*
     task->interface    = context.uri;
     task->mtk          = context.credential;
     task->principal    = context.principal;
+    switch (evhttp_request_get_command(req)) {
+        case EVHTTP_REQ_POST:
+            task->http_method = "POST";
+            break;
+        case EVHTTP_REQ_PUT:
+            task->http_method = "PUT";
+            break;
+        default:
+            task->http_method = "OTHER";
+            break;
+    }
+    if (const auto* id = FindHeader(evhttp_request_get_input_headers(req), "X-Upload-Id")) {
+        task->upload_id = id;
+    }
+    if (const auto* offset = FindHeader(evhttp_request_get_input_headers(req), "X-Upload-Offset")) {
+        task->upload_offset = offset;
+    }
 
     auto* input_headers = evhttp_request_get_input_headers(req);
     if (const auto* forwarded_for = FindHeader(input_headers, "x-forwarded-for")) {
@@ -640,7 +657,8 @@ bool HttpServer::Initialize(const std::string& host_ip, int port, DispatcherFact
     evhttp_set_gencb(event_http_, ComGenCb, this);
 
     // allow post method
-    evhttp_set_allowed_methods(event_http_, EVHTTP_REQ_POST | EVHTTP_REQ_GET | EVHTTP_REQ_HEAD);
+    evhttp_set_allowed_methods(event_http_,
+                               EVHTTP_REQ_POST | EVHTTP_REQ_GET | EVHTTP_REQ_HEAD | EVHTTP_REQ_PUT);
 
     bound_socket_ = evhttp_bind_socket_with_handle(event_http_, host_ip.c_str(), static_cast<uint16_t>(port));
     if (bound_socket_ == nullptr) {
@@ -979,8 +997,35 @@ int HttpServer::DispatchFileMsg(HttpAckTask* task) {
     }
 
     const auto content_length = file_size == 0 ? 0 : range.last - range.first + 1;
-    if (!AddHttpOctetHeader(ev_http_req, task->request_id, task->file_name, content_length)) {
+    auto* payload             = evbuffer_new();
+    if (payload == nullptr) {
         close(file_fd);
+        evhttp_send_error(ev_http_req, HTTP_INTERNAL, "Download buffer unavailable");
+        return 0;
+    }
+    if (content_length > 0) {
+        // Keep the response file-backed: queuing every chunk in this event-loop
+        // callback retains the entire archive before the socket can drain it.
+        evbuffer_set_flags(payload, EVBUFFER_FLAG_DRAINS_TO_FD);
+        auto* segment =
+            evbuffer_file_segment_new(file_fd, range.first, content_length, EVBUF_FS_CLOSE_ON_FREE);
+        const int added =
+            segment == nullptr ? -1 : evbuffer_add_file_segment(payload, segment, 0, content_length);
+        if (segment != nullptr) {
+            evbuffer_file_segment_free(segment);
+        } else {
+            close(file_fd);
+        }
+        if (added != 0) {
+            evbuffer_free(payload);
+            evhttp_send_error(ev_http_req, HTTP_INTERNAL, "Download file unavailable");
+            return 0;
+        }
+    } else {
+        close(file_fd);
+    }
+    if (!AddHttpOctetHeader(ev_http_req, task->request_id, task->file_name, content_length)) {
+        evbuffer_free(payload);
         return 0;
     }
 
@@ -1004,34 +1049,8 @@ int HttpServer::DispatchFileMsg(HttpAckTask* task) {
 
     const int response_code   = range_result == RangeResult::kPartial ? 206 : HTTP_OK;
     const char* response_text = range_result == RangeResult::kPartial ? "Partial Content" : "OK";
-    evhttp_send_reply_start(ev_http_req, response_code, response_text);
-
-    std::uint64_t position  = range.first;
-    std::uint64_t remaining = content_length;
-    char buf[64 * 1024];
-    while (remaining > 0) {
-        const auto requested = static_cast<std::size_t>(std::min<std::uint64_t>(remaining, sizeof(buf)));
-        const auto nread     = pread(file_fd, buf, requested, static_cast<off_t>(position));
-        if (nread < 0 && errno == EINTR) {
-            continue;
-        }
-        if (nread <= 0) {
-            LOG_ERRO("Failed while streaming file {}", task->file_path);
-            break;
-        }
-        struct evbuffer* chunk = evbuffer_new();
-        if (chunk == nullptr) {
-            LOG_ERRO("{}", "Cannot allocate HTTP download chunk");
-            break;
-        }
-        evbuffer_add(chunk, buf, static_cast<std::size_t>(nread));
-        evhttp_send_reply_chunk(ev_http_req, chunk);
-        evbuffer_free(chunk);
-        position += static_cast<std::uint64_t>(nread);
-        remaining -= static_cast<std::uint64_t>(nread);
-    }
-    evhttp_send_reply_end(ev_http_req);
-    close(file_fd);
+    evhttp_send_reply(ev_http_req, response_code, response_text, payload);
+    evbuffer_free(payload);
     return 1;
 }
 

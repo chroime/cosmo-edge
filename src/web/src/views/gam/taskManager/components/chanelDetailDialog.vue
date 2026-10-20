@@ -23,7 +23,7 @@
         <el-form-item :label="t('glossary.frameRate') + localeColon">
           <el-input v-model="props.detailChannel.fps" size="small" disabled />
         </el-form-item>
-        <el-form-item :label="'RTSP' + localeColon">
+        <el-form-item :label="t('glossary.streamAddress') + localeColon">
           <el-input v-model="props.detailChannel.url" size="small" disabled />
         </el-form-item>
         <el-form-item v-if="false" :label="t('field.externalChannelNo') + localeColon">
@@ -42,6 +42,9 @@
             {{ props.detailChannel.channelStatus === 1 ? t('status.online') : t('status.offline') }}
           </span>
         </el-form-item>
+        <el-form-item v-if="cameraStatusReason(props.detailChannel)" :label="t('cameraDiagnostics.reason') + localeColon">
+          <span class="channel-error">{{ cameraStatusReason(props.detailChannel) }}</span>
+        </el-form-item>
       </el-form>
     </el-dialog>
   </div>
@@ -50,6 +53,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { t, localeColon, currentLocale } from '@/i18n'
+import { cameraStatusReason } from '@/utils/cameraStatus'
 import { resolveResourceAlgorithmName } from '@/utils/i18nResource'
 
 const props = defineProps({
@@ -72,6 +76,12 @@ watch(() => props.visible, (val) => {
 </script>
 
 <style lang="scss" scoped>
+.channel-error {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 .el-form {
   padding-right: 60px;
 }

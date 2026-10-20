@@ -49,11 +49,11 @@ private:
     float IOU(float* box1, float* box2);
 
 private:
-    float nms_threshold;
-    float base_conf;
+    float nms_threshold = 0.35f;
+    float base_conf     = 0.1f;
 
     int top_col = 6;
-    int top_k;
+    int top_k   = 1000;
 
     // Net input dimensions for denormalizing coordinates
     int input_width_  = 0;

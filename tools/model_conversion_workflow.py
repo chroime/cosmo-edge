@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -17,11 +18,12 @@ from pathlib import Path
 from typing import Any
 
 import agent_workflow as core
+from model_package_validation import check_package
 from conversion_common import (
     ExecutionFailure,
     utc_now,
     _require_string,
-    conversion_parameters,
+    conversion_parameters as _common_conversion_parameters,
     _read_environment_report,
     _read_asset_selection,
     _run_relative,
@@ -59,11 +61,76 @@ DEVICE_VALIDATION_NONE = {
 SEAL_VERSION = "1.0"
 
 
+def conversion_parameters(contract: dict[str, Any], run_dir: Path) -> dict[str, Any]:
+    parameters = _common_conversion_parameters(contract, run_dir)
+    for key in ("quantizeTable", "calibrationTable"):
+        raw = parameters["raw"].get(key)
+        parameters[key] = None
+        if raw is None:
+            continue
+        path = core.resolve_run_input(run_dir, _require_string(raw, f"parameters.{key}"))
+        try:
+            rows = [
+                line.split()
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
+        except (OSError, UnicodeError) as error:
+            raise core.WorkflowError(f"parameters.{key} must be a readable UTF-8 table") from error
+        if not rows:
+            raise core.WorkflowError(f"parameters.{key} must contain table entries")
+        if key == "quantizeTable":
+            if any(len(row) != 2 or row[1] not in {"F32", "F16", "BF16", "INT8"} for row in rows):
+                raise core.WorkflowError("quantizeTable entries must be layer-name F32/F16/BF16/INT8")
+        else:
+            for row in rows:
+                try:
+                    threshold, minimum, maximum = (float(value) for value in row[1:])
+                    valid = len(row) == 4 and all(
+                        math.isfinite(value) for value in (threshold, minimum, maximum)
+                    ) and threshold > 0 and minimum <= maximum
+                except ValueError:
+                    valid = False
+                if not valid:
+                    raise core.WorkflowError(
+                        "calibrationTable entries must be tensor-name positive-threshold finite-min finite-max"
+                    )
+        parameters[key] = path
+    if parameters["quantization"] == "INT8" and parameters["calibrationTable"] is None:
+        raise core.WorkflowError("INT8 conversion requires parameters.calibrationTable")
+    return parameters
+
+
+def _conversion_inputs(parameters: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
+    return [
+        _artifact(core.resolve_run_input(run_dir, str(parameters[key])), run_dir, role)
+        for key, role in (
+            ("quantizeTable", "quantization-table"),
+            ("calibrationTable", "calibration-table"),
+        )
+        if parameters.get(key) is not None
+    ]
+
+
+def _conversion_input_failures(
+    manifest: dict[str, Any], parameters: dict[str, Any], run_dir: Path,
+) -> list[str]:
+    try:
+        current = _conversion_inputs(parameters, run_dir)
+    except (core.WorkflowError, OSError) as error:
+        return [f"Conversion table input is unavailable: {error}"]
+    if manifest.get("conversionInputs", []) != current:
+        return ["Conversion table inputs changed or are not bound to the execution manifest; rerun conversion."]
+    return []
+
+
 def _container_path(path: Path, run_dir: Path) -> str:
     return f"/workspace/run/{_run_relative(path, run_dir)}"
 
 
-def _docker_base(run_dir: Path, image_id: str, entrypoint: str) -> list[str]:
+def _docker_base(
+    run_dir: Path, image_id: str, entrypoint: str, toolchain: dict[str, Any] | None = None,
+) -> list[str]:
     return [
         "docker",
         "run",
@@ -80,6 +147,7 @@ def _docker_base(run_dir: Path, image_id: str, entrypoint: str) -> list[str]:
         f"{run_dir.resolve()}:/workspace/run:rw",
         "--workdir",
         "/workspace/run/work",
+        *core.source_toolchain.docker_arguments(toolchain or {}),
         "--entrypoint",
         entrypoint,
         image_id,
@@ -118,7 +186,7 @@ def _tool_command(
         if not isinstance(image_id, str) or not image_id:
             raise core.WorkflowError("admitted container toolchain has no image identity")
         entrypoint = entry["path"] if invocation == "direct" else python_executable
-        container_command = _docker_base(run_dir, image_id, entrypoint)
+        container_command = _docker_base(run_dir, image_id, entrypoint, toolchain)
         if invocation != "direct":
             container_command.append(entry["path"])
         return [*container_command, *arguments]
@@ -175,6 +243,8 @@ def build_deploy_arguments(
     *,
     mlir: str,
     model: str,
+    quantize_table: str | None = None,
+    calibration_table: str | None = None,
     test_input: str | None = None,
     test_reference: str | None = None,
 ) -> list[str]:
@@ -188,6 +258,9 @@ def build_deploy_arguments(
         "--model",
         model,
     ]
+    for flag, value in (("--quantize_table", quantize_table), ("--calibration_table", calibration_table)):
+        if value is not None:
+            arguments.extend([flag, value])
     if test_input and test_reference:
         arguments.extend(["--test_input", test_input, "--test_reference", test_reference])
         if parameters.get("tensorTolerance"):
@@ -256,6 +329,7 @@ def execute_conversion(
         "routeAssessmentSha256": environment["routeAssessmentSha256"],
         "startedAt": utc_now(),
         "source": _artifact(source_model, run_dir, "source-onnx"),
+        "conversionInputs": _conversion_inputs(parameters, run_dir),
         "target": {
             "backend": parameters["targetBackend"],
             "chip": chip,
@@ -394,10 +468,21 @@ def execute_conversion(
         }
         core.atomic_write_json(manifest_path, manifest)
 
+        input_failures = _conversion_input_failures(manifest, parameters, run_dir)
+        if input_failures:
+            raise ExecutionFailure("; ".join(input_failures))
         deploy_args = build_deploy_arguments(
             parameters,
             mlir=_runtime_path(mlir_path, run_dir, current_toolchain),
             model=_runtime_path(bmodel_path, run_dir, current_toolchain),
+            quantize_table=(
+                _runtime_path(parameters["quantizeTable"], run_dir, current_toolchain)
+                if parameters["quantizeTable"] else None
+            ),
+            calibration_table=(
+                _runtime_path(parameters["calibrationTable"], run_dir, current_toolchain)
+                if parameters["calibrationTable"] else None
+            ),
             test_input=runtime_test_input,
             test_reference=runtime_reference,
         )
@@ -488,6 +573,13 @@ def execute_conversion(
                 "detail": "model_tool is unavailable in the admitted compiler toolchain.",
             }
 
+        if current_toolchain.get("layout") == "source-tree":
+            completed_toolchain, error = core.inspect_toolchain(parameters["toolchainSpec"])
+            if not completed_toolchain or completed_toolchain.get("id") != admitted_toolchain.get("id"):
+                raise core.WorkflowError("source compiler changed during conversion; rerun doctor: " + error)
+        input_failures = _conversion_input_failures(manifest, parameters, run_dir)
+        if input_failures:
+            raise ExecutionFailure("; ".join(input_failures))
         manifest["status"] = "COMPLETE"
         manifest["completedAt"] = utc_now()
         manifest["durationSeconds"] = round(time.monotonic() - started, 3)
@@ -716,6 +808,9 @@ def _seal_chain_context(run_dir: Path) -> dict[str, Any]:
         raise core.WorkflowError("seal contract and execution manifest do not match")
     if manifest.get("routeAssessmentSha256") != core.sha256_file(route_path):
         raise core.WorkflowError("seal route assessment and execution manifest do not match")
+    input_failures = _conversion_input_failures(manifest, conversion_parameters(contract, run_dir), run_dir)
+    if input_failures:
+        raise core.WorkflowError("; ".join(input_failures))
     compatibility = next(
         (
             item
@@ -886,6 +981,11 @@ def record_example(
     emit_summary: bool = True,
 ) -> dict[str, Any]:
     path = _example_path(raw_path, project_root)
+    if manifest.get("toolchain", {}).get("layout") == "source-tree":
+        raise core.WorkflowError(
+            "source-tree task conversion is supported; public example recording requires a "
+            "compiler-source identity schema and is not enabled by this task route"
+        )
     if not parameters["recordedBy"] or not parameters["sourceUrl"]:
         raise core.WorkflowError(
             "recording requires measured parameters.recordedBy and parameters.sourceUrl"
@@ -1012,7 +1112,13 @@ def _resolve_manifest_artifact(run_dir: Path, entry: dict[str, Any]) -> Path:
     return core.resolve_run_input(run_dir, raw_path)
 
 
-def _package_stage(contract: dict[str, Any], run_dir: Path, parameters: dict[str, Any]) -> dict[str, Any]:
+def _package_stage(
+    contract: dict[str, Any],
+    run_dir: Path,
+    parameters: dict[str, Any],
+    artifacts: list[dict[str, Any]] | None = None,
+    model_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     output_kind = str(parameters["raw"].get("outputKind", "bmodel"))
     if output_kind != "model-package":
         return {"id": "S4", "status": "SKIP", "detail": "The task requests a bmodel, not a full import package."}
@@ -1034,27 +1140,15 @@ def _package_stage(contract: dict[str, Any], run_dir: Path, parameters: dict[str
         return {"id": "S4", "status": "FAIL", "detail": "The package directory escapes the current run."}
     if not re.fullmatch(r"prod_[A-Z0-9]+_[0-9]{7}_.+_V[0-9]+\.0\.[0-9]+", package.name):
         return {"id": "S4", "status": "FAIL", "detail": "The package directory name does not match the import contract."}
-    config_path = package / "config.json"
-    model_path = package / "model.nn"
-    if not config_path.is_file() or not model_path.is_file():
-        return {"id": "S4", "status": "FAIL", "detail": "The package must contain config.json and model.nn."}
     try:
+        config_path = core.resolve_run_input(run_dir, str(package / "config.json"))
+        model_path = core.resolve_run_input(run_dir, str(package / "model.nn"))
         config = core.load_json(config_path)
-    except core.WorkflowError as error:
-        return {"id": "S4", "status": "FAIL", "detail": str(error)}
-    if str(config.get("chip_type", "")).lower() != parameters["targetChip"]:
-        return {"id": "S4", "status": "FAIL", "detail": "config.json chip_type differs from the task contract."}
-    models = config.get("models")
-    if not isinstance(models, list) or not models:
-        return {"id": "S4", "status": "FAIL", "detail": "config.json models must be non-empty."}
-    for model in models:
-        if not isinstance(model, dict) or not model.get("inputs") or not model.get("outputs"):
-            return {"id": "S4", "status": "FAIL", "detail": "Each configured model needs inputs and outputs."}
-    return {
-        "id": "S4",
-        "status": "PASS",
-        "detail": "Package name, config.json, model.nn, chip, and tensor declarations are present and self-consistent.",
-    }
+        if not isinstance(config, dict):
+            return {"id": "S4", "status": "FAIL", "detail": "config.json must be an object."}
+        return check_package(config, model_path, run_dir, parameters, artifacts or [], model_info or {})
+    except (core.WorkflowError, OSError, UnicodeError) as error:
+        return {"id": "S4", "status": "FAIL", "detail": core.redact_text(str(error))}
 
 
 def _example_applicable(example: dict[str, Any], parameters: dict[str, Any]) -> bool:
@@ -1112,6 +1206,11 @@ def verify_conversion(
         or manifest.get("contractSha256") != core.sha256_file(contract_path)
     ):
         raise core.WorkflowError("execution manifest does not match the current contract")
+    if environment.get("toolchain", {}).get("layout") == "source-tree":
+        current, error = core.inspect_toolchain(parameters["toolchainSpec"])
+        expected_id = environment["toolchain"]["id"]
+        if not current or current.get("id") != expected_id or manifest.get("toolchain", {}).get("id") != expected_id:
+            raise core.WorkflowError("source compiler identity changed before verification; rerun doctor: " + error)
 
     stages: list[dict[str, Any]] = []
     preflight = manifest.get("stages", {}).get("onnxPreflight", {})
@@ -1146,7 +1245,7 @@ def verify_conversion(
         stages.append({"id": "S1", "status": "FAIL", "detail": "ONNX preflight evidence is missing or changed."})
 
     artifact_entries = manifest.get("artifacts", [])
-    artifact_failures = []
+    artifact_failures = _conversion_input_failures(manifest, parameters, run_dir)
     deliverables = []
     for entry in artifact_entries if isinstance(artifact_entries, list) else []:
         try:
@@ -1224,7 +1323,7 @@ def verify_conversion(
             "detail": tensor_detail,
         }
     )
-    stages.append(_package_stage(contract, run_dir, parameters))
+    stages.append(_package_stage(contract, run_dir, parameters, deliverables, model_info))
     stages.append(
         {
             "id": "S5",
@@ -1298,6 +1397,7 @@ def verify_conversion(
         "selectedExample": selected_example.get("exampleId") if selected_example else None,
         "selectedExampleLifecycle": selected_example_lifecycle,
         "attempts": [*previous_attempts, _attempt_summary(manifest)],
+        "conversionInputs": manifest.get("conversionInputs", []),
         "dataFlow": core.redact_data(manifest.get("dataFlow", {"status": "UNVERIFIED"})),
         "waivers": [tensor_waiver] if tensor_waiver else [],
         "stages": stages,
@@ -1354,7 +1454,7 @@ def verify_conversion(
 
 
 def convert_main(arguments: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="convert_model.sh")
+    parser = argparse.ArgumentParser(prog="python3 tools/conversion_workflow_dispatch.py convert")
     parser.add_argument("--contract", required=True)
     parser.add_argument("--test-input")
     parser.add_argument("--record-example")
@@ -1388,7 +1488,7 @@ def convert_main(arguments: list[str]) -> int:
 
 
 def verify_main(arguments: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="verify.sh")
+    parser = argparse.ArgumentParser(prog="python3 tools/conversion_workflow_dispatch.py verify")
     parser.add_argument("--contract", required=True)
     parser.add_argument("--example")
     parser.add_argument("--record-example")

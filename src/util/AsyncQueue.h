@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <iterator>
 #include <mutex>
 #include <queue>
 #include <shared_mutex>
@@ -137,13 +139,10 @@ bool AsyncQueue<DataType, QueueType>::KeyInQueue(const std::string& key) {
         return false;
     }
 
-    for (const auto& element : queue_) {
-        if (key_in_data_func_(element, key)) {
-            return true;
-        }
-    }
-
-    return false;
+    using std::begin;
+    using std::end;
+    return std::any_of(begin(queue_), end(queue_),
+                       [&](const auto& element) { return key_in_data_func_(element, key); });
 }
 
 template <typename DataType, typename QueueType>

@@ -463,6 +463,7 @@ include(cmake/mp4v2.cmake)
 include(cmake/openssl.cmake)
 include(cmake/cryptopp.cmake)
 include(cmake/curl.cmake)
+include(cmake/tinyxml2.cmake)
 include(cmake/mqtt.cmake)
 include(cmake/event.cmake)
 include(cmake/ffmpeg.cmake)
@@ -575,7 +576,7 @@ set(ALL_OBJECTS
 #Common link libraries(shared by main executable and tests)
 set(COMMON_LIBS
     stdc++fs fmt glog cryptopp SQLiteCpp sqlite3 uSockets uuid z pcap
-    openssl_ssl openssl_crypto curl
+    openssl_ssl openssl_crypto curl cosmo_xml
     event_core event_extra event
     mqtt_c mqtt_cs
     ffmpeg_avcodec ffmpeg_avdevice ffmpeg_avfilter
@@ -899,6 +900,7 @@ if(DEFINED RESOURCE_DIR AND IS_DIRECTORY "${RESOURCE_DIR}")
         PATTERN ".git" EXCLUDE
         PATTERN "models" EXCLUDE
         PATTERN "model-artifacts" EXCLUDE
+        PATTERN "laya_runtime" EXCLUDE
         PATTERN "__pycache__" EXCLUDE PATTERN "*.pyc" EXCLUDE PATTERN "*.pyo" EXCLUDE
     )
     if(DEFINED RESOURCE_OVERLAY_DIR AND IS_DIRECTORY "${RESOURCE_OVERLAY_DIR}")
@@ -982,11 +984,14 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts/
             PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE
 )
 
+# Laya inference is native. Offline conversion/reference tools are not device payloads.
+
 # Service files are not included by the shell-script directory rule above.
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/scripts/cosmo-log-cleanup.service
     DESTINATION scripts
     PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
 install(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/scripts/system-log-retention.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripts/runtime_supervisor.py
     DESTINATION scripts
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 

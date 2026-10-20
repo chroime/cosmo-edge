@@ -22,7 +22,7 @@ This page is for first-time CosmoEdge contributors. Its goal is to make the firs
 | Focused C++ fix | Utility functions, DTOs, service-layer fixes, unit tests | `scripts/build_cpu_test.sh` and `cosmo-tests` |
 | Scenario or model notes | Example config, parameter explanations, integration notes | Docs build + related manual check |
 
-For broad C++ architecture changes, new algorithm nodes, new dependencies, or model-runtime integrations, please open an issue first and discuss the design.
+For broad C++ architecture changes, new algorithm nodes, new dependencies, or model-runtime integrations, you can discuss the design in an issue first. An issue is not required to open a PR.
 
 ## Local Setup
 
@@ -136,7 +136,7 @@ This creates a symlink from `.git/hooks/pre-commit` to `scripts/pre-commit`, so 
 
 1. **clang-format** — all staged `.h` and `.cc` files must follow the project style (`.clang-format` at repo root).
    - If formatting fails: run `bash scripts/format_check.sh --staged --fix`, then `git add -u`.
-2. **cppcheck** (optional) — runs only if `cppcheck` is installed locally. Blocks on error-level findings.
+2. **cppcheck** (optional) — when installed locally, runs through the unified entrypoint with `--profile commit` (warning checks plus the default error checks). All enabled, unsuppressed diagnostics and tool errors block the commit.
 
 **Uninstall the hook:**
 
@@ -154,8 +154,8 @@ bash scripts/format_check.sh --staged --check
 bash scripts/format_check.sh --staged --fix
 git add -u
 
-# Run cppcheck on staged files (if installed)
-bash scripts/static_analysis.sh --cppcheck --staged
+# Check staged files with the hook's diagnostic profile (requires cppcheck)
+bash scripts/static_analysis.sh --cppcheck --staged --profile commit
 ```
 
 ## Pull Request Checklist
@@ -178,4 +178,4 @@ bash scripts/static_analysis.sh --cppcheck --staged
 | C++ dependencies are missing | Run `bash scripts/build_cpu_test.sh` first and install the packages reported by the script. |
 | Formatting check fails | Run `bash scripts/format_check.sh --staged --fix`, then stage the updated files again. |
 
-If a change is larger than 50 lines or affects public APIs, deployment scripts, model formats, or pipeline semantics, open an issue first to describe the design.
+If a change affects public APIs, deployment scripts, model formats, or pipeline semantics, describe the design and compatibility impact in the PR. You can also discuss it in an issue first. Line count does not require an issue.

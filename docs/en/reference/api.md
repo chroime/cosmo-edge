@@ -13,6 +13,8 @@ next:
 
 This page only documents the API categories and entry points that can be verified from the current source tree. For the complete upload and synchronous inference flow, continue with [Image Detection API Integration](image-detection-api.md). For other field-level details, see [API Fields](api-fields.md), [MQTT Reference](mqtt.md), and [HTTP Webhook Reference](webhook.md).
 
+Common image integrations: [face identification and enrollment (1:N)](image-detection-api.md#face-identification-with-a-library-1-n) and [two-image comparison and similarity scores (1:1)](image-detection-api.md#two-image-face-workwear-comparison). Both use `PTaskDetectPic`, with the image scenario selecting the capability.
+
 ## Route Entry Points
 
 The backend API routes are centralized in:

@@ -13,6 +13,20 @@ next:
 
 本文面向需要从业务系统上传图片并同步取得分析结果的集成方。检测、分类、关键点、分割、OCR、VLM、底库比对和双图比对复用同一组图片分析 API；实际能力由设备上已配置的图片场景决定。控制台操作见[图片分析与图片比对](../guide/image-analysis.md)，字段速查见[图片分析字段](api-fields.md#图片分析字段)。
 
+## 能力与接口速查
+
+**人脸检测、人脸识别（1:N）和双图人脸比对（1:1）是三种不同的调用方式。** 它们都使用 `POST /gtw/cwai/aihost/PTaskDetectPic`，由创建任务时选择的场景决定处理流程，无需寻找独立的 `/face/recognize` 或 `/face/compare` 路由。
+
+| 需求 | 场景与输入 | 关键结果 |
+| --- | --- | --- |
+| 找到图片中的人脸 | 人脸检测场景，一张图片 | `targetList[].box`、`confidence[]`；检测置信度不表示人员身份 |
+| [人脸识别：从库中查找人员（1:N）](#人脸识别-与人脸库进行-1-n-比对) | 图片人脸比对（内置 ID `92000002`），一张图片 + 已登记的人脸库 | `targetList[].matchInfo` 中的 `matched`、`matchDegree`、`personId`、`name` |
+| [两张人脸图片比对（1:1）](#双图人脸-工服比对) | 双图人脸比对（`93000002`），图片 A + 图片 B，无需底库 | `comparison.score`，0–100 分；可只返回分数或按阈值判断 |
+| [两张人体 / 工服图片比对](#双图人脸-工服比对) | 双图工服比对（`93000058`），每张图中各有一个有效人体目标 | `comparison.score`，表示人体外观相似程度 |
+| 检测、分类、关键点、分割、OCR、VLM 或工服库比对 | 对应图片场景，一张图片；库比对还需绑定对应底库 | [业务输出、目标及库命中详情](#_6-解析编排结果) |
+
+双图接口比较检测目标的特征，不提供任意两张整图的通用像素相似度或图像质量评分。以上为当前仓库的协议能力，调用前应查询目标设备的场景并确认所需模型可用；旧版设备不会因文档更新而自动获得这些能力。
+
 ## 接入前提
 
 开始调用前，请确认：
@@ -313,9 +327,140 @@ mtk: <MTK>
 
 `uploadId`、`imageBase64` 和 `imageUrl` 只能选择一种。JSON 请求体默认上限为 1 MB，因此生产接入和高清图片应使用 `uploadId`。使用 `imageUrl` 时，URL 必须可从 CosmoEdge 设备访问，下载失败会返回业务错误。
 
+### 人脸识别：与人脸库进行 1:N 比对
+
+人脸检测只返回人脸位置；识别已登记人员还需要人脸特征提取、库比对和结果输出节点。可以使用内置 **图片人脸比对** 场景 `92000002`，或设备上具有相同处理链的自定义图片场景。先按第 2 节查询实际可用的算法 ID。
+
+#### 准备人脸库和人员图片
+
+已有有效人脸库时可以直接查询并使用。通过 API 管理底库的入口如下，均为 `POST`，使用 JSON 请求体及 `mtk` header：
+
+| 接口 | 用途 | 关键字段 |
+| --- | --- | --- |
+| `/gtw/cwai/Library/QueryFaceLibInfo` | 分页查询人脸库 | 请求 `pageNum`、`pageSize`；返回 `resData.faceLibList[].id`、`name`、`threshold` |
+| `/gtw/cwai/Library/ModifyFaceLib` | 新增或修改人脸库 | `faceLibOperation` 为 `1` 新增、`2` 修改；新增成功返回 `resData.faceLibId` |
+| `/gtw/cwai/Library/ModifyFacePicLib` | 登记或更新人员及人脸图片 | `personOperation` 为 `1` 新增、`2` 修改；返回 `resData.personId` |
+
+例如，查询已有人脸库：
+
+```http
+POST /gtw/cwai/Library/QueryFaceLibInfo
+Content-Type: application/json
+mtk: <MTK>
+
+{"pageNum": 1, "pageSize": 100}
+```
+
+如需新建底库，调用 `ModifyFaceLib`：
+
+```json
+{
+  "faceLibOperation": 1,
+  "faceLib": {
+    "name": "示例人员库",
+    "threshold": 82,
+    "maxFaceNumber": 1000
+  }
+}
+```
+
+取返回的 `resData.faceLibId` 作为 `<FACE_LIBRARY_ID>`。按照第 4 节以 `purpose=image` 上传登记照，完成后调用 `ModifyFacePicLib`：
+
+```json
+{
+  "personOperation": 1,
+  "faceLibId": ["<FACE_LIBRARY_ID>"],
+  "personName": "示例人员",
+  "serialNumber": "EMP-001",
+  "pictureUploadIds": ["<ENROLLMENT_UPLOAD_ID>"]
+}
+```
+
+`faceLibId` 在人员登记接口中是数组。登记照应包含清晰的单个人脸，每人最多保留 3 张图片。必须确认登记成功并取得 `personId`；图片上传成功不等于人脸特征登记成功。登记照的上传会话会被消费，本次待识别图片需要另行上传。这里只演示新增；修改人员时还需提供已有的 `personId`，并用 `retainPictureId` 指定要保留的原图片。
+
+#### 上传待识别图片并读取身份和分数
+
+按第 3 节创建任务，将 `algorithmCode` 设为查询到的图片人脸比对算法 ID，`taskId` 设为 `face-example`。上传待识别图片后，调用 `POST /gtw/cwai/aihost/PTaskDetectPic`：
+
+```json
+{
+  "taskId": "face-example",
+  "algorithmCode": "92000002",
+  "uploadId": "<QUERY_IMAGE_UPLOAD_ID>",
+  "resultMode": "business",
+  "needRetImg": false,
+  "taskConfig": {
+    "params": [
+      { "key": "param.faceSet", "value": "<FACE_LIBRARY_ID>" },
+      { "key": "param.limitScore", "value": "82" }
+    ]
+  }
+}
+```
+
+`param.faceSet` 的值是字符串，多个库 ID 以逗号分隔。这里的 `92000002` 应替换为设备实际返回的 ID，并与创建任务时保持一致。以下为成功命中时的响应节选，ID、节点名和分数仅用于说明协议：
+
+```json
+{
+  "resCode": 1,
+  "resMsg": [],
+  "resData": {
+    "schemaVersion": 2,
+    "status": "completed",
+    "outputs": [
+      {
+        "nodeId": "output",
+        "name": "人脸识别结果",
+        "decision": "matched",
+        "targetIds": ["detect:0"],
+        "matchedCount": 1
+      }
+    ],
+    "targetList": [
+      {
+        "targetId": "detect:0",
+        "decision": "matched",
+        "matchInfo": {
+          "setPicCount": 1,
+          "matched": true,
+          "matchDegree": 92.6,
+          "matchId": "face-photo-001",
+          "personId": "person-001",
+          "personCode": "EMP-001",
+          "name": "示例人员",
+          "groupId": "library-001",
+          "groupName": "示例人员库"
+        }
+      }
+    ]
+  }
+}
+```
+
+使用 `outputs[].targetIds` 关联目标，再读取 `matchInfo.matched` 和人员信息。`matchDegree` 是 0–100 的相似度分数，`matchId` 是登记照片 ID，`personId` 才是人员 ID。当前库比对要求分数**严格大于**有效阈值才命中；`param.limitScore=0` 使用最佳候选所属库的阈值。
+
+未命中时，默认业务响应可能不返回该目标；如需读取低于阈值的最佳候选和分数，使用 `resultMode: "debug"`，或配置输出节点 `output.targets=all`。候选存在不代表识别成功。未绑定底库是配置错误；已绑定但没有有效样本时返回 `unknown`，不能据此判定为陌生人。更多字段见[底库命中详情与业务结论](#底库命中详情与业务结论)。
+
 ### 双图人脸 / 工服比对
 
-选择内置场景 `93000002`（双图人脸比对）或 `93000058`（双图工服比对）创建图片任务，再向同一个接口提供两个输入。主输入是图片 A，`referenceImage` 是图片 B；每一侧分别选择 `uploadId`、`imageBase64`、`imageUrl` 中的一种。两个上传 ID 必须属于当前认证用户，只消费一次。
+选择内置场景 `93000002`（双图人脸比对）或 `93000058`（双图工服比对），先确认第 2 节能查询到对应算法。例如，创建人脸双图任务：
+
+```http
+POST /gtw/cwai/aihost/PTaskCreate
+Content-Type: application/json
+mtk: <MTK>
+```
+
+```json
+{
+  "mvDebug": "Cosmo-Debug",
+  "taskId": "pair-example",
+  "algorithmCode": "93000002",
+  "algorithmUpdateTime": "<CURRENT_TIME_MILLIS>"
+}
+```
+
+按照第 4 节分别上传图片 A、B，使用两个不同的 `clientRequestId`，取得两个不同的 `uploadId`，然后调用 `POST /gtw/cwai/aihost/PTaskDetectPic`。主输入是图片 A，`referenceImage` 是图片 B；每一侧分别选择 `uploadId`、`imageBase64`、`imageUrl` 中的一种。两个上传 ID 必须属于当前认证用户，只消费一次。
 
 ```json
 {
@@ -333,14 +478,41 @@ mtk: <MTK>
 
 成功时，`resData.comparison` 始终包含 `score`，取值为 0–100；低于阈值仍然返回实际分数。`pair.threshold` 留空表示只输出分数，返回 `decision: "score_only"`，不返回 `threshold`。省略参数则继续使用场景默认值；传入空字符串可以清除已保存的阈值。设置阈值时，分数大于等于阈值返回 `matched`，否则为 `not_matched`。
 
+成功响应节选（示例分数不代表实测结果）：
+
 ```json
 {
-  "nodeId": "comparison-node",
-  "featureType": "face",
-  "decision": "matched",
-  "score": 87.25,
-  "threshold": 80
+  "resCode": 1,
+  "resMsg": [],
+  "resData": {
+    "schemaVersion": 2,
+    "algorithmCode": "93000002",
+    "status": "completed",
+    "comparison": {
+      "nodeId": "comparison-node",
+      "featureType": "face",
+      "decision": "matched",
+      "score": 87.25,
+      "threshold": 80
+    }
+  }
 }
+```
+
+**只需要两张图片的比对分数**时，将请求中的阈值参数改为：
+
+```json
+{ "key": "pair.threshold", "value": "" }
+```
+
+此时读取 `resData.comparison.score`，`decision` 为 `score_only`。不要读取检测 `confidence[]` 或单图底库的 `matchInfo.matchDegree` 来代替双图分数，也不要将有效的 `0` 分当作缺失值：
+
+```javascript
+const comparison = response.resData?.comparison
+if (response.resCode !== 1 || typeof comparison?.score !== 'number') {
+  throw new Error('双图比对失败，请检查 resMsg 和 resData.errorSide')
+}
+console.log('similarity score:', comparison.score)
 ```
 
 图片 A 的目标和结果图片仍在 `targetList`、`fullPicture`；图片 B 使用 `referenceTargetList`、`referencePicture`。目标框是各自原图的像素坐标，可用于展示裁剪图。`needRetImg: false` 时不生成结果图片；`debug` 模式下节点记录的 `imageSide` 区分 A、B 和双方比对。

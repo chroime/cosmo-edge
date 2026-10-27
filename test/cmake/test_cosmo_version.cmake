@@ -5,7 +5,7 @@ if(NOT DEFINED COSMO_SOURCE_DIR)
 endif()
 
 include("${COSMO_SOURCE_DIR}/cmake/CosmoVersion.cmake")
-cosmo_resolve_version("${COSMO_SOURCE_DIR}" 1 1 0 0)
+cosmo_resolve_version("${COSMO_SOURCE_DIR}" 1 2 0 0)
 
 foreach(_part MAJOR MINOR PATCH BUILD)
     if(NOT COSMO_VERSION_${_part} MATCHES "^[0-9]+$")

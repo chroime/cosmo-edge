@@ -6,6 +6,8 @@ This project follows a release-note style inspired by Keep a Changelog.
 
 ## [Unreleased]
 
+Target: **1.2.0** — release preparation in progress; not yet released.
+
 These changes are on `main` after v1.1.0 and are not included in the published v1.1.0
 binaries. Validation remains specific to the recorded candidate, platform, and workload;
 the v1.1 benchmark results do not qualify later builds or newly added features.
@@ -28,6 +30,19 @@ the v1.1 benchmark results do not qualify later builds or newly added features.
   Recorded device checks cover a fixed candidate and short workloads; they do not establish
   business accuracy, long-run capacity, real-RTSP resilience, or standard OTA acceptance.
   ([#219](https://github.com/cosmo-wander-ai/cosmo-edge/pull/219))
+- Opt-in alarm-image privacy masking for new scene images and target crops before encoding,
+  storage, and delivery. Missing detection evidence or processing failures preserve the event
+  while withholding affected images. Preview, recordings, historical images, and images sent
+  to external VLM services are outside this scope. See [Configuration](docs/en/guide/configuration.md).
+- Alarm-output linkage with configurable logical channels and hold times; repeated alarms
+  extend the active output until it resets. Physical output requires the board's GPIO mapping,
+  initialization, and write access. See [Configuration](docs/en/guide/configuration.md).
+- Image workflows without region configuration, structured business results, target and library
+  match details, face/workwear library identification, and pair comparison. Pair comparison
+  requires exactly one valid target per image and returns a similarity score or threshold
+  decision; matching model weights must be installed separately. See
+  [Image Analysis](docs/en/guide/image-analysis.md) and the
+  [Image Detection API](docs/en/reference/image-detection-api.md).
 - Video-sample event measurement with `cosmo-accuracy`, including reproducible suites,
   real-device trial orchestration, reports, and comparisons. This measures sample/event
   outcomes rather than frame-level Precision, Recall, or mAP.
@@ -44,6 +59,9 @@ the v1.1 benchmark results do not qualify later builds or newly added features.
 
 ### Changed
 
+- Refreshed console layouts for management pages, channel tasks, event details, live views,
+  and the flow editor, with persistent light, dark, and system appearance settings and a
+  classic blue color scheme.
 - Expanded RKNN device operations with reboot, factory reset, hardware watchdog support in
   production builds, and network configuration through NetworkManager.
 - Clarified scene/channel ownership of visible task parameters and synchronized saved
@@ -56,6 +74,9 @@ the v1.1 benchmark results do not qualify later builds or newly added features.
 
 ### Fixed
 
+- Preserved typed VLM results and timing in image/video events; restored retries after model
+  initialization failures, accurate task failure status, and recovery after camera changes.
+- Corrected library selection and model filtering; active logs are now snapshotted before export.
 - Corrected Sophon RGB normalization and YOLO NMS overlap calculations for center-format
   boxes, and enabled Guard-backed Qwen vision loading and host-backed image inputs.
 - Preserved CPU fallback after failed Rockchip RGA operations, concealed recoverable

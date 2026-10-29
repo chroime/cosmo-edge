@@ -697,12 +697,13 @@ TEST_CASE("JSON algorithm loading and reload track models in the workflow",
 
     const auto dir = std::filesystem::temp_directory_path() / "cosmo_algorithm_model_links_test";
     std::filesystem::create_directories(dir);
-    const auto file = dir / "1003_Detect.json";
+    const auto file    = dir / "1003_Detect.json";
     auto writeWorkflow = [&](const std::string& code) {
-        nlohmann::json workflow = {{{"actionId", "AA_00001"},
-                                    {"flowActionId", "detect"},
-                                    {"preFlowActionId", "-1"},
-                                    {"configObject", {{"params", {{{"key", "atomicCode"}, {"value", code}}}}}}}};
+        nlohmann::json workflow = {
+            {{"actionId", "AA_00001"},
+             {"flowActionId", "detect"},
+             {"preFlowActionId", "-1"},
+             {"configObject", {{"params", {{{"key", "atomicCode"}, {"value", code}}}}}}}};
         nlohmann::json layout = {{"algorithmId", "1003"},
                                  {"algorithmName", "Detect"},
                                  {"algorithmUsage", 1},

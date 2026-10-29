@@ -120,6 +120,30 @@ TEST_CASE("LiveStreamServiceImpl: 视频流管理核心逻辑", "[live-stream]")
         REQUIRE(true);
     }
 
+    SECTION("Last ready viewer releases its preview lease exactly once") {
+        cosmo::ActionNode action;
+        auto channel = std::make_shared<cosmo::AlgChannel>("channel_1", "task_1", action, "rtsp://url");
+        auto viewer  = std::make_shared<cosmo::StreamViewer>(channel, "channel_1", "");
+        viewer->UpViewerNum();
+        sut.viewers_.push_back(viewer);
+        int released = 0;
+        ALLOW_CALL(mocks.cameraSvc, ReleasePreviewChannel("channel_1")).LR_SIDE_EFFECT(++released);
+
+        REQUIRE(sut.ViewerDelete("channel_1", ""));
+        CHECK(released == 0);
+        CHECK(sut.viewers_.size() == 1);
+        CHECK_FALSE(viewer->stopped_.load());
+
+        REQUIRE(sut.ViewerDelete("channel_1", ""));
+        CHECK(released == 1);
+        CHECK(sut.viewers_.empty());
+        CHECK(viewer->stopped_.load());
+
+        REQUIRE(sut.ViewerDelete("channel_1", ""));
+        sut.Stop();
+        CHECK(released == 1);
+    }
+
     SECTION("心跳超时断开及重连全流程 (通过内部状态测试)") {
         cosmo::ActionNode dummyAction;
         auto mockChannel =

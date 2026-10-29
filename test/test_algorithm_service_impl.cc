@@ -689,3 +689,41 @@ TEST_CASE("Picture packet defaults preserve an explicitly cleared pair threshold
     REQUIRE(packet.processdata->pictureDefaults.front().key == "pair.threshold");
     REQUIRE(packet.processdata->pictureDefaults.front().value.empty());
 }
+
+TEST_CASE("JSON algorithm loading and reload track models in the workflow",
+          "[AlgorithmService][AlgorithmPacketLoader]") {
+    AlgorithmPacketDependencies mocks;
+    ALLOW_CALL(mocks.actionSvc, UpdateActionAlg2(trompeloeil::_)).RETURN(true);
+
+    const auto dir = std::filesystem::temp_directory_path() / "cosmo_algorithm_model_links_test";
+    std::filesystem::create_directories(dir);
+    const auto file    = dir / "1003_Detect.json";
+    auto writeWorkflow = [&](const std::string& code) {
+        nlohmann::json workflow = {
+            {{"actionId", "AA_00001"},
+             {"flowActionId", "detect"},
+             {"preFlowActionId", "-1"},
+             {"configObject", {{"params", {{{"key", "atomicCode"}, {"value", code}}}}}}}};
+        nlohmann::json layout = {{"algorithmId", "1003"},
+                                 {"algorithmName", "Detect"},
+                                 {"algorithmUsage", 1},
+                                 {"algorithmProcessdata", workflow.dump()}};
+        std::ofstream(file) << layout.dump();
+    };
+
+    writeWorkflow("123");
+    auto packets = cosmo::service::detail::AlgorithmPacketLoader::LoadFromJsonDirectory(dir.string());
+    REQUIRE(packets.size() == 1);
+    REQUIRE(packets[0].modelInfo.models.size() == 1);
+    CHECK(packets[0].modelInfo.models[0].modelCode == "123");
+
+    writeWorkflow("456");
+    std::string code;
+    cosmo::service::algorithm::AlgorithmPacketInfo updated;
+    REQUIRE(cosmo::service::detail::AlgorithmPacketLoader::ReloadFromFile(file.string(), code, updated) ==
+            cosmo::util::ErrorEnum::Success);
+    REQUIRE(updated.modelInfo.models.size() == 1);
+    CHECK(updated.modelInfo.models[0].modelCode == "456");
+    std::error_code ec;
+    std::filesystem::remove_all(dir, ec);
+}

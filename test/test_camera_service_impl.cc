@@ -7,6 +7,7 @@
  * 仅测试不依赖外部状态的纯逻辑路径。
  */
 #include <arpa/inet.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -21,6 +22,7 @@
 
 #include "mock/MockTaskService.h"
 #include "service/camera/impl/CameraServiceImpl.h"
+#include "service/onvif/impl/OnvifServiceImpl.h"
 #include "support/MockDefaults.h"
 #include "support/ScopedPathOverride.h"
 #include "support/ScopedServiceOverride.h"
@@ -42,6 +44,135 @@ struct CameraServiceDependencies {
 };
 
 }  // namespace
+
+TEST_CASE("CameraServiceImpl: idle ONVIF reachability survives preview release",
+          "[CameraService][onvif][preview]") {
+    struct Endpoint {
+        int fd = ::socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        std::atomic<bool> stopping{false};
+        std::thread worker;
+        uint16_t port = 0;
+        Endpoint() {
+            sockaddr_in address{};
+            address.sin_family      = AF_INET;
+            address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            REQUIRE(fd >= 0);
+            REQUIRE(::bind(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0);
+            socklen_t length = sizeof(address);
+            REQUIRE(::getsockname(fd, reinterpret_cast<sockaddr*>(&address), &length) == 0);
+            port = ntohs(address.sin_port);
+            REQUIRE(::listen(fd, 16) == 0);
+            worker = std::thread([this] {
+                while (!stopping.load()) {
+                    pollfd descriptor{fd, POLLIN, 0};
+                    if (::poll(&descriptor, 1, 20) > 0) {
+                        const int client = ::accept(fd, nullptr, nullptr);
+                        if (client >= 0)
+                            ::close(client);
+                    }
+                }
+            });
+        }
+        void Stop() {
+            stopping = true;
+            if (worker.joinable())
+                worker.join();
+            if (fd >= 0) {
+                ::close(fd);
+                fd = -1;
+            }
+        }
+        ~Endpoint() {
+            Stop();
+        }
+        std::string Url(const std::string& host) const {
+            return "http://" + host + ":" + std::to_string(port) + "/onvif/device_service";
+        }
+    } endpoint;
+    const auto base = "/tmp/cosmo_onvif_idle_" +
+                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::filesystem::create_directories(base);
+    cosmo::test::ScopedPathOverride paths(base, base);
+    OnvifServiceImpl onvif;
+    onvif.Init();
+    cosmo::test::ScopedServiceOverride<IOnvifService> source_service(onvif);
+    struct TaskService : cosmo::test::MockTaskService {
+        MsgCameraAttr current;
+        bool GetChannelAttr(const std::string&, MsgCameraAttr& output) override {
+            output = current;
+            return true;
+        }
+    } tasks;
+    cosmo::test::NamedExpectations expectations;
+    cosmo::test::AllowTaskMutationSuccess(tasks, expectations);
+    cosmo::test::ScopedServiceOverride<ITaskLifecycle> lifecycle(tasks);
+    cosmo::test::ScopedServiceOverride<ITaskChannel> channel(tasks);
+    CameraServiceImpl svc;
+    std::string host = "127.0.0.1";
+    SECTION("IPv4 endpoint") {}
+    SECTION("hostname endpoint") {
+        host = "localhost";
+    }
+    const nlohmann::json request = {{"endpoint", endpoint.Url(host)},
+                                    {"username", "test"},
+                                    {"password", "test"},
+                                    {"profileToken", "profile"}};
+    MsgCameraInfo config;
+    config.videoChannelId = "onvif-idle";
+    config.channelName    = "ONVIF idle";
+    config.channelType    = MsgCameraType::MsgCameraTypeOnvif;
+    config.url            = onvif.Save(request);
+    std::string id;
+    REQUIRE(svc.Add(config, id) == util::ErrorEnum::Success);
+    const auto query = [&] {
+        size_t total = 0;
+        auto rows    = svc.Query("", -1, 1, 10, total);
+        REQUIRE(rows.size() == 1);
+        return rows.front();
+    };
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOnline);
+    REQUIRE(query().statusReason.empty());
+
+    REQUIRE(svc.AcquirePreviewChannel(id) == util::ErrorEnum::Success);
+    tasks.current.channelStatus = ChannelStatus::ChannelStatusOnline;
+    tasks.current.dataStatus    = static_cast<int>(cosmo::service::camera::AlgDemuxStatus::AlgDemuxReading);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOnline);
+    REQUIRE_CALL(tasks, TaskIsStart(id + "-ChannelTask")).RETURN(true);
+    REQUIRE_CALL(tasks, TaskStop(id + "-ChannelTask")).RETURN(true);
+    REQUIRE_CALL(tasks, GetChannelInst(id)).RETURN(nullptr);
+    svc.ReleasePreviewChannel(id);
+    tasks.current.channelStatus = ChannelStatus::ChannelStatusOffline;
+    tasks.current.dataStatus    = static_cast<int>(cosmo::service::camera::AlgDemuxStatus::AlgDemuxClosed);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOnline);
+    REQUIRE(svc.Update(config) == util::ErrorEnum::Success);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOnline);
+
+    // A reachable device must not mask real media or authentication failures.
+    tasks.current.dataStatus = static_cast<int>(cosmo::service::camera::AlgDemuxStatus::AlgDemuxReadFailed);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOffline);
+    REQUIRE(query().statusReason == "stream_read_failed");
+    tasks.current.dataStatus =
+        static_cast<int>(cosmo::service::camera::AlgDemuxStatus::AlgDemuxOpenUnauthorized);
+    tasks.current.channelStatus = ChannelStatus::ChannelStatusUnauthorized;
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusUnauthorized);
+    REQUIRE(query().statusReason == "authentication_failed");
+    tasks.current.channelStatus = ChannelStatus::ChannelStatusOffline;
+    tasks.current.dataStatus    = static_cast<int>(cosmo::service::camera::AlgDemuxStatus::AlgDemuxClosed);
+
+    endpoint.Stop();
+    REQUIRE(svc.Update(config) == util::ErrorEnum::Success);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOffline);
+    REQUIRE(query().statusReason == "connection_refused");
+    Endpoint recovered;
+    auto repaired        = request;
+    repaired["endpoint"] = recovered.Url(host);
+    onvif.Save(repaired, config.url);
+    REQUIRE(svc.Update(config) == util::ErrorEnum::Success);
+    REQUIRE(query().channelStatus == ChannelStatus::ChannelStatusOnline);
+    REQUIRE(query().statusReason.empty());
+    svc.Stop();
+    std::filesystem::remove_all(base);
+}
 
 TEST_CASE("CameraServiceImpl: source errors survive serialization and clear after URL repair",
           "[CameraService][diagnostics]") {

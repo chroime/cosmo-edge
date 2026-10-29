@@ -6,6 +6,7 @@
 #include "service/camera/impl/CameraServiceImpl.h"
 
 #include <arpa/inet.h>
+#include <curl/curl.h>
 #include <fcntl.h>
 #include <linux/videodev2.h>
 #include <malloc.h>
@@ -68,6 +69,41 @@ void CameraEntity::WaitForSwitchThread() {
 // ============================================================
 
 namespace {
+
+    // Device reachability must not depend on an active preview/demux session.
+    // CONNECT_ONLY handles hostnames/IPv6 and HTTPS without sending credentials,
+    // SOAP requests or starting a video stream. Match the existing TCP probe budget.
+    bool CheckOnvifEndpoint(const std::string& endpoint, std::string& reason) {
+        reason = "connection_failed";
+        std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), curl_easy_cleanup);
+        if (!curl)
+            return false;
+        curl_easy_setopt(curl.get(), CURLOPT_URL, endpoint.c_str());
+        curl_easy_setopt(curl.get(), CURLOPT_PROTOCOLS_STR, "http,https");
+        curl_easy_setopt(curl.get(), CURLOPT_PROXY, "");
+        curl_easy_setopt(curl.get(), CURLOPT_CONNECT_ONLY, 1L);
+        curl_easy_setopt(curl.get(), CURLOPT_CONNECTTIMEOUT_MS, 2000L);
+        curl_easy_setopt(curl.get(), CURLOPT_TIMEOUT_MS, 2000L);
+        curl_easy_setopt(curl.get(), CURLOPT_NOSIGNAL, 1L);
+        const auto result = curl_easy_perform(curl.get());
+        if (result == CURLE_OK) {
+            reason.clear();
+            return true;
+        }
+        if (result == CURLE_OPERATION_TIMEDOUT) {
+            reason = "connection_timeout";
+        } else if (result == CURLE_COULDNT_RESOLVE_HOST) {
+            reason = "unsupported_host";
+        } else {
+            long error = 0;
+            curl_easy_getinfo(curl.get(), CURLINFO_OS_ERRNO, &error);
+            if (error == ECONNREFUSED)
+                reason = "connection_refused";
+            else if (error == ENETUNREACH || error == EHOSTUNREACH)
+                reason = "network_unreachable";
+        }
+        return false;
+    }
     bool IsUsableUsbCameraDevice(const std::string& device_path) {
         int fd = ::open(device_path.c_str(), O_RDWR | O_NONBLOCK, 0);
         if (fd < 0) {
@@ -734,7 +770,10 @@ void CameraServiceImpl::UpdateChannelState(const CameraEntityPtr& camera) {
         auto channel = ServiceRegistry::Instance().Get<ITaskChannel>().GetChannelInst(camera->videoChannelId);
         if (channel)
             channel->Quit();
-        camera->probed_status_.store(ChannelStatus::ChannelStatusOffline);
+        // Releasing preview resources does not disconnect the ONVIF device.
+        // Keep its last probe result until the periodic reachability check runs.
+        if (static_cast<MsgCameraType>(camera->channelType) != MsgCameraType::MsgCameraTypeOnvif)
+            camera->probed_status_.store(ChannelStatus::ChannelStatusOffline);
     }
 }
 
@@ -767,11 +806,25 @@ void CameraServiceImpl::ProbeCameraOnlineStatusNow(const CameraEntityPtr& camera
         type           = static_cast<MsgCameraType>(camera->channelType);
     }
     std::string reason;
-    bool connected = false;
+    bool connected          = false;
+    uint64_t onvif_revision = 0;
     if (type == MsgCameraType::MsgCameraTypeOnvif) {
-        MsgCameraAttr attr;
-        connected = ServiceRegistry::Instance().Get<ITaskChannel>().GetChannelAttr(channel_id, attr) &&
-                    attr.channelStatus == ChannelStatus::ChannelStatusOnline;
+        auto& registry = ServiceRegistry::Instance();
+        reason         = "source_not_found";
+        if (registry.Has<IOnvifService>()) {
+            auto& onvif    = registry.Get<IOnvifService>();
+            onvif_revision = onvif.Revision(logical_source);
+            if (onvif_revision != 0) {
+                try {
+                    const auto endpoint = onvif.Describe(logical_source).at("endpoint").get<std::string>();
+                    connected           = CheckOnvifEndpoint(endpoint, reason);
+                } catch (const std::exception&) {
+                    // Configuration may have been removed concurrently. Never log
+                    // source metadata or exception text containing device addresses.
+                    reason = "source_not_found";
+                }
+            }
+        }
     } else if (type == MsgCameraType::MsgCameraTypeGb28181) {
         connected = ServiceRegistry::Instance().Get<IGb28181SourceService>().IsStreamActive(logical_source);
     } else {
@@ -781,10 +834,15 @@ void CameraServiceImpl::ProbeCameraOnlineStatusNow(const CameraEntityPtr& camera
     std::shared_lock<std::shared_mutex> lock(mtx_);
     if (source != camera->channel_url_ || logical_source != camera->url)
         return;
+    if (type == MsgCameraType::MsgCameraTypeOnvif && ServiceRegistry::Instance().Has<IOnvifService>() &&
+        ServiceRegistry::Instance().Get<IOnvifService>().Revision(logical_source) != onvif_revision)
+        return;
     std::lock_guard<std::mutex> attr_lock(camera->attr_mtx_);
+    const auto status = connected ? ChannelStatus::ChannelStatusOnline : ChannelStatus::ChannelStatusOffline;
+    if (camera->probed_status_.load() != status || camera->probed_error_ != reason)
+        LOG_INFO("[{}] source probe status changed: online={} reason={}", channel_id, connected, reason);
     camera->probed_error_ = std::move(reason);
-    camera->probed_status_.store(connected ? ChannelStatus::ChannelStatusOnline
-                                           : ChannelStatus::ChannelStatusOffline);
+    camera->probed_status_.store(status);
 }
 
 // ============================================================

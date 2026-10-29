@@ -22,6 +22,7 @@
 #include "util/FileUtil.h"
 #include "util/JsonFileUtil.h"
 #include "util/JsonStructUtil.h"
+#include "util/Keys.h"
 #include "util/Log.h"
 #include "util/PathUtil.h"
 #include "util/ResourceBudget.h"
@@ -362,6 +363,16 @@ void AlgorithmPacketLoader::ActivateProcessdata(algorithm::AlgorithmPacketInfo& 
         packet.processdata->algorithmName       = packet.algorithmName;
         packet.processdata->algorithmUpdateTime = packet.algorithmUpdateTime;
         packet.processdata->category            = std::to_string(packet.algorithmCategory);
+        packet.modelInfo.models.clear();
+        for (const auto& node : packet.processdata->workFlow) {
+            for (const auto& param : node.configObject.params) {
+                if (param.key.ToString() == cosmo::key::ATOM_CODE) {
+                    algorithm::AlgorithmModelInfo model;
+                    model.modelCode = param.value;
+                    packet.modelInfo.models.push_back(std::move(model));
+                }
+            }
+        }
         if (packet.algorithmUsage == 2) {
             MsgAlgorithmMetaData pictureMetadata;
             if (DecodeAlgorithmMetadata(packet.algorithmMetadata, pictureMetadata)) {

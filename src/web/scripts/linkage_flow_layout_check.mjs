@@ -23,9 +23,10 @@ const spacing = getFlowLayoutSpacing(FLOW_NODE_SIZE)
 assert.ok(FLOW_NODE_SIZE.width > 0 && FLOW_NODE_SIZE.height > 0)
 assert.ok(spacing.nodesep >= 0 && spacing.ranksep >= 0)
 
-// Start + one linkage action + end should remain a compact horizontal flow.
+// The wider reading cards still leave a three-node flow within a 480px region.
+// Keep this budget below half of the 1040px desktop canvas used below.
 const compactWidth = FLOW_TERMINAL_SIZE.width * 2 + FLOW_NODE_SIZE.width + spacing.ranksep * 2
-assert.ok(compactWidth < 400, `three-node flow is too wide: ${compactWidth}px`)
+assert.ok(compactWidth <= 480, `three-node flow is too wide: ${compactWidth}px`)
 
 // Dagre receives both compact terminals and full business-node dimensions.
 // Verify visible rectangles and connector space, rather than exact coordinates

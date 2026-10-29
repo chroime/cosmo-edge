@@ -25,6 +25,7 @@
           v-model:edges="edges"
           :node-types="nodeTypes"
           :edge-types="edgeTypes"
+          :default-edge-options="defaultEdgeOptions"
           @node-click="handleNodeActive"
           @node-drag-start="handleNodeDragStart"
           @pane-click="handlePaneClick"
@@ -141,6 +142,9 @@ const nodeTypes = {
 }
 const edgeTypes = {
   action: markRaw(ActionEdge)
+}
+const defaultEdgeOptions = {
+  markerEnd: { type: 'arrow', color: 'var(--flow-edge)', width: 12, height: 12 }
 }
 
 const { onPaneReady, minZoom, maxZoom } = useVueFlow()
@@ -715,9 +719,9 @@ const buildStageGroupNodes = (positionedNodes) => {
       const minX = Math.min(...boxes.map((box) => box.x))
       const minY = Math.min(...boxes.map((box) => box.y))
       const maxX = Math.max(...boxes.map((box) => box.x + box.width))
-      // Bracket: only covers the area above the nodes (label + bracket line)
-      const padX = 20
-      const bracketHeight = 40  // label(18px) + gap(6px) + bracket-line top area
+      // Stage labels track the card edges, leaving room for the connector controls.
+      const padX = 0
+      const bracketHeight = 32
       const width = maxX - minX + padX * 2
       const height = bracketHeight
       return {

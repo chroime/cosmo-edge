@@ -128,6 +128,7 @@ export default {
   border-radius: 50%;
   border: 1px solid var(--flow-action-border);
   background-color: var(--flow-node);
+  box-shadow: var(--flow-node-shadow);
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;

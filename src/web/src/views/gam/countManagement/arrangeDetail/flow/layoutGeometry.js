@@ -1,7 +1,7 @@
 import { isAlarmDataAction } from './linkageFormCompatibility.js'
 
-export const FLOW_NODE_SIZE = Object.freeze({ width: 96, height: 96 })
-export const FLOW_TERMINAL_SIZE = Object.freeze({ width: 96, height: 48 })
+export const FLOW_NODE_SIZE = Object.freeze({ width: 136, height: 108 })
+export const FLOW_TERMINAL_SIZE = Object.freeze({ width: 104, height: 44 })
 export const DETAIL_PANEL_SIZE = Object.freeze({ width: 360, height: 350 })
 export const ALARM_DETAIL_PANEL_SIZE = Object.freeze({ width: 760, height: 430 })
 export const DETAIL_PANEL_GAP = 12
@@ -37,7 +37,7 @@ export const getReadingFloatingPanelSize = (actionId, viewport, zoom = 1) => {
   const width = Math.max(1, Number(viewport?.width) || size.width + 240)
   const height = Math.max(1, Number(viewport?.height) || size.height + 32)
   return {
-    // Reserve a 96px card plus 56px reading margins on its two sides.
+    // Reserve the rendered card width plus its reading margins.
     width: Math.max(1, Math.min(size.width, width - FLOW_NODE_SIZE.width * Math.max(1, zoom) - 144)),
     height: Math.max(1, Math.min(size.height, height - 32))
   }

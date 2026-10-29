@@ -486,7 +486,8 @@ bool LiveStreamServiceImpl::ViewerDelete(const std::string& channelId, const std
             LOG_INFO("viewer release requested: stream={}/{} viewers_remaining={}", channelId, algCode,
                      (*it)->GetViewerNum());
             if ((*it)->GetViewerNum() <= 0) {
-                viewer_to_stop = *it;
+                viewer_to_stop           = *it;
+                channel_lease_to_release = channelId;
                 viewers_.erase(it);
             }
         } else {

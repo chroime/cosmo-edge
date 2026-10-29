@@ -40,7 +40,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # number from the nearest vX.Y.Z tag and the number of commits after it.
 # Source archives without Git metadata retain the historical fallback version.
 include("${CMAKE_SOURCE_DIR}/cmake/CosmoVersion.cmake")
-cosmo_resolve_version("${CMAKE_SOURCE_DIR}" 1 1 0 0)
+cosmo_resolve_version("${CMAKE_SOURCE_DIR}" 1 2 0 0)
 set(VER_MAJOR "${COSMO_VERSION_MAJOR}")
 set(VER_MINOR "${COSMO_VERSION_MINOR}")
 set(VER_PATCH "${COSMO_VERSION_PATCH}")

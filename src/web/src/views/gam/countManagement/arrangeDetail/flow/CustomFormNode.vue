@@ -21,7 +21,9 @@
       <div class="node-icon-wrapper">
         <FlowNodeIcon :kind="iconKey" />
       </div>
-      <div class="node-name" :title="resolveResourceActionName(nodeActionDetail)">{{ resolveResourceActionName(nodeActionDetail) }}</div>
+      <div class="node-name" :title="resolveResourceActionName(nodeActionDetail)">
+        <span class="node-name-text">{{ resolveResourceActionName(nodeActionDetail) }}</span>
+      </div>
     </div>
 
     <Handle type="source" :position="Position.Right" />
@@ -77,10 +79,10 @@ const handleDelete = () => {
 <style scoped>
 .action-node {
   background: var(--flow-node);
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--flow-node-border);
   border-radius: 8px;
   box-sizing: border-box;
-  box-shadow: none;
+  box-shadow: var(--flow-node-shadow);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -94,7 +96,7 @@ const handleDelete = () => {
 
 .action-node.selected {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--flow-selected-ring);
+  box-shadow: 0 0 0 2px var(--flow-selected-ring), var(--flow-node-shadow);
 }
 
 .action-node .node-card {
@@ -102,34 +104,47 @@ const handleDelete = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 14px 5px 8px;
+  padding: 8px 10px;
   cursor: pointer;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  gap: 8px;
+  gap: 10px;
   box-shadow: none;
 }
 
 .node-icon-wrapper {
-  width: 24px;
-  height: 24px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--flow-node-icon-bg);
   color: var(--flow-node-text);
+  transition: color 0.2s;
+}
+
+.action-node.selected .node-icon-wrapper {
+  color: var(--flow-node-icon-selected);
 }
 
 .node-name {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--flow-node-text);
   text-align: center;
-  line-height: 20px;
-  min-height: 40px;
-  max-height: 40px;
+  line-height: 18px;
+  height: 36px;
+  flex-shrink: 0;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.node-name-text {
   word-break: normal;
   overflow-wrap: anywhere;
   overflow: hidden;

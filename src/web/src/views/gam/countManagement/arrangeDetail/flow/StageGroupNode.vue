@@ -45,15 +45,23 @@ defineProps({
 
 .bracket-line {
   position: absolute;
-  top: 24px;
+  top: 22px;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 0;
   border-top: 1px solid;
-  border-left: 1px solid;
-  border-right: 1px solid;
-  border-bottom: none;
-  border-radius: 0;
   pointer-events: none;
+}
+
+.bracket-line::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 22px;
+  height: 2px;
+  transform: translateX(-50%);
+  background: var(--primary-color);
+  border-radius: 1px;
 }
 </style>

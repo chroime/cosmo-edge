@@ -13,6 +13,8 @@ next:
 
 本文只记录当前源码中可以确认的 API 类别和入口。图片上传与同步推理的完整调用流程请阅读[图片检测 API 接入指南](image-detection-api.md)；其他字段级接口说明请继续阅读[字段级 API 参考](api-fields.md)、[MQTT 接入参考](mqtt.md)和[HTTP Webhook 参考](webhook.md)。
 
+常用图片接入示例：[人脸识别与人脸库登记（1:N）](image-detection-api.md#人脸识别-与人脸库进行-1-n-比对)、[两张图片比对与相似度分数（1:1）](image-detection-api.md#双图人脸-工服比对)。两者均复用 `PTaskDetectPic`，通过不同图片场景选择能力。
+
 ## 路由入口
 
 后端 API 路由集中在：

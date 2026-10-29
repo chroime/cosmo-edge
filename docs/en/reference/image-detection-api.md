@@ -13,6 +13,20 @@ next:
 
 This guide is for applications that upload images and synchronously receive analysis results. Detection, classification, landmarks, segmentation, OCR, VLM, library matching, and pair comparison share the image-analysis APIs. The configured scenario determines the capability. See [Image Analysis and Comparison](../guide/image-analysis.md) for console steps and [Image Analysis Fields](api-fields.md#image-analysis-fields) for a field reference.
 
+## Capabilities and Endpoints
+
+**Face detection, face identification (1:N), and two-image face comparison (1:1) are distinct operations.** All use `POST /gtw/cwai/aihost/PTaskDetectPic`. The scenario selected at task creation determines the workflow; there are no separate `/face/recognize` or `/face/compare` routes to discover.
+
+| Requirement | Scenario and input | Key result |
+| --- | --- | --- |
+| Locate faces | Face-detection scenario, one image | `targetList[].box`, `confidence[]`; detection confidence does not identify a person |
+| [Identify an enrolled person (1:N)](#face-identification-with-a-library-1-n) | Picture face comparison (built-in ID `92000002`), one image + an enrolled face library | `matched`, `matchDegree`, `personId`, and `name` in `targetList[].matchInfo` |
+| [Compare two face images (1:1)](#two-image-face-workwear-comparison) | Two-image face comparison (`93000002`), images A + B, no library | `comparison.score`, 0–100; scores only or a threshold decision |
+| [Compare two body / workwear images](#two-image-face-workwear-comparison) | Two-image workwear comparison (`93000058`), one eligible body target per image | `comparison.score`, representing body appearance similarity |
+| Detection, classification, landmarks, segmentation, OCR, VLM, or workwear-library comparison | Corresponding image scenario, one image; library comparison also needs a library binding | [Business outputs, targets, and library evidence](#_6-parse-workflow-results) |
+
+Pair comparison scores detected target features. It does not provide generic whole-image pixel similarity or image quality scores. This table describes the current source protocol. Query the target device's scenarios and confirm model availability before integration; updating this page does not add these capabilities to older devices.
+
 ## Prerequisites
 
 Before calling the APIs, confirm that:
@@ -313,9 +327,140 @@ or:
 
 Choose exactly one of `uploadId`, `imageBase64`, and `imageUrl`. JSON request bodies are limited to 1 MB by default, so production integrations and high-resolution images should use `uploadId`. With `imageUrl`, the URL must be reachable from the CosmoEdge device.
 
+### Face Identification with a Library (1:N)
+
+Face detection returns face locations. Identifying an enrolled person also requires feature extraction, library matching, and result output nodes. Use the built-in **Picture face comparison** scenario `92000002`, or a custom image scenario with the same processing chain. Query the actual available algorithm ID as described in section 2.
+
+#### Prepare a Face Library and Enrollment Images
+
+An existing library with valid features can be queried and used directly. These API endpoints manage enrollment; all use `POST`, JSON bodies, and an `mtk` header:
+
+| Endpoint | Purpose | Key fields |
+| --- | --- | --- |
+| `/gtw/cwai/Library/QueryFaceLibInfo` | Paginate face libraries | Request `pageNum`, `pageSize`; response `resData.faceLibList[].id`, `name`, `threshold` |
+| `/gtw/cwai/Library/ModifyFaceLib` | Create or update a face library | `faceLibOperation`: `1` create, `2` update; creation returns `resData.faceLibId` |
+| `/gtw/cwai/Library/ModifyFacePicLib` | Enroll or update a person and face images | `personOperation`: `1` create, `2` update; returns `resData.personId` |
+
+For example, query existing libraries:
+
+```http
+POST /gtw/cwai/Library/QueryFaceLibInfo
+Content-Type: application/json
+mtk: <MTK>
+
+{"pageNum": 1, "pageSize": 100}
+```
+
+To create a library, call `ModifyFaceLib`:
+
+```json
+{
+  "faceLibOperation": 1,
+  "faceLib": {
+    "name": "Example personnel library",
+    "threshold": 82,
+    "maxFaceNumber": 1000
+  }
+}
+```
+
+Use the returned `resData.faceLibId` as `<FACE_LIBRARY_ID>`. Upload an enrollment image with `purpose=image` as described in section 4, then call `ModifyFacePicLib`:
+
+```json
+{
+  "personOperation": 1,
+  "faceLibId": ["<FACE_LIBRARY_ID>"],
+  "personName": "Example person",
+  "serialNumber": "EMP-001",
+  "pictureUploadIds": ["<ENROLLMENT_UPLOAD_ID>"]
+}
+```
+
+`faceLibId` is an array in the enrollment endpoint. Use clear enrollment photos containing one face; each person can retain up to three photos. Confirm successful enrollment and a returned `personId`: completing an upload does not establish successful feature enrollment. Enrollment consumes its upload session, so upload the query image separately. These examples create records; updating a person also requires their existing `personId` and `retainPictureId` for original photos to keep.
+
+#### Analyze a Query Image and Read Identity and Score
+
+Create a task as described in section 3, using the queried picture face-comparison algorithm ID as `algorithmCode` and `face-example` as `taskId`. After uploading the query image, call `POST /gtw/cwai/aihost/PTaskDetectPic`:
+
+```json
+{
+  "taskId": "face-example",
+  "algorithmCode": "92000002",
+  "uploadId": "<QUERY_IMAGE_UPLOAD_ID>",
+  "resultMode": "business",
+  "needRetImg": false,
+  "taskConfig": {
+    "params": [
+      { "key": "param.faceSet", "value": "<FACE_LIBRARY_ID>" },
+      { "key": "param.limitScore", "value": "82" }
+    ]
+  }
+}
+```
+
+`param.faceSet` is a string of comma-separated library IDs. Replace `92000002` with the actual device ID, matching task creation. This successful-match response excerpt uses illustrative IDs, node names, and scores:
+
+```json
+{
+  "resCode": 1,
+  "resMsg": [],
+  "resData": {
+    "schemaVersion": 2,
+    "status": "completed",
+    "outputs": [
+      {
+        "nodeId": "output",
+        "name": "Face identification result",
+        "decision": "matched",
+        "targetIds": ["detect:0"],
+        "matchedCount": 1
+      }
+    ],
+    "targetList": [
+      {
+        "targetId": "detect:0",
+        "decision": "matched",
+        "matchInfo": {
+          "setPicCount": 1,
+          "matched": true,
+          "matchDegree": 92.6,
+          "matchId": "face-photo-001",
+          "personId": "person-001",
+          "personCode": "EMP-001",
+          "name": "Example person",
+          "groupId": "library-001",
+          "groupName": "Example personnel library"
+        }
+      }
+    ]
+  }
+}
+```
+
+Resolve `outputs[].targetIds` to targets, then read `matchInfo.matched` and the identity fields. `matchDegree` is a 0–100 similarity score. `matchId` identifies an enrollment photo; `personId` identifies the person. Library matching currently requires the score to be **strictly greater than** the effective threshold. `param.limitScore=0` uses the threshold of the best candidate's library.
+
+Business responses may omit unmatched targets. To inspect the best candidate and score below the threshold, use `resultMode: "debug"` or configure the output node with `output.targets=all`. A candidate is not a successful identification. Missing library binding is a configuration error; a bound library with no valid samples produces `unknown`, which cannot establish that a person is a stranger. See [Library Match Details and Business Decisions](#library-match-details-and-business-decisions).
+
 ### Two-image face / workwear comparison
 
-Create a picture task using built-in scene `93000002` (two-image face comparison) or `93000058` (two-image workwear comparison), then send two inputs to the same endpoint. The primary input is image A; `referenceImage` is image B. Each side accepts exactly one of `uploadId`, `imageBase64`, or `imageUrl`. Both upload IDs must belong to the authenticated user and are consumed once.
+Select built-in scene `93000002` (two-image face comparison) or `93000058` (two-image workwear comparison), first confirming it is returned by the query in section 2. For example, create a face-comparison task:
+
+```http
+POST /gtw/cwai/aihost/PTaskCreate
+Content-Type: application/json
+mtk: <MTK>
+```
+
+```json
+{
+  "mvDebug": "Cosmo-Debug",
+  "taskId": "pair-example",
+  "algorithmCode": "93000002",
+  "algorithmUpdateTime": "<CURRENT_TIME_MILLIS>"
+}
+```
+
+Upload images A and B separately as described in section 4, using distinct `clientRequestId` values to obtain two distinct `uploadId` values. Then call `POST /gtw/cwai/aihost/PTaskDetectPic`. The primary input is image A; `referenceImage` is image B. Each side accepts exactly one of `uploadId`, `imageBase64`, or `imageUrl`. Both upload IDs must belong to the authenticated user and are consumed once.
 
 ```json
 {
@@ -333,14 +478,41 @@ Both images use the same models and parameters for detection, filtering, landmar
 
 Successful responses always include `resData.comparison.score` on a 0–100 scale, even below the threshold. An empty `pair.threshold` requests scores only: `decision` is `score_only` and `threshold` is omitted. Omitting the parameter preserves scene defaults; an explicit empty string clears a stored threshold. When a threshold is configured, scores greater than or equal to it produce `matched`; lower scores produce `not_matched`.
 
+Successful response excerpt (the score is illustrative, not a measured result):
+
 ```json
 {
-  "nodeId": "comparison-node",
-  "featureType": "face",
-  "decision": "matched",
-  "score": 87.25,
-  "threshold": 80
+  "resCode": 1,
+  "resMsg": [],
+  "resData": {
+    "schemaVersion": 2,
+    "algorithmCode": "93000002",
+    "status": "completed",
+    "comparison": {
+      "nodeId": "comparison-node",
+      "featureType": "face",
+      "decision": "matched",
+      "score": 87.25,
+      "threshold": 80
+    }
+  }
 }
+```
+
+**To receive just the two-image similarity score**, replace the request's threshold parameter with:
+
+```json
+{ "key": "pair.threshold", "value": "" }
+```
+
+Read `resData.comparison.score`; `decision` will be `score_only`. Do not substitute detection `confidence[]` or a single-image library's `matchInfo.matchDegree` for the pair score, or treat a valid score of `0` as missing:
+
+```javascript
+const comparison = response.resData?.comparison
+if (response.resCode !== 1 || typeof comparison?.score !== 'number') {
+  throw new Error('Pair comparison failed; inspect resMsg and resData.errorSide')
+}
+console.log('similarity score:', comparison.score)
 ```
 
 Image A uses `targetList` and `fullPicture`; image B uses `referenceTargetList` and `referencePicture`. Target boxes contain pixel coordinates in their respective original images, suitable for displaying crops. `needRetImg: false` skips result image generation. In `debug` mode, node traces include `imageSide` to distinguish A, B, and the comparison of both.

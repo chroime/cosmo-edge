@@ -31,6 +31,7 @@ const props = defineProps({
   border: 1px solid var(--flow-action-border);
   border-radius: 24px;
   background: var(--flow-node);
+  box-shadow: var(--flow-node-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
